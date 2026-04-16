@@ -749,8 +749,8 @@ document.addEventListener('DOMContentLoaded', () => {
       </td>
       <td>
         <div class="access-data-stack">
-          <strong data-request-updated-primary>${escapeHtml(request.updatedAtLabel || '')}</strong>
-          <span data-request-updated-by>${escapeHtml(request.updatedByName || '')}</span>
+          <strong data-request-updated-primary>${escapeHtml(request.createdAtLabel || '')}</strong>
+          <span data-request-updated-by>&nbsp;</span>
         </div>
       </td>
       <td>

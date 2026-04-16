@@ -220,40 +220,151 @@ function buildPdfBuffer({ event, title, rows }) {
   return new Promise((resolve, reject) => {
     const document = new PDFDocument({
       size: 'A4',
-      margin: 36,
+      layout: 'landscape',
+      margin: 28,
       autoFirstPage: true,
       bufferPages: false,
     });
     const chunks = [];
 
+    const pageWidth = document.page.width - document.page.margins.left - document.page.margins.right;
+    const tableStartX = document.page.margins.left;
+    const tableBottomY = document.page.height - document.page.margins.bottom;
+    const tableColumns = [
+      { key: '#', label: '#', width: 22, align: 'center' },
+      { key: 'Full Name', label: 'Name', width: 86 },
+      { key: 'Type', label: 'Type', width: 60 },
+      { key: 'Profile', label: 'Profile', width: 82 },
+      { key: 'Company', label: 'Company', width: 62 },
+      { key: 'Phone', label: 'Phone', width: 48 },
+      { key: 'Email', label: 'Email', width: 88 },
+      { key: 'Status Label', label: 'Status', width: 46 },
+      { key: 'Status Updated At', label: 'Status at', width: 58 },
+      { key: 'Handed Out At', label: 'Handed out', width: 58 },
+      { key: 'Updated At', label: 'Updated', width: 58 },
+      { key: 'Notes', label: 'Notes', width: 117 },
+    ];
+    const headerHeight = 24;
+    const rowPadding = 4;
+    const bodyFontSize = 7;
+    const headerFontSize = 7.5;
+
+    const drawTableHeader = (startY) => {
+      let cursorX = tableStartX;
+
+      document.save();
+      document.rect(tableStartX, startY, pageWidth, headerHeight).fill('#eff4fb');
+      document.restore();
+
+      tableColumns.forEach((column) => {
+        document
+          .rect(cursorX, startY, column.width, headerHeight)
+          .strokeColor('#d8e1ee')
+          .lineWidth(0.7)
+          .stroke();
+
+        document
+          .font('Helvetica-Bold')
+          .fontSize(headerFontSize)
+          .fillColor('#334155')
+          .text(column.label, cursorX + 4, startY + 7, {
+            width: column.width - 8,
+            align: column.align || 'left',
+            lineBreak: false,
+          });
+
+        cursorX += column.width;
+      });
+
+      return startY + headerHeight;
+    };
+
+    const getRowHeight = (row) => {
+      let maxHeight = 0;
+
+      tableColumns.forEach((column) => {
+        const value = String(row[column.key] ?? '-');
+        const textHeight = document.heightOfString(value, {
+          width: column.width - rowPadding * 2,
+          align: column.align || 'left',
+        });
+        maxHeight = Math.max(maxHeight, textHeight);
+      });
+
+      return Math.max(20, maxHeight + rowPadding * 2);
+    };
+
     document.on('data', (chunk) => chunks.push(chunk));
     document.on('end', () => resolve(Buffer.concat(chunks)));
     document.on('error', reject);
 
-    document.fontSize(18).fillColor('#0f172a').text(title);
-    document.moveDown(0.35);
-    document.fontSize(10).fillColor('#475569').text(`Event: ${event.name}`);
+    document.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(title);
+    document.moveDown(0.15);
+    document.font('Helvetica').fontSize(9).fillColor('#475569');
+    document.text(`Event: ${event.name}`);
     document.text(`Location: ${event.location || '-'}`);
     document.text(`Dates: ${formatExportDateTime(event.start_date)} - ${formatExportDateTime(event.end_date)}`);
     document.text(`Total requests: ${rows.length}`);
     document.text(`Exported at: ${formatExportDateTime(new Date())}`);
-    document.moveDown(0.9);
+    document.moveDown(0.45);
+
+    let cursorY = drawTableHeader(document.y);
+
+    if (!rows.length) {
+      document
+        .rect(tableStartX, cursorY, pageWidth, 28)
+        .strokeColor('#d8e1ee')
+        .lineWidth(0.7)
+        .stroke();
+
+      document
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#64748b')
+        .text('No requests found.', tableStartX, cursorY + 9, {
+          width: pageWidth,
+          align: 'center',
+        });
+    }
 
     rows.forEach((row, index) => {
-      if (document.y > 710) {
+      const rowHeight = getRowHeight(row);
+
+      if (cursorY + rowHeight > tableBottomY) {
         document.addPage();
+        cursorY = drawTableHeader(document.page.margins.top);
       }
 
-      document.fontSize(11).fillColor('#0f172a').font('Helvetica-Bold').text(`${index + 1}. ${row['Full Name'] || '-'}`);
-      document.font('Helvetica').fontSize(9).fillColor('#475569');
-      document.text(`Type: ${row.Type || '-'} | Profile: ${row.Profile || '-'} | Status: ${row['Status Label'] || row.Status || '-'}`);
-      document.text(`Company: ${row.Company || '-'} | Phone: ${row.Phone || '-'} | Email: ${row.Email || '-'}`);
-      document.text(`Created: ${row['Created At'] || '-'} | Updated: ${row['Updated At'] || '-'} | Status updated: ${row['Status Updated At'] || '-'}`);
-      document.text(`Handed out at: ${row['Handed Out At'] || '-'} | Handed out by: ${row['Handed Out By'] || '-'} | Updated by: ${row['Status Updated By'] || '-'}`);
-      document.text(`Notes: ${row.Notes || '-'}`);
-      document.moveDown(0.8);
-      document.moveTo(36, document.y).lineTo(559, document.y).strokeColor('#dbe3ef').stroke();
-      document.moveDown(0.6);
+      let cursorX = tableStartX;
+
+      if (index % 2 === 0) {
+        document.save();
+        document.rect(tableStartX, cursorY, pageWidth, rowHeight).fill('#fbfdff');
+        document.restore();
+      }
+
+      tableColumns.forEach((column) => {
+        const value = String(row[column.key] ?? '-');
+
+        document
+          .rect(cursorX, cursorY, column.width, rowHeight)
+          .strokeColor('#d8e1ee')
+          .lineWidth(0.55)
+          .stroke();
+
+        document
+          .font(column.key === '#' ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(bodyFontSize)
+          .fillColor('#334155')
+          .text(value, cursorX + rowPadding, cursorY + rowPadding, {
+            width: column.width - rowPadding * 2,
+            align: column.align || 'left',
+          });
+
+        cursorX += column.width;
+      });
+
+      cursorY += rowHeight;
     });
 
     document.end();

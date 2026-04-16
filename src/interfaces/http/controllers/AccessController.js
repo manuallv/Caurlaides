@@ -121,10 +121,8 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
         ? res.locals.helpers.formatDateTime(request.status_updated_at)
         : '',
       statusUpdatedAtTs: request.status_updated_at ? new Date(request.status_updated_at).getTime() : 0,
-      updatedAtLabel: request.updated_at ? res.locals.helpers.formatDateTime(request.updated_at) : '',
-      updatedAtTs: request.updated_at ? new Date(request.updated_at).getTime() : 0,
+      createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
       createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
-      updatedByName: request.status_updated_by_name || request.handed_out_by_name || '',
       nextStatus: status === 'handed_out' ? 'pending' : 'handed_out',
       nextStatusLabel: req.t(`statuses.${status === 'handed_out' ? 'pending' : 'handed_out'}`),
       nextStatusTone: status === 'handed_out' ? 'secondary' : 'primary',
