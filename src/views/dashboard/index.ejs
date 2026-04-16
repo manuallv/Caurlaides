@@ -2,46 +2,46 @@
   <div class="shell-card overflow-hidden">
     <div class="flex flex-col gap-4 border-b border-slate-200/80 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Overview</p>
-        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Good morning, <%= currentUser.full_name.split(' ')[0] %>.</h1>
-        <p class="mt-1 text-sm text-slate-500">Manage event teams, deadlines, and access categories from one workspace.</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"><%= t('dashboard.overview') %></p>
+        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900"><%= t('dashboard.greeting', { name: currentUser.full_name.split(' ')[0] }) %></h1>
+        <p class="mt-1 text-sm text-slate-500"><%= t('dashboard.description') %></p>
       </div>
-      <a href="/events/new" class="btn-primary">Create new event</a>
+      <a href="/events/new" class="btn-primary"><%= t('dashboard.createNewEvent') %></a>
     </div>
   </div>
 
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <div class="metric-card">
-      <p class="text-sm font-medium text-slate-500">Total events</p>
+      <p class="text-sm font-medium text-slate-500"><%= t('dashboard.totalEvents') %></p>
       <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= totals.totalEvents %></p>
     </div>
     <div class="metric-card">
-      <p class="text-sm font-medium text-slate-500">Active events</p>
+      <p class="text-sm font-medium text-slate-500"><%= t('dashboard.activeEvents') %></p>
       <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= totals.activeEvents %></p>
     </div>
     <div class="metric-card">
-      <p class="text-sm font-medium text-slate-500">Shared collaborators</p>
+      <p class="text-sm font-medium text-slate-500"><%= t('dashboard.sharedCollaborators') %></p>
       <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= totals.totalMembers %></p>
     </div>
     <div class="metric-card">
-      <p class="text-sm font-medium text-slate-500">Next step</p>
-      <p class="mt-3 text-sm leading-6 text-slate-600">Create an event or open one of your existing dashboards.</p>
+      <p class="text-sm font-medium text-slate-500"><%= t('dashboard.nextStep') %></p>
+      <p class="mt-3 text-sm leading-6 text-slate-600"><%= t('dashboard.nextStepDescription') %></p>
     </div>
   </div>
 
   <div class="shell-card overflow-hidden">
     <div class="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900">Your events</h1>
-        <p class="mt-1 text-sm text-slate-500">Open an event to manage categories, collaborators, and activity.</p>
+        <h1 class="text-2xl font-bold text-slate-900"><%= t('dashboard.yourEvents') %></h1>
+        <p class="mt-1 text-sm text-slate-500"><%= t('dashboard.yourEventsDescription') %></p>
       </div>
-      <a href="/events/new" class="btn-primary">Create event</a>
+      <a href="/events/new" class="btn-primary"><%= t('dashboard.createEvent') %></a>
     </div>
 
     <% if (!events.length) { %>
       <div class="px-5 py-12 text-center sm:px-6">
-        <h2 class="text-xl font-bold text-slate-900">No events yet</h2>
-        <p class="mt-2 text-sm text-slate-500">Create your first event to start building the pass and wristband workflow.</p>
+        <h2 class="text-xl font-bold text-slate-900"><%= t('dashboard.noEvents') %></h2>
+        <p class="mt-2 text-sm text-slate-500"><%= t('dashboard.noEventsDescription') %></p>
       </div>
     <% } else { %>
       <div class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-2">
@@ -50,34 +50,34 @@
             <div>
               <div class="flex flex-wrap items-center gap-3">
                 <h2 class="text-lg font-bold text-slate-900"><%= event.name %></h2>
-                <span class="status-<%= event.status %>"><%= event.status %></span>
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><%= event.role %></span>
+                <span class="status-<%= event.status %>"><%= helpers.statusLabel(event.status) %></span>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><%= helpers.roleLabel(event.role) %></span>
               </div>
-              <p class="mt-3 text-sm leading-6 text-slate-600"><%= helpers.truncate(event.description || 'No description added yet.', 150) %></p>
+              <p class="mt-3 text-sm leading-6 text-slate-600"><%= helpers.truncate(event.description || t('common.noDescription'), 150) %></p>
             </div>
             <div class="mt-6 flex flex-col gap-4">
               <div class="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Dates</p>
-                  <p class="mt-1 text-sm text-slate-700"><%= helpers.formatDate(event.start_date) %> to <%= helpers.formatDate(event.end_date) %></p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('dashboard.dates') %></p>
+                  <p class="mt-1 text-sm text-slate-700"><%= helpers.formatDate(event.start_date) %> - <%= helpers.formatDate(event.end_date) %></p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Location</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('dashboard.location') %></p>
                   <p class="mt-1 text-sm text-slate-700"><%= event.location %></p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Collaborators</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('dashboard.collaborators') %></p>
                   <p class="mt-1 text-sm text-slate-700"><%= event.member_count %></p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pass deadline</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('dashboard.passDeadline') %></p>
                   <p class="mt-1 text-sm text-slate-700"><%= helpers.formatDateTime(event.pass_request_deadline) %></p>
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <a href="/events/<%= event.id %>" class="btn-primary">Open dashboard</a>
-                <a href="/events/<%= event.id %>/categories" class="btn-secondary">Categories</a>
-                <a href="/events/<%= event.id %>/members" class="btn-secondary">Collaborators</a>
+                <a href="/events/<%= event.id %>" class="btn-primary"><%= t('dashboard.openDashboard') %></a>
+                <a href="/events/<%= event.id %>/categories" class="btn-secondary"><%= t('nav.categories') %></a>
+                <a href="/events/<%= event.id %>/members" class="btn-secondary"><%= t('event.collaborators') %></a>
               </div>
             </div>
           </article>

@@ -1,5 +1,10 @@
 const { AppError } = require('../../shared/errors/AppError');
 const { EVENT_ROLES, MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
+const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
+
+function resolveTranslate(t) {
+  return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
+}
 
 class EventService {
   constructor({ pool, eventRepository, userRepository, auditLogService, dashboardRepository }) {
@@ -14,7 +19,7 @@ class EventService {
     return this.eventRepository.listForUser(userId);
   }
 
-  async createEvent(actorId, payload) {
+  async createEvent(actorId, payload, t) {
     const connection = await this.pool.getConnection();
 
     try {
@@ -40,8 +45,11 @@ class EventService {
           entityType: 'event',
           entityId: eventId,
           action: 'created',
-          message: `Created event "${payload.name}".`,
+          message: translate(DEFAULT_LOCALE, 'audit.message.eventCreated', { name: payload.name }),
           afterState: payload,
+          metadata: buildAuditMetadata('audit.message.eventCreated', {
+            name: payload.name,
+          }),
         },
         connection,
       );
@@ -56,18 +64,19 @@ class EventService {
     }
   }
 
-  async getEventAccessOrFail(eventId, userId) {
+  async getEventAccessOrFail(eventId, userId, t) {
+    const tx = resolveTranslate(t);
     const event = await this.eventRepository.findAccessibleById(eventId, userId);
 
     if (!event) {
-      throw new AppError('You do not have access to that event.', 403);
+      throw new AppError(tx('service.event.accessDenied'), 403);
     }
 
     return event;
   }
 
-  async getEventDashboard(eventId, userId) {
-    const event = await this.getEventAccessOrFail(eventId, userId);
+  async getEventDashboard(eventId, userId, t) {
+    const event = await this.getEventAccessOrFail(eventId, userId, t);
     const summary = await this.dashboardRepository.getEventSummary(eventId);
     const members = await this.eventRepository.listMembers(eventId);
     const recentActivity = await this.auditLogService.listByEvent(eventId);
@@ -80,11 +89,12 @@ class EventService {
     };
   }
 
-  async updateEvent(eventId, actorId, payload) {
-    const currentEvent = await this.getEventAccessOrFail(eventId, actorId);
+  async updateEvent(eventId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const currentEvent = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (!MANAGEMENT_ROLES.includes(currentEvent.role)) {
-      throw new AppError('Only owners and admins can edit this event.', 403);
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
     }
 
     await this.eventRepository.update(eventId, payload);
@@ -95,19 +105,23 @@ class EventService {
       entityType: 'event',
       entityId: eventId,
       action: 'updated',
-      message: `Updated event "${payload.name}".`,
+      message: translate(DEFAULT_LOCALE, 'audit.message.eventUpdated', { name: payload.name }),
       beforeState: currentEvent,
       afterState: payload,
+      metadata: buildAuditMetadata('audit.message.eventUpdated', {
+        name: payload.name,
+      }),
     });
 
     return this.eventRepository.findAccessibleById(eventId, actorId);
   }
 
-  async deleteEvent(eventId, actorId) {
-    const currentEvent = await this.getEventAccessOrFail(eventId, actorId);
+  async deleteEvent(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const currentEvent = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (currentEvent.role !== EVENT_ROLES.OWNER) {
-      throw new AppError('Only the event owner can delete this event.', 403);
+      throw new AppError(tx('service.event.deleteRequiresOwner'), 403);
     }
 
     await this.auditLogService.record({
@@ -116,18 +130,22 @@ class EventService {
       entityType: 'event',
       entityId: eventId,
       action: 'deleted',
-      message: `Deleted event "${currentEvent.name}".`,
+      message: translate(DEFAULT_LOCALE, 'audit.message.eventDeleted', { name: currentEvent.name }),
       beforeState: currentEvent,
+      metadata: buildAuditMetadata('audit.message.eventDeleted', {
+        name: currentEvent.name,
+      }),
     });
 
     await this.eventRepository.delete(eventId);
   }
 
-  async getMembers(eventId, actorId) {
-    const event = await this.getEventAccessOrFail(eventId, actorId);
+  async getMembers(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (!MANAGEMENT_ROLES.includes(event.role)) {
-      throw new AppError('Only owners and admins can manage collaborators.', 403);
+      throw new AppError(tx('service.event.manageCollaborators'), 403);
     }
 
     const members = await this.eventRepository.listMembers(eventId);
@@ -138,23 +156,24 @@ class EventService {
     };
   }
 
-  async addMember(eventId, actorId, { email, role }) {
-    const event = await this.getEventAccessOrFail(eventId, actorId);
+  async addMember(eventId, actorId, { email, role }, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (!MANAGEMENT_ROLES.includes(event.role)) {
-      throw new AppError('Only owners and admins can add collaborators.', 403);
+      throw new AppError(tx('service.event.addCollaborators'), 403);
     }
 
     const user = await this.userRepository.findForInvitation(email);
 
     if (!user) {
-      throw new AppError('That user is not registered yet. Ask them to create an account first.', 404);
+      throw new AppError(tx('service.event.userNotRegistered'), 404);
     }
 
     const existingMember = await this.eventRepository.findMember(eventId, user.id);
 
     if (existingMember) {
-      throw new AppError('That user is already part of this event.', 409);
+      throw new AppError(tx('service.event.userAlreadyMember'), 409);
     }
 
     await this.eventRepository.addMember(this.pool, {
@@ -170,28 +189,36 @@ class EventService {
       entityType: 'event_user',
       entityId: user.id,
       action: 'added',
-      message: `Added ${user.full_name} as ${role}.`,
+      message: translate(DEFAULT_LOCALE, 'audit.message.memberAdded', {
+        name: user.full_name,
+        role: translate(DEFAULT_LOCALE, `roles.${role}`),
+      }),
       afterState: { userId: user.id, email: user.email, role },
+      metadata: buildAuditMetadata('audit.message.memberAdded', {
+        name: user.full_name,
+        role: tx(`roles.${role}`),
+      }),
     });
 
     return user;
   }
 
-  async updateMemberRole(eventId, targetUserId, actorId, role) {
-    const event = await this.getEventAccessOrFail(eventId, actorId);
+  async updateMemberRole(eventId, targetUserId, actorId, role, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (event.role !== EVENT_ROLES.OWNER) {
-      throw new AppError('Only the owner can change collaborator roles.', 403);
+      throw new AppError(tx('service.event.ownerChangesRoles'), 403);
     }
 
     const existingMember = await this.eventRepository.findMember(eventId, targetUserId);
 
     if (!existingMember) {
-      throw new AppError('Collaborator not found.', 404);
+      throw new AppError(tx('service.event.memberNotFound'), 404);
     }
 
     if (existingMember.role === EVENT_ROLES.OWNER) {
-      throw new AppError('Owner role cannot be changed from this screen.', 400);
+      throw new AppError(tx('service.event.ownerRoleLocked'), 400);
     }
 
     await this.eventRepository.updateMemberRole(eventId, targetUserId, role);
@@ -202,27 +229,33 @@ class EventService {
       entityType: 'event_user',
       entityId: targetUserId,
       action: 'role_updated',
-      message: `Updated collaborator role to ${role}.`,
+      message: translate(DEFAULT_LOCALE, 'audit.message.memberRoleUpdated', {
+        role: translate(DEFAULT_LOCALE, `roles.${role}`),
+      }),
       beforeState: existingMember,
       afterState: { ...existingMember, role },
+      metadata: buildAuditMetadata('audit.message.memberRoleUpdated', {
+        role: tx(`roles.${role}`),
+      }),
     });
   }
 
-  async removeMember(eventId, targetUserId, actorId) {
-    const event = await this.getEventAccessOrFail(eventId, actorId);
+  async removeMember(eventId, targetUserId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
     if (event.role !== EVENT_ROLES.OWNER) {
-      throw new AppError('Only the owner can remove collaborators.', 403);
+      throw new AppError(tx('service.event.ownerRemovesMembers'), 403);
     }
 
     const existingMember = await this.eventRepository.findMember(eventId, targetUserId);
 
     if (!existingMember) {
-      throw new AppError('Collaborator not found.', 404);
+      throw new AppError(tx('service.event.memberNotFound'), 404);
     }
 
     if (existingMember.role === EVENT_ROLES.OWNER) {
-      throw new AppError('The owner cannot be removed.', 400);
+      throw new AppError(tx('service.event.ownerCannotBeRemoved'), 400);
     }
 
     await this.eventRepository.removeMember(eventId, targetUserId);
@@ -233,8 +266,9 @@ class EventService {
       entityType: 'event_user',
       entityId: targetUserId,
       action: 'removed',
-      message: 'Removed collaborator from the event.',
+      message: translate(DEFAULT_LOCALE, 'audit.message.memberRemoved'),
       beforeState: existingMember,
+      metadata: buildAuditMetadata('audit.message.memberRemoved'),
     });
   }
 }

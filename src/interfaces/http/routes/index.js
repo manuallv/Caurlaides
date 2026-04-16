@@ -16,6 +16,7 @@ const { buildCategoryController } = require('../controllers/CategoryController')
 const { buildAuthRoutes } = require('./auth-routes');
 const { buildDashboardRoutes } = require('./dashboard-routes');
 const { buildEventRoutes } = require('./event-routes');
+const { setLocale } = require('../middleware/locale');
 
 function buildRouter() {
   const router = express.Router();
@@ -47,6 +48,7 @@ function buildRouter() {
   const eventController = buildEventController({ eventService, auditLogService });
   const categoryController = buildCategoryController({ categoryService });
 
+  router.get('/language/:locale', setLocale);
   router.use(buildAuthRoutes({ authController }));
   router.use(buildDashboardRoutes({ dashboardController }));
   router.use(buildEventRoutes({ eventController, categoryController }));

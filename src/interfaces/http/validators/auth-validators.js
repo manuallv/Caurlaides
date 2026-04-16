@@ -4,29 +4,29 @@ const registerValidator = [
   body('fullName')
     .trim()
     .isLength({ min: 2, max: 120 })
-    .withMessage('Full name must be between 2 and 120 characters.'),
+    .withMessage((value, { req }) => req.t('validation.auth.fullNameLength', { min: 2, max: 120 })),
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Please enter a valid email address.')
+    .withMessage((value, { req }) => req.t('validation.auth.email'))
     .normalizeEmail(),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long.'),
+    .withMessage((value, { req }) => req.t('validation.auth.passwordLength', { min: 8 })),
   body('confirmPassword')
     .custom((value, { req }) => value === req.body.password)
-    .withMessage('Password confirmation does not match.'),
+    .withMessage((value, { req }) => req.t('validation.auth.confirmPassword')),
 ];
 
 const loginValidator = [
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Please enter a valid email address.')
+    .withMessage((value, { req }) => req.t('validation.auth.email'))
     .normalizeEmail(),
   body('password')
     .notEmpty()
-    .withMessage('Password is required.'),
+    .withMessage((value, { req }) => req.t('validation.auth.passwordRequired')),
 ];
 
 module.exports = {

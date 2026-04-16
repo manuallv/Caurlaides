@@ -18,7 +18,7 @@ function buildDashboardController({ eventService }) {
       );
 
       res.render('dashboard/index', {
-        pageTitle: 'Dashboard',
+        pageTitle: req.t('nav.dashboard'),
         events,
         totals,
       });

@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= locale %>">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle ? `${pageTitle} | Caurlaides` : 'Caurlaides' %></title>
+    <title><%= pageTitle ? `${pageTitle} | ${t('app.titleSuffix')}` : t('app.titleSuffix') %></title>
     <link rel="stylesheet" href="/public/css/app.css" />
   </head>
   <body data-event-room="<%= activeEvent ? activeEvent.id : '' %>">
     <% 
       const hasEvent = Boolean(activeEvent);
+      const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
       const userInitials = currentUser
         ? currentUser.full_name
             .split(' ')
@@ -21,13 +22,13 @@
       const sidebarLinks = [
         {
           href: '/dashboard',
-          label: 'Dashboard',
+          label: t('nav.dashboard'),
           icon: 'grid',
           active: currentPath === '/' || currentPath.startsWith('/dashboard'),
         },
         {
           href: '/events/new',
-          label: 'Create',
+          label: t('nav.create'),
           icon: 'plus',
           active: currentPath.startsWith('/events/new'),
         },
@@ -37,25 +38,25 @@
         sidebarLinks.push(
           {
             href: `/events/${activeEvent.id}`,
-            label: 'Event',
+            label: t('nav.event'),
             icon: 'layers',
             active: currentPath === `/events/${activeEvent.id}`,
           },
           {
             href: `/events/${activeEvent.id}/categories`,
-            label: 'Categories',
+            label: t('nav.categories'),
             icon: 'tag',
             active: currentPath.includes('/categories'),
           },
           {
             href: `/events/${activeEvent.id}/members`,
-            label: 'Team',
+            label: t('nav.team'),
             icon: 'users',
             active: currentPath.includes('/members'),
           },
           {
             href: `/events/${activeEvent.id}/activity`,
-            label: 'Activity',
+            label: t('nav.activity'),
             icon: 'activity',
             active: currentPath.includes('/activity'),
           },
@@ -96,7 +97,7 @@
               <span class="rail-icon">
                 <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
               </span>
-              <span>Logout</span>
+              <span><%= t('nav.logout') %></span>
             </button>
           </form>
         </aside>
@@ -107,24 +108,35 @@
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                   <button type="button" class="btn-secondary lg:hidden" data-mobile-menu-toggle>
-                    Menu
+                    <%= t('nav.menu') %>
                   </button>
 
                   <div class="top-search hidden min-w-[280px] sm:flex">
                     <img src="/public/design-assets/icons/feather/search.svg" alt="" class="h-4 w-4 opacity-60" />
-                    <span>Search anything</span>
+                    <span><%= t('nav.search') %></span>
                   </div>
                 </div>
 
                 <div class="flex items-center gap-3">
+                  <div class="hidden items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 sm:flex">
+                    <% supportedLocales.forEach((languageCode) => { %>
+                      <a
+                        href="<%= localeHref(languageCode) %>"
+                        class="toolbar-chip <%= locale === languageCode ? 'toolbar-chip-active' : '' %>"
+                      >
+                        <%= languageCode.toUpperCase() %>
+                      </a>
+                    <% }) %>
+                  </div>
+
                   <div class="hidden items-center rounded-xl border border-slate-200 bg-white p-1 sm:flex">
-                    <span class="toolbar-chip toolbar-chip-active">Light</span>
-                    <span class="toolbar-chip">Dark</span>
+                    <span class="toolbar-chip toolbar-chip-active"><%= t('nav.light') %></span>
+                    <span class="toolbar-chip"><%= t('nav.dark') %></span>
                   </div>
 
                   <a href="/events/new" class="btn-primary hidden sm:inline-flex">
                     <img src="/public/design-assets/icons/feather/plus.svg" alt="" class="h-4 w-4 brightness-0 invert" />
-                    <span>New event</span>
+                    <span><%= t('nav.newEvent') %></span>
                   </a>
 
                   <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-2.5 py-2">
@@ -148,11 +160,22 @@
                     </a>
                   <% }) %>
 
+                  <div class="flex items-center gap-2 pt-1">
+                    <% supportedLocales.forEach((languageCode) => { %>
+                      <a
+                        href="<%= localeHref(languageCode) %>"
+                        class="btn-secondary <%= locale === languageCode ? 'border-brand-300 text-brand-700' : '' %>"
+                      >
+                        <%= languageCode.toUpperCase() %>
+                      </a>
+                    <% }) %>
+                  </div>
+
                   <form action="/logout" method="POST">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                     <button type="submit" class="btn-secondary w-full justify-start">
                       <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
-                      <span>Logout</span>
+                      <span><%= t('nav.logout') %></span>
                     </button>
                   </form>
                 </div>
@@ -165,18 +188,18 @@
               <section class="shell-card mb-4 overflow-hidden">
                 <div class="flex flex-col gap-4 border-b border-slate-200/80 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Event workspace</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"><%= t('nav.eventWorkspace') %></p>
                     <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900"><%= activeEvent.name %></h1>
                     <p class="mt-2 text-sm text-slate-500">
-                      <%= activeEvent.location %> · <%= helpers.formatDate(activeEvent.start_date) %> to <%= helpers.formatDate(activeEvent.end_date) %>
+                      <%= activeEvent.location %> · <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
                     </p>
                   </div>
 
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="status-<%= activeEvent.status %>"><%= activeEvent.status %></span>
+                    <span class="status-<%= activeEvent.status %>"><%= helpers.statusLabel(activeEvent.status) %></span>
                     <a href="/events/<%= activeEvent.id %>/edit" class="btn-primary">
                       <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" class="h-4 w-4 brightness-0 invert" />
-                      <span>Edit event</span>
+                      <span><%= t('event.editSettings') %></span>
                     </a>
                   </div>
                 </div>
@@ -184,19 +207,19 @@
                 <div class="flex flex-wrap gap-2 px-5 py-4 sm:px-6">
                   <a href="/events/<%= activeEvent.id %>" class="event-tab <%= currentPath === `/events/${activeEvent.id}` ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span>Overview</span>
+                    <span><%= t('dashboard.overview') %></span>
                   </a>
                   <a href="/events/<%= activeEvent.id %>/categories" class="event-tab <%= currentPath.includes('/categories') ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/tag.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span>Categories</span>
+                    <span><%= t('nav.categories') %></span>
                   </a>
                   <a href="/events/<%= activeEvent.id %>/members" class="event-tab <%= currentPath.includes('/members') ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/users.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span>Collaborators</span>
+                    <span><%= t('event.collaborators') %></span>
                   </a>
                   <a href="/events/<%= activeEvent.id %>/activity" class="event-tab <%= currentPath.includes('/activity') ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/activity.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span>Activity</span>
+                    <span><%= t('nav.activity') %></span>
                   </a>
                 </div>
               </section>
@@ -217,13 +240,23 @@
               </div>
               <div>
                 <p class="text-lg font-extrabold tracking-tight text-slate-900">Caurlaides</p>
-                <p class="text-sm text-slate-500">Professional event access operations</p>
+                <p class="text-sm text-slate-500"><%= t('app.tagline') %></p>
               </div>
             </div>
 
             <div class="flex items-center gap-3">
-              <a href="/login" class="btn-secondary">Log in</a>
-              <a href="/register" class="btn-primary">Create account</a>
+              <div class="hidden items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 sm:flex">
+                <% supportedLocales.forEach((languageCode) => { %>
+                  <a
+                    href="<%= localeHref(languageCode) %>"
+                    class="toolbar-chip <%= locale === languageCode ? 'toolbar-chip-active' : '' %>"
+                  >
+                    <%= languageCode.toUpperCase() %>
+                  </a>
+                <% }) %>
+              </div>
+              <a href="/login" class="btn-secondary"><%= t('buttons.login') %></a>
+              <a href="/register" class="btn-primary"><%= t('buttons.createAccount') %></a>
             </div>
           </div>
         </header>

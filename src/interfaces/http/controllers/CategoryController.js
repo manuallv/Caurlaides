@@ -13,10 +13,10 @@ function normalizeCategoryPayload(body) {
 function buildCategoryController({ categoryService }) {
   return {
     async showIndex(req, res) {
-      const data = await categoryService.getCategoryPage(req.params.eventId, req.currentUser.id);
+      const data = await categoryService.getCategoryPage(req.params.eventId, req.currentUser.id, req.t);
 
       return res.render('events/categories', {
-        pageTitle: `${data.event.name} categories`,
+        pageTitle: `${data.event.name} · ${req.t('nav.categories')}`,
         activeEvent: data.event,
         passCategories: data.passCategories,
         wristbandCategories: data.wristbandCategories,
@@ -30,12 +30,18 @@ function buildCategoryController({ categoryService }) {
         req.currentUser.id,
         req.body.type,
         normalizeCategoryPayload(req.body),
+        req.t,
       );
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', `${req.body.type === 'pass' ? 'Pass' : 'Wristband'} category created.`);
+      req.flash(
+        'success',
+        req.body.type === 'pass'
+          ? req.t('flash.passCategoryCreated')
+          : req.t('flash.wristbandCategoryCreated'),
+      );
       return res.redirect(`/events/${req.params.eventId}/categories`);
     },
 
@@ -46,12 +52,13 @@ function buildCategoryController({ categoryService }) {
         req.currentUser.id,
         req.params.type,
         normalizeCategoryPayload(req.body),
+        req.t,
       );
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', 'Category updated.');
+      req.flash('success', req.t('flash.categoryUpdated'));
       return res.redirect(`/events/${req.params.eventId}/categories`);
     },
 
@@ -61,12 +68,13 @@ function buildCategoryController({ categoryService }) {
         req.params.categoryId,
         req.currentUser.id,
         req.params.type,
+        req.t,
       );
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', 'Category deleted.');
+      req.flash('success', req.t('flash.categoryDeleted'));
       return res.redirect(`/events/${req.params.eventId}/categories`);
     },
   };

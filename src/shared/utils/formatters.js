@@ -1,19 +1,20 @@
 const dayjs = require('dayjs');
+require('dayjs/locale/lv');
 
-function formatDateTime(value) {
+function formatDateTime(value, locale = 'en', emptyLabel = 'Not set') {
   if (!value) {
-    return 'Not set';
+    return emptyLabel;
   }
 
-  return dayjs(value).format('DD MMM YYYY, HH:mm');
+  return dayjs(value).locale(locale).format('DD MMM YYYY, HH:mm');
 }
 
-function formatDate(value) {
+function formatDate(value, locale = 'en', emptyLabel = 'Not set') {
   if (!value) {
-    return 'Not set';
+    return emptyLabel;
   }
 
-  return dayjs(value).format('DD MMM YYYY');
+  return dayjs(value).locale(locale).format('DD MMM YYYY');
 }
 
 function truncate(value, limit = 90) {

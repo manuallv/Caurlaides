@@ -18,25 +18,25 @@ function buildEventController({ eventService, auditLogService }) {
   return {
     showCreateForm(req, res) {
       res.render('events/form', {
-        pageTitle: 'Create event',
+        pageTitle: req.t('event.form.createTitle'),
         event: {
           status: 'draft',
         },
         formAction: '/events',
         formMethod: 'POST',
-        submitLabel: 'Create event',
+        submitLabel: req.t('event.form.createSubmit'),
         activeEvent: null,
       });
     },
 
     async create(req, res) {
-      const event = await eventService.createEvent(req.currentUser.id, normalizeEventPayload(req.body));
-      req.flash('success', 'Event created successfully.');
+      const event = await eventService.createEvent(req.currentUser.id, normalizeEventPayload(req.body), req.t);
+      req.flash('success', req.t('flash.eventCreated'));
       return res.redirect(`/events/${event.id}`);
     },
 
     async showDashboard(req, res) {
-      const data = await eventService.getEventDashboard(req.params.eventId, req.currentUser.id);
+      const data = await eventService.getEventDashboard(req.params.eventId, req.currentUser.id, req.t);
 
       res.render('events/show', {
         pageTitle: data.event.name,
@@ -49,19 +49,19 @@ function buildEventController({ eventService, auditLogService }) {
     },
 
     async showEditForm(req, res) {
-      const event = await eventService.getEventAccessOrFail(req.params.eventId, req.currentUser.id);
+      const event = await eventService.getEventAccessOrFail(req.params.eventId, req.currentUser.id, req.t);
 
       if (!MANAGEMENT_ROLES.includes(event.role)) {
-        req.flash('error', 'Only owners and admins can edit this event.');
+        req.flash('error', req.t('service.event.editRequiresManager'));
         return res.redirect(`/events/${event.id}`);
       }
 
       return res.render('events/form', {
-        pageTitle: `Edit ${event.name}`,
+        pageTitle: req.t('event.form.editTitle', { name: event.name }),
         event,
         formAction: `/events/${event.id}?_method=PUT`,
         formMethod: 'POST',
-        submitLabel: 'Save changes',
+        submitLabel: req.t('event.form.saveSubmit'),
         activeEvent: event,
       });
     },
@@ -71,24 +71,25 @@ function buildEventController({ eventService, auditLogService }) {
         req.params.eventId,
         req.currentUser.id,
         normalizeEventPayload(req.body),
+        req.t,
       );
 
       emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', { eventId: event.id });
-      req.flash('success', 'Event updated successfully.');
+      req.flash('success', req.t('flash.eventUpdated'));
       return res.redirect(`/events/${event.id}`);
     },
 
     async destroy(req, res) {
-      await eventService.deleteEvent(req.params.eventId, req.currentUser.id);
-      req.flash('success', 'Event deleted successfully.');
+      await eventService.deleteEvent(req.params.eventId, req.currentUser.id, req.t);
+      req.flash('success', req.t('flash.eventDeleted'));
       return res.redirect('/dashboard');
     },
 
     async showMembers(req, res) {
-      const data = await eventService.getMembers(req.params.eventId, req.currentUser.id);
+      const data = await eventService.getMembers(req.params.eventId, req.currentUser.id, req.t);
 
       return res.render('events/members', {
-        pageTitle: `${data.event.name} collaborators`,
+        pageTitle: `${data.event.name} · ${req.t('event.collaborators')}`,
         activeEvent: data.event,
         members: data.members,
         canManageMembers: MANAGEMENT_ROLES.includes(data.event.role),
@@ -100,12 +101,12 @@ function buildEventController({ eventService, auditLogService }) {
       await eventService.addMember(req.params.eventId, req.currentUser.id, {
         email: req.body.email,
         role: req.body.role,
-      });
+      }, req.t);
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', 'Collaborator added successfully.');
+      req.flash('success', req.t('flash.collaboratorAdded'));
       return res.redirect(`/events/${req.params.eventId}/members`);
     },
 
@@ -115,30 +116,31 @@ function buildEventController({ eventService, auditLogService }) {
         req.params.userId,
         req.currentUser.id,
         req.body.role,
+        req.t,
       );
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', 'Collaborator role updated.');
+      req.flash('success', req.t('flash.collaboratorRoleUpdated'));
       return res.redirect(`/events/${req.params.eventId}/members`);
     },
 
     async removeMember(req, res) {
-      await eventService.removeMember(req.params.eventId, req.params.userId, req.currentUser.id);
+      await eventService.removeMember(req.params.eventId, req.params.userId, req.currentUser.id, req.t);
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', 'Collaborator removed.');
+      req.flash('success', req.t('flash.collaboratorRemoved'));
       return res.redirect(`/events/${req.params.eventId}/members`);
     },
 
     async showAuditLog(req, res) {
-      const event = await eventService.getEventAccessOrFail(req.params.eventId, req.currentUser.id);
+      const event = await eventService.getEventAccessOrFail(req.params.eventId, req.currentUser.id, req.t);
       const activity = await auditLogService.listByEvent(req.params.eventId, 100);
 
       return res.render('events/audit-log', {
-        pageTitle: `${event.name} activity`,
+        pageTitle: `${event.name} · ${req.t('nav.activity')}`,
         activeEvent: event,
         activity,
       });

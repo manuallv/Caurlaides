@@ -1,3 +1,19 @@
+function parseJson(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
 class AuditLogRepository {
   constructor(pool) {
     this.pool = pool;
@@ -44,6 +60,7 @@ class AuditLogRepository {
           audit.entity_id,
           audit.action,
           audit.message,
+          audit.metadata,
           audit.created_at,
           user.full_name AS actor_name
         FROM audit_logs audit
@@ -55,7 +72,10 @@ class AuditLogRepository {
       [eventId, limit],
     );
 
-    return rows;
+    return rows.map((row) => ({
+      ...row,
+      metadata: parseJson(row.metadata),
+    }));
   }
 }
 

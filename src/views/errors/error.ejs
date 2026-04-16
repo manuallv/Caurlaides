@@ -1,10 +1,10 @@
 <section class="mx-auto max-w-2xl">
   <div class="shell-card p-8 text-center">
-    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700">Error <%= statusCode %></p>
-    <h1 class="mt-3 text-3xl font-extrabold text-slate-900">Something went wrong</h1>
+    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700"><%= t('errors.generic.prefix', { statusCode }) %></p>
+    <h1 class="mt-3 text-3xl font-extrabold text-slate-900"><%= t('errors.generic.title') %></h1>
     <p class="mt-3 text-sm leading-6 text-slate-500"><%= message %></p>
     <div class="mt-6">
-      <a href="<%= currentUser ? '/dashboard' : '/login' %>" class="btn-primary">Return safely</a>
+      <a href="<%= currentUser ? '/dashboard' : '/login' %>" class="btn-primary"><%= t('errors.generic.back') %></a>
     </div>
   </div>
 </section>

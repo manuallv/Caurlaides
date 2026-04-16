@@ -2,13 +2,13 @@ function buildAuthController({ authService }) {
   return {
     showLogin(req, res) {
       res.render('auth/login', {
-        pageTitle: 'Log in',
+        pageTitle: req.t('auth.login.title'),
       });
     },
 
     showRegister(req, res) {
       res.render('auth/register', {
-        pageTitle: 'Create account',
+        pageTitle: req.t('auth.register.title'),
       });
     },
 
@@ -18,10 +18,10 @@ function buildAuthController({ authService }) {
           fullName: req.body.fullName,
           email: req.body.email,
           password: req.body.password,
-        });
+        }, req.t);
 
         req.session.user = user;
-        req.flash('success', 'Account created successfully.');
+        req.flash('success', req.t('flash.accountCreated'));
         return res.redirect('/dashboard');
       } catch (error) {
         req.flash('error', error.message);
@@ -34,10 +34,10 @@ function buildAuthController({ authService }) {
         const user = await authService.login({
           email: req.body.email,
           password: req.body.password,
-        });
+        }, req.t);
 
         req.session.user = user;
-        req.flash('success', `Welcome back, ${user.full_name}.`);
+        req.flash('success', req.t('flash.welcomeBack', { name: user.full_name }));
         return res.redirect('/dashboard');
       } catch (error) {
         req.flash('error', error.message);
@@ -46,13 +46,15 @@ function buildAuthController({ authService }) {
     },
 
     logout(req, res, next) {
+      const locale = req.locale;
+
       req.session.destroy((error) => {
         if (error) {
           return next(error);
         }
 
         res.clearCookie('caurlaides.sid');
-        return res.redirect('/login');
+        return res.redirect(`/language/${locale}?redirect=/login`);
       });
     },
   };

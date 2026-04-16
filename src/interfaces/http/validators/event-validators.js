@@ -7,79 +7,79 @@ const eventValidator = [
   body('name')
     .trim()
     .isLength({ min: 2, max: 160 })
-    .withMessage('Event name must be between 2 and 160 characters.'),
+    .withMessage((value, { req }) => req.t('validation.event.nameLength', { min: 2, max: 160 })),
   body('description')
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 3000 })
-    .withMessage('Description must be shorter than 3000 characters.'),
+    .withMessage((value, { req }) => req.t('validation.event.descriptionLength', { max: 3000 })),
   body('location')
     .trim()
     .isLength({ min: 2, max: 190 })
-    .withMessage('Location must be between 2 and 190 characters.'),
+    .withMessage((value, { req }) => req.t('validation.event.locationLength', { min: 2, max: 190 })),
   body('status')
     .isIn(EVENT_STATUSES)
-    .withMessage('Invalid event status.'),
+    .withMessage((value, { req }) => req.t('validation.event.status')),
   body('startDate')
     .notEmpty()
-    .withMessage('Start date is required.')
+    .withMessage((value, { req }) => req.t('validation.event.startDateRequired'))
     .isISO8601()
-    .withMessage('Start date is invalid.'),
+    .withMessage((value, { req }) => req.t('validation.event.startDateInvalid')),
   body('endDate')
     .notEmpty()
-    .withMessage('End date is required.')
+    .withMessage((value, { req }) => req.t('validation.event.endDateRequired'))
     .isISO8601()
-    .withMessage('End date is invalid.')
+    .withMessage((value, { req }) => req.t('validation.event.endDateInvalid'))
     .custom((value, { req }) => new Date(value) >= new Date(req.body.startDate))
-    .withMessage('End date must be after the start date.'),
+    .withMessage((value, { req }) => req.t('validation.event.endDateAfterStart')),
   body('passRequestDeadline')
     .optional({ values: 'falsy' })
     .isISO8601()
-    .withMessage('Pass request deadline is invalid.'),
+    .withMessage((value, { req }) => req.t('validation.event.passDeadlineInvalid')),
   body('wristbandRequestDeadline')
     .optional({ values: 'falsy' })
     .isISO8601()
-    .withMessage('Wristband request deadline is invalid.'),
+    .withMessage((value, { req }) => req.t('validation.event.wristbandDeadlineInvalid')),
 ];
 
 const memberValidator = [
   body('email')
     .trim()
     .isEmail()
-    .withMessage('Please enter a valid user email.')
+    .withMessage((value, { req }) => req.t('validation.member.email'))
     .normalizeEmail(),
   body('role')
     .isIn(EVENT_ROLE_OPTIONS.filter((role) => role !== 'owner'))
-    .withMessage('Invalid collaborator role.'),
+    .withMessage((value, { req }) => req.t('validation.member.role')),
 ];
 
 const memberRoleValidator = [
   body('role')
     .isIn(EVENT_ROLE_OPTIONS.filter((role) => role !== 'owner'))
-    .withMessage('Invalid collaborator role.'),
+    .withMessage((value, { req }) => req.t('validation.member.role')),
 ];
 
 const categoryValidator = [
   body('type')
     .isIn(['pass', 'wristband'])
-    .withMessage('Invalid category type.'),
+    .withMessage((value, { req }) => req.t('validation.category.type')),
   body('name')
     .trim()
     .isLength({ min: 2, max: 120 })
-    .withMessage('Category name must be between 2 and 120 characters.'),
+    .withMessage((value, { req }) => req.t('validation.category.nameLength', { min: 2, max: 120 })),
   body('description')
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 3000 })
-    .withMessage('Description must be shorter than 3000 characters.'),
+    .withMessage((value, { req }) => req.t('validation.category.descriptionLength', { max: 3000 })),
   body('quota')
     .optional({ values: 'falsy' })
     .isInt({ min: 1 })
-    .withMessage('Quota must be a positive whole number.'),
+    .withMessage((value, { req }) => req.t('validation.category.quota')),
   body('sortOrder')
     .optional({ values: 'falsy' })
     .isInt({ min: 0, max: 9999 })
-    .withMessage('Sort order must be between 0 and 9999.'),
+    .withMessage((value, { req }) => req.t('validation.category.sortOrder', { min: 0, max: 9999 })),
 ];
 
 const categoryUpdateValidator = categoryValidator.filter(

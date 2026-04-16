@@ -3,7 +3,7 @@ function requireAuth(req, res, next) {
     return next();
   }
 
-  req.flash('error', 'Please log in to continue.');
+  req.flash('error', req.t('service.auth.loginRequired'));
   return res.redirect('/login');
 }
 

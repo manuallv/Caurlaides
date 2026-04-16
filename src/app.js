@@ -9,6 +9,7 @@ const expressLayouts = require('express-ejs-layouts');
 const csrf = require('csurf');
 const { createSessionMiddleware } = require('./config/session');
 const { env } = require('./config/env');
+const { attachLocale } = require('./interfaces/http/middleware/locale');
 const { attachCurrentUser } = require('./interfaces/http/middleware/current-user');
 const { attachViewLocals } = require('./interfaces/http/middleware/view-locals');
 const { notFoundHandler, errorHandler } = require('./interfaces/http/middleware/error-handler');
@@ -36,6 +37,7 @@ function createApp() {
   app.use(methodOverride('_method'));
   // Session must be available before flash messages and CSRF protection.
   app.use(createSessionMiddleware());
+  app.use(attachLocale);
   app.use(flash());
   app.use(
     csrf({

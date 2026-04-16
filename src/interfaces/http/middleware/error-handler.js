@@ -1,6 +1,6 @@
 function notFoundHandler(req, res) {
   res.status(404).render('errors/404', {
-    pageTitle: 'Page not found',
+    pageTitle: req.t('errors.notFound.title'),
   });
 }
 
@@ -12,21 +12,24 @@ function errorHandler(error, req, res, next) {
   const isCsrfError = error.code === 'EBADCSRFTOKEN';
   const statusCode = error.statusCode || (isCsrfError ? 403 : 500);
   const message = isCsrfError
-    ? 'Your form session expired. Please refresh the page and try again.'
-    : error.message || 'Something went wrong.';
+    ? req.t('errors.csrf')
+    : error.message || req.t('errors.genericMessage');
 
   if (statusCode >= 500) {
     console.error(error);
   }
 
   res.status(statusCode).render('errors/error', {
-    pageTitle: 'Something went wrong',
+    pageTitle: req.t('errors.generic.title'),
     statusCode,
     message,
     currentUser: req.currentUser || null,
     activeEvent: null,
     currentPath: req.originalUrl || '',
     csrfToken: '',
+    locale: req.locale || 'en',
+    t: req.t,
+    supportedLocales: res.locals.supportedLocales || ['en', 'lv'],
     flash: {
       success: req.flash ? req.flash('success') : [],
       error: req.flash ? req.flash('error') : [],

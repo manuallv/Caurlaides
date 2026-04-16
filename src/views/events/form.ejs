@@ -1,7 +1,7 @@
 <section class="shell-card overflow-hidden">
   <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
     <h1 class="text-2xl font-bold text-slate-900"><%= pageTitle %></h1>
-    <p class="mt-1 text-sm text-slate-500">Define the event dates, location, and submission deadlines.</p>
+    <p class="mt-1 text-sm text-slate-500"><%= t('event.form.description') %></p>
   </div>
 
   <form action="<%= formAction %>" method="<%= formMethod %>" class="grid gap-6 px-5 py-5 sm:px-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -9,62 +9,62 @@
 
     <div class="space-y-5">
       <div>
-        <label for="name" class="field-label">Event name</label>
+        <label for="name" class="field-label"><%= t('event.form.name') %></label>
         <input id="name" name="name" type="text" class="field-input" value="<%= event.name || '' %>" required />
       </div>
 
       <div>
-        <label for="description" class="field-label">Description</label>
+        <label for="description" class="field-label"><%= t('event.form.descriptionField') %></label>
         <textarea id="description" name="description" rows="5" class="field-input"><%= event.description || '' %></textarea>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
         <div>
-          <label for="startDate" class="field-label">Start date</label>
+          <label for="startDate" class="field-label"><%= t('event.form.startDate') %></label>
           <input id="startDate" name="startDate" type="datetime-local" class="field-input" value="<%= helpers.formatDateTimeLocalInput(event.start_date) %>" required />
         </div>
         <div>
-          <label for="endDate" class="field-label">End date</label>
+          <label for="endDate" class="field-label"><%= t('event.form.endDate') %></label>
           <input id="endDate" name="endDate" type="datetime-local" class="field-input" value="<%= helpers.formatDateTimeLocalInput(event.end_date) %>" required />
         </div>
       </div>
 
       <div>
-        <label for="location" class="field-label">Location</label>
+        <label for="location" class="field-label"><%= t('event.form.location') %></label>
         <input id="location" name="location" type="text" class="field-input" value="<%= event.location || '' %>" required />
       </div>
     </div>
 
     <div class="space-y-5">
       <div>
-        <label for="status" class="field-label">Status</label>
+        <label for="status" class="field-label"><%= t('event.form.status') %></label>
         <select id="status" name="status" class="field-input">
           <% ['draft', 'active', 'completed', 'archived'].forEach((status) => { %>
-            <option value="<%= status %>" <%= event.status === status ? 'selected' : '' %>><%= status %></option>
+            <option value="<%= status %>" <%= event.status === status ? 'selected' : '' %>><%= helpers.statusLabel(status) %></option>
           <% }) %>
         </select>
       </div>
 
       <div>
-        <label for="passRequestDeadline" class="field-label">Pass request deadline</label>
+        <label for="passRequestDeadline" class="field-label"><%= t('event.form.passDeadline') %></label>
         <input id="passRequestDeadline" name="passRequestDeadline" type="datetime-local" class="field-input" value="<%= helpers.formatDateTimeLocalInput(event.pass_request_deadline) %>" />
       </div>
 
       <div>
-        <label for="wristbandRequestDeadline" class="field-label">Wristband request deadline</label>
+        <label for="wristbandRequestDeadline" class="field-label"><%= t('event.form.wristbandDeadline') %></label>
         <input id="wristbandRequestDeadline" name="wristbandRequestDeadline" type="datetime-local" class="field-input" value="<%= helpers.formatDateTimeLocalInput(event.wristband_request_deadline) %>" />
       </div>
 
       <div class="panel bg-slate-50">
-        <p class="text-sm font-semibold text-slate-900">Initial delivery scope</p>
+        <p class="text-sm font-semibold text-slate-900"><%= t('event.form.initialScope') %></p>
         <p class="mt-2 text-sm leading-6 text-slate-600">
-          This foundation already includes authentication, event CRUD, collaborator roles, category management, dashboard cards, and audit history.
+          <%= t('event.form.initialScopeDescription') %>
         </p>
       </div>
 
       <div class="flex flex-wrap gap-3">
         <button type="submit" class="btn-primary"><%= submitLabel %></button>
-        <a href="<%= activeEvent ? `/events/${activeEvent.id}` : '/dashboard' %>" class="btn-secondary">Cancel</a>
+        <a href="<%= activeEvent ? `/events/${activeEvent.id}` : '/dashboard' %>" class="btn-secondary"><%= t('event.form.cancel') %></a>
       </div>
     </div>
   </form>
@@ -72,13 +72,13 @@
   <% if (activeEvent && activeEvent.role === 'owner') { %>
     <div class="border-t border-slate-200/80 px-5 py-5 sm:px-6">
       <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-        <h2 class="text-sm font-bold text-rose-700">Danger zone</h2>
+        <h2 class="text-sm font-bold text-rose-700"><%= t('event.form.dangerZone') %></h2>
         <p class="mt-2 text-sm text-rose-700">
-          Deleting an event removes the event, collaborators, categories, future request profiles, and related history records.
+          <%= t('event.form.dangerZoneDescription') %>
         </p>
         <form action="/events/<%= activeEvent.id %>?_method=DELETE" method="POST" class="mt-4">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-          <button type="submit" class="btn-danger">Delete event</button>
+          <button type="submit" class="btn-danger"><%= t('event.form.deleteEvent') %></button>
         </form>
       </div>
     </div>
