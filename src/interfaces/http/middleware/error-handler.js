@@ -23,6 +23,14 @@ function errorHandler(error, req, res, next) {
     pageTitle: 'Something went wrong',
     statusCode,
     message,
+    currentUser: req.currentUser || null,
+    activeEvent: null,
+    currentPath: req.originalUrl || '',
+    csrfToken: '',
+    flash: {
+      success: req.flash ? req.flash('success') : [],
+      error: req.flash ? req.flash('error') : [],
+    },
   });
 }
 

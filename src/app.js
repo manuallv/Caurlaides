@@ -17,6 +17,12 @@ const { buildRouter } = require('./interfaces/http/routes');
 function createApp() {
   const app = express();
 
+  if (env.isProduction) {
+    // Shared hosts such as Hostinger usually terminate HTTPS at a proxy,
+    // so Express must trust the forwarded protocol before issuing secure cookies.
+    app.set('trust proxy', 1);
+  }
+
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
   app.set('layout', 'layout');
