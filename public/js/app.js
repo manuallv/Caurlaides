@@ -330,8 +330,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tabButtons.forEach((button) => {
       const isActive = button.dataset.tab === tab;
-      button.classList.toggle('btn-primary', isActive);
-      button.classList.toggle('btn-secondary', !isActive);
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   };
 
@@ -340,8 +340,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+
+    if (!document.querySelector('.portal-modal.is-open')) {
+      document.body.classList.remove('portal-modal-open');
+    }
   };
 
   const openPortalModal = (modal) => {
@@ -349,8 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('portal-modal-open');
   };
 
   const fillCategoryOptions = (select, type, currentCategoryId = null) => {
@@ -478,34 +483,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rows = (preview.rows || [])
       .map((row) => `
-        <tr class="border-b border-slate-200/70 align-top">
-          <td class="py-3 pr-4 text-slate-600">${row.rowNumber}</td>
-          <td class="py-3 pr-4 text-slate-900">${row.fullName || '-'}</td>
-          <td class="py-3 pr-4 text-slate-600">${row.phone || '-'}</td>
-          <td class="py-3 pr-4 text-slate-600">${row.companyName || '-'}</td>
-          <td class="py-3 pr-4 text-slate-600">${row.email || '-'}</td>
-          <td class="py-3 text-rose-600">${(row.errors || []).join('<br>') || (ui.previewOk || 'OK')}</td>
+        <tr>
+          <td>${row.rowNumber}</td>
+          <td>${row.fullName || '-'}</td>
+          <td>${row.phone || '-'}</td>
+          <td>${row.companyName || '-'}</td>
+          <td>${row.email || '-'}</td>
+          <td class="portal-preview-validation ${row.errors?.length ? '' : 'is-ok'}">${(row.errors || []).join('<br>') || (ui.previewOk || 'OK')}</td>
         </tr>
       `)
       .join('');
 
     elements.importPreview.innerHTML = `
-      <div class="space-y-4">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-semibold text-slate-900">${ui.previewRows || 'Rows'}: ${preview.totalRows}</p>
-          <p class="mt-1 text-sm text-slate-600">${ui.previewValidRows || 'Valid rows'}: ${preview.validRows}</p>
-          ${overallErrors ? `<ul class="mt-3 space-y-1 text-sm text-rose-600">${overallErrors}</ul>` : ''}
+      <div class="portal-preview-wrap">
+        <div class="portal-preview-summary">
+          <p><strong>${ui.previewRows || 'Rows'}:</strong> ${preview.totalRows}</p>
+          <p><strong>${ui.previewValidRows || 'Valid rows'}:</strong> ${preview.validRows}</p>
+          ${overallErrors ? `<ul class="portal-preview-errors">${overallErrors}</ul>` : ''}
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-left text-sm">
-            <thead class="border-b border-slate-200 text-xs uppercase tracking-[0.12em] text-slate-500">
+        <div class="portal-preview-table-wrap">
+          <table class="portal-preview-table">
+            <thead>
               <tr>
-                <th class="pb-3 pr-4">${ui.previewRowColumn || 'Row'}</th>
-                <th class="pb-3 pr-4">${ui.previewNameColumn || 'Name'}</th>
-                <th class="pb-3 pr-4">${ui.previewPhoneColumn || 'Phone'}</th>
-                <th class="pb-3 pr-4">${ui.previewCompanyColumn || 'Company'}</th>
-                <th class="pb-3 pr-4">${ui.previewEmailColumn || 'Email'}</th>
-                <th class="pb-3">${ui.previewValidationColumn || 'Validation'}</th>
+                <th>${ui.previewRowColumn || 'Row'}</th>
+                <th>${ui.previewNameColumn || 'Name'}</th>
+                <th>${ui.previewPhoneColumn || 'Phone'}</th>
+                <th>${ui.previewCompanyColumn || 'Company'}</th>
+                <th>${ui.previewEmailColumn || 'Email'}</th>
+                <th>${ui.previewValidationColumn || 'Validation'}</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>

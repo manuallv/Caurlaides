@@ -1,30 +1,55 @@
-<section class="mx-auto max-w-2xl">
-  <div class="shell-card overflow-hidden">
-    <div class="px-6 py-8 text-center sm:px-10">
-      <p class="worldnic-eyebrow"><%= t('portal.eyebrow') %></p>
-      <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"><%= t('portal.login.title') %></h1>
-      <p class="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-600"><%= t('portal.login.description') %></p>
-      <div class="worldnic-auth-note mx-auto mt-6 max-w-xl text-left">
-        <%= t('portal.login.note') %>
+<section class="portal-login-shell">
+  <div class="portal-login-card shell-card">
+    <div class="portal-login-copy">
+      <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
+      <h1 class="portal-login-title"><%= t('portal.login.title') %></h1>
+      <p class="portal-login-description"><%= t('portal.login.subtitle') %></p>
+
+      <div class="portal-login-highlights">
+        <article class="portal-login-highlight">
+          <strong><%= t('portal.manage.title') %></strong>
+          <span><%= t('portal.manage.description') %></span>
+        </article>
+        <article class="portal-login-highlight">
+          <strong><%= t('portal.importTitle') %></strong>
+          <span><%= t('portal.login.note') %></span>
+        </article>
+        <article class="portal-login-highlight">
+          <strong><%= t('portal.tableTitle') %></strong>
+          <span><%= t('portal.tableDescription') %></span>
+        </article>
       </div>
     </div>
 
-    <div class="border-t border-slate-200/80 px-6 py-8 sm:px-10">
-      <form action="/p/access" method="POST" class="mx-auto max-w-md space-y-4" data-portal-code-form>
+    <div class="portal-login-panel">
+      <div class="portal-login-panel__intro">
+        <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
+        <h2 class="portal-login-panel__title"><%= t('portal.login.description') %></h2>
+      </div>
+
+      <form action="/p/access" method="POST" class="portal-login-form">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
         <div>
-          <label class="field-label" for="accessCode"><%= t('portal.fields.accessCode') %></label>
+          <label for="accessCode" class="field-label"><%= t('portal.login.title') %></label>
           <input
             id="accessCode"
             name="accessCode"
             type="text"
-            class="field-input text-center tracking-[0.28em]"
+            class="field-input"
             autocomplete="one-time-code"
+            placeholder="XXXXXX"
             required
           />
         </div>
-        <button type="submit" class="btn-primary w-full"><%= t('portal.login.submit') %></button>
+
+        <button type="submit" class="btn-primary portal-login-form__submit"><%= t('portal.login.submit') %></button>
       </form>
+
+      <div class="portal-login-note">
+        <p><%= t('portal.login.note') %></p>
+        <span class="portal-login-note__url"><%= portalEntry.portalUrl %></span>
+      </div>
     </div>
   </div>
 </section>
