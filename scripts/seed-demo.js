@@ -24,7 +24,7 @@ const WRISTBAND_CATEGORIES = [
   { name: 'Tirgotajs', description: 'Tirdzniecibas vietas un food court komandas.', quota: 95, sortOrder: 3 },
   { name: 'VIP', description: 'VIP viesi, sponsori un ipašie partneri.', quota: 100, sortOrder: 4 },
   { name: 'Drosiba', description: 'Apsardze, piekļuves kontrole un apsaimniekosana.', quota: 75, sortOrder: 5 },
-  { name: 'Tehniskais personals', description: 'Skaņa, gaismas, LED, video un stage management.', quota: 120, sortOrder: 6 },
+  { name: 'Tehniskais personals', description: 'Skana, gaismas, LED, video un stage management.', quota: 120, sortOrder: 6 },
   { name: 'Mediji', description: 'Preses, TV un foto komandas.', quota: 40, sortOrder: 7 },
   { name: 'Guest', description: 'Viesu saraksti, partneri un uzaicinatie.', quota: 55, sortOrder: 8 },
 ];
@@ -41,7 +41,7 @@ const DEMO_USERS = [
 const PROFILE_CONFIGS = [
   {
     name: 'SIA Stage Build Latvia',
-    notes: 'Galvenas skatuves, delay torņu un backstage konstrukciju uzstadisana.',
+    notes: 'Galvenas skatuves, delay tornu un backstage konstrukciju uzstadisana.',
     pass: { Production: 14, Parking: 8, 'Night Crew': 5 },
     wristband: { 'Uzbve / Nobuve': 24, 'Tehniskais personals': 10 },
   },
@@ -107,7 +107,7 @@ const PROFILE_CONFIGS = [
   },
   {
     name: 'Volunteer Hub',
-    notes: 'Brivpratigie, info punkts un viesu plūsmas paligi.',
+    notes: 'Brivpratigie, info punkts un viesu plusmas paligi.',
     pass: { 'All Area': 8, Production: 4, VIP: 1 },
     wristband: { Guest: 14, Drosiba: 3, 'Uzbve / Nobuve': 4 },
   },
@@ -122,7 +122,7 @@ const FIRST_NAMES = [
 
 const LAST_NAMES = [
   'Berzins', 'Ozols', 'Kalnins', 'Liepa', 'Vitols', 'Krumins', 'Abele', 'Sprogis', 'Lacis', 'Straume',
-  'Vilks', 'Eglitis', 'Grinbergs', 'Prieditis', 'Jansons', 'Briede', 'Ziedins', 'Miezis', 'Siliņš', 'Cers',
+  'Vilks', 'Eglitis', 'Grinbergs', 'Prieditis', 'Jansons', 'Briede', 'Ziedins', 'Miezis', 'Silins', 'Cers',
   'Murnieks', 'Auzins', 'Treija', 'Rancans', 'Mikelsons', 'Kukainis', 'Bergmanis', 'Sarma', 'Salmins', 'Krastins',
 ];
 
@@ -331,8 +331,14 @@ async function insertAuditLog(connection, payload) {
   );
 }
 
-async function seed() {
-  await runMigrations(pool);
+async function seedDemoData({
+  closePool = false,
+  runDbMigrations = false,
+  logger = console,
+} = {}) {
+  if (runDbMigrations) {
+    await runMigrations(pool);
+  }
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const connection = await pool.getConnection();
@@ -356,11 +362,16 @@ async function seed() {
 
     if (existingEvents.length) {
       await connection.rollback();
-      console.log(`Demo event already exists: ${EVENT_NAME} (ID ${existingEvents[0].id}).`);
-      console.log(`Owner login: ${ownerConfig.email} / ${DEMO_PASSWORD}`);
-      console.log('Extra demo users all use the same password Password123!.');
-      await pool.end();
-      return;
+      const result = {
+        created: false,
+        eventId: existingEvents[0].id,
+        eventName: EVENT_NAME,
+        ownerEmail: ownerConfig.email,
+        password: DEMO_PASSWORD,
+      };
+
+      logger.log(`Demo event already exists: ${EVENT_NAME} (ID ${existingEvents[0].id}).`);
+      return result;
     }
 
     const startDate = new Date(Date.UTC(2026, 4, 29, 10, 0, 0));
@@ -424,8 +435,7 @@ async function seed() {
       WRISTBAND_CATEGORIES,
     );
 
-    const handedOutUserIds = otherUsers.filter((user) => user.role !== 'owner').map((user) => user.id);
-
+    const handedOutUserIds = otherUsers.map((user) => user.id);
     let totalPassRequests = 0;
     let totalWristbandRequests = 0;
     const profileSummaries = [];
@@ -580,36 +590,56 @@ async function seed() {
 
     await connection.commit();
 
-    console.log(`Demo event created: ${EVENT_NAME} (ID ${eventId})`);
-    console.log(`Owner login: ${ownerConfig.email} / ${DEMO_PASSWORD}`);
-    console.log('Extra demo users:');
-    DEMO_USERS.filter((user) => user.role !== 'owner').forEach((user) => {
-      console.log(`- ${user.email} / ${DEMO_PASSWORD} (${user.role})`);
-    });
-    console.log(`Pass categories: ${PASS_CATEGORIES.length}`);
-    console.log(`Wristband categories: ${WRISTBAND_CATEGORIES.length}`);
-    console.log(`Request profiles: ${PROFILE_CONFIGS.length}`);
-    console.log(`Pass requests: ${totalPassRequests}`);
-    console.log(`Wristband requests: ${totalWristbandRequests}`);
-    console.log('Sample invite codes:');
-    profileSummaries.slice(0, 5).forEach((profile) => {
-      console.log(`- ${profile.name}: /p/${profile.code}`);
-    });
+    const result = {
+      created: true,
+      eventId,
+      eventName: EVENT_NAME,
+      ownerEmail: ownerConfig.email,
+      password: DEMO_PASSWORD,
+      totalProfiles: PROFILE_CONFIGS.length,
+      totalPassCategories: PASS_CATEGORIES.length,
+      totalWristbandCategories: WRISTBAND_CATEGORIES.length,
+      totalPassRequests,
+      totalWristbandRequests,
+      sampleProfiles: profileSummaries.slice(0, 5),
+    };
+
+    logger.log(`Demo event created: ${EVENT_NAME} (ID ${eventId})`);
+    logger.log(`Owner login: ${ownerConfig.email} / ${DEMO_PASSWORD}`);
+    return result;
   } catch (error) {
     await connection.rollback();
     throw error;
   } finally {
     connection.release();
-    await pool.end();
+
+    if (closePool) {
+      await pool.end();
+    }
   }
 }
 
-seed().catch(async (error) => {
-  console.error(error);
-  try {
-    await pool.end();
-  } catch (closeError) {
-    // Ignore cleanup errors because the original failure is more important.
-  }
-  process.exit(1);
-});
+if (require.main === module) {
+  seedDemoData({
+    closePool: true,
+    runDbMigrations: true,
+    logger: console,
+  }).catch(async (error) => {
+    console.error(error);
+
+    try {
+      await pool.end();
+    } catch (closeError) {
+      // Ignore cleanup errors because the original failure is more important.
+    }
+
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  DEMO_PASSWORD,
+  DEMO_USERS,
+  EVENT_NAME,
+  seedDemoData,
+};

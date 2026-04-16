@@ -25,5 +25,11 @@ if (env.db.host === 'localhost') {
 }
 
 env.isProduction = env.nodeEnv === 'production';
+env.autoDemoSeed = process.env.AUTO_DEMO_SEED === 'true'
+  || (
+    process.env.AUTO_DEMO_SEED !== 'false'
+    && env.isProduction
+    && env.appUrl.includes('caurlaides.pasakums.lv')
+  );
 
 module.exports = { env };

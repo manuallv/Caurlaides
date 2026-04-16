@@ -5,6 +5,7 @@ const { env } = require('./config/env');
 const { initializeSocket } = require('./infrastructure/realtime/socket');
 const { pool } = require('./infrastructure/database/pool');
 const { runMigrations } = require('./infrastructure/database/run-migrations');
+const { seedDemoData } = require('../scripts/seed-demo');
 
 async function startServer() {
   const app = createApp();
@@ -26,6 +27,26 @@ async function startServer() {
 
     if (appliedMigrations.length) {
       console.log(`Applied database migrations: ${appliedMigrations.join(', ')}`);
+    }
+
+    if (env.autoDemoSeed) {
+      try {
+        const seedResult = await seedDemoData({
+          closePool: false,
+          runDbMigrations: false,
+          logger: console,
+        });
+
+        if (seedResult.created) {
+          console.log(
+            `Demo seed ready for ${seedResult.eventName}. Owner login: ${seedResult.ownerEmail} / ${seedResult.password}`,
+          );
+        } else {
+          console.log(`Demo seed already present for ${seedResult.eventName}.`);
+        }
+      } catch (seedError) {
+        console.warn('Demo seed failed during startup:', seedError.message);
+      }
     }
 
     app.locals.databaseReady = true;
