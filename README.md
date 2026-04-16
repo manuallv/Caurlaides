@@ -78,6 +78,8 @@ mysql -u root -p < db/schema.sql
 
 4. Update `.env` with your local MySQL credentials and a strong `SESSION_SECRET`.
 
+The app now auto-runs SQL files from `db/migrations/` on startup, so small schema upgrades are applied automatically during deploys.
+
 5. Build Tailwind CSS locally:
 
 ```bash

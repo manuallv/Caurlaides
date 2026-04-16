@@ -4,6 +4,7 @@ const createApp = require('./app');
 const { env } = require('./config/env');
 const { initializeSocket } = require('./infrastructure/realtime/socket');
 const { pool } = require('./infrastructure/database/pool');
+const { runMigrations } = require('./infrastructure/database/run-migrations');
 
 async function startServer() {
   const app = createApp();
@@ -21,6 +22,12 @@ async function startServer() {
 
   try {
     await pool.query('SELECT 1');
+    const appliedMigrations = await runMigrations(pool);
+
+    if (appliedMigrations.length) {
+      console.log(`Applied database migrations: ${appliedMigrations.join(', ')}`);
+    }
+
     app.locals.databaseReady = true;
   } catch (error) {
     // Allow the app to boot so deployment can complete even before
