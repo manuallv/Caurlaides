@@ -253,7 +253,7 @@ class RequestRepository {
         WHERE id = ?
       `,
       [
-        payload.requestProfileId,
+        payload.requestProfileId || null,
         payload.categoryId,
         payload.fullName,
         payload.companyName,

@@ -1101,6 +1101,10 @@ class AccessService {
   async updateAdminRequest(eventId, requestId, actorId, type, payload, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const normalizedPayload = {
+      ...payload,
+      requestProfileId: payload.requestProfileId || null,
+    };
 
     if (!MANAGEMENT_ROLES.includes(event.role)) {
       throw new AppError(tx('service.request.manage'), 403);
@@ -1112,7 +1116,7 @@ class AccessService {
       throw new AppError(tx('service.request.notFound'), 404);
     }
 
-    const category = await this.categoryRepository.findById(type, payload.categoryId);
+    const category = await this.categoryRepository.findById(type, normalizedPayload.categoryId);
 
     if (!category || Number(category.event_id) !== Number(eventId)) {
       throw new AppError(tx('service.request.typeInvalid'), 422);
@@ -1120,8 +1124,8 @@ class AccessService {
 
     let profile = null;
 
-    if (payload.requestProfileId) {
-      profile = await this.requestProfileRepository.findById(payload.requestProfileId);
+    if (normalizedPayload.requestProfileId) {
+      profile = await this.requestProfileRepository.findById(normalizedPayload.requestProfileId);
 
       if (!profile || Number(profile.event_id) !== Number(eventId)) {
         throw new AppError(tx('service.request.profileInvalid'), 422);
@@ -1132,7 +1136,7 @@ class AccessService {
 
     try {
       await connection.beginTransaction();
-      await this.requestRepository.update(connection, type, requestId, payload);
+      await this.requestRepository.update(connection, type, requestId, normalizedPayload);
 
       await this.auditLogService.record(
         {
@@ -1143,17 +1147,17 @@ class AccessService {
           action: 'updated',
           message: translate(DEFAULT_LOCALE, 'audit.message.portalRequestUpdated', {
             type: translate(DEFAULT_LOCALE, `accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
           beforeState: existingRequest,
           afterState: {
-            ...payload,
+            ...normalizedPayload,
             categoryName: category.name,
             profileName: profile?.name || null,
           },
           metadata: buildAuditMetadata('audit.message.portalRequestUpdated', {
             type: tx(`accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
         },
         connection,
