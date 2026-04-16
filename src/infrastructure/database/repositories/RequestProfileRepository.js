@@ -231,6 +231,24 @@ class RequestProfileRepository {
   }
 
   async create(connection, payload) {
+    const values = [
+      payload.eventId,
+      payload.name,
+      payload.publicSlug,
+      payload.accessCode,
+      payload.accessCodeHash,
+      payload.maxPeople,
+      payload.isUnlimitedQuota ? 1 : 0,
+      payload.contactEmail || null,
+      payload.contactPhone || null,
+      payload.notifyContactOnCreate ? 1 : 0,
+      payload.notes,
+      payload.isActive,
+      payload.lockedAt || null,
+      payload.userId,
+      payload.userId,
+    ];
+
     const [result] = await connection.execute(
       `
         INSERT INTO request_profiles (
@@ -252,23 +270,7 @@ class RequestProfileRepository {
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
-      [
-        payload.eventId,
-        payload.name,
-        payload.publicSlug,
-        payload.accessCode,
-        payload.accessCodeHash,
-        payload.maxPeople,
-        payload.isUnlimitedQuota ? 1 : 0,
-        payload.contactEmail || null,
-        payload.contactPhone || null,
-        payload.notifyContactOnCreate ? 1 : 0,
-        payload.notes,
-        payload.isActive,
-        payload.lockedAt || null,
-        payload.userId,
-        payload.userId,
-      ],
+      values,
     );
 
     return result.insertId;
