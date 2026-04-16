@@ -1,6 +1,13 @@
 <section class="space-y-6">
   <div class="shell-card overflow-hidden">
-    <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+    <div class="border-b border-slate-200/80 px-5 py-4 sm:px-6">
+      <div class="flex flex-wrap gap-2">
+        <a href="#profile-list" class="event-subtab"><%= t('requestProfiles.nav.list') %></a>
+        <a href="#profile-create" class="event-subtab"><%= t('requestProfiles.nav.create') %></a>
+      </div>
+    </div>
+
+    <div id="profile-create" class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
       <h1 class="text-2xl font-bold text-slate-900"><%= t('requestProfiles.title') %></h1>
       <p class="mt-1 text-sm text-slate-500"><%= t('requestProfiles.description') %></p>
     </div>
@@ -70,7 +77,7 @@
     </form>
   </div>
 
-  <div class="space-y-6">
+  <div class="space-y-6" id="profile-list">
     <% if (!profiles.length) { %>
       <div class="shell-card p-6">
         <p class="text-sm text-slate-500"><%= t('requestProfiles.none') %></p>

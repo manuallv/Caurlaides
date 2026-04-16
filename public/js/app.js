@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuPanel = document.querySelector('[data-mobile-menu]');
   const eventRoom = document.body.dataset.eventRoom;
   let activePortalTab = 'all';
+  let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
+  let accessFullscreen = false;
   let refreshInProgress = false;
 
   const closeSidebar = () => {
@@ -64,15 +66,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4200);
   };
 
-  const refreshLiveSections = async () => {
+  const refreshLiveSections = async (targetUrl = window.location.href) => {
     const currentSections = [...document.querySelectorAll('[data-live-section]')];
 
     if (!currentSections.length) {
-      window.location.reload();
+      window.location.href = targetUrl;
       return;
     }
 
-    const response = await fetch(window.location.href, {
+    const response = await fetch(targetUrl, {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
       },
@@ -100,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (!replacedSections) {
-      window.location.reload();
+      window.location.href = targetUrl;
       return;
     }
 
@@ -151,6 +153,150 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getPortalUi = () => getPortalState()?.ui || {};
+
+  const getAccessElements = () => ({
+    workspace: document.querySelector('[data-access-workspace]'),
+    viewTabs: [...document.querySelectorAll('[data-access-view-tab]')],
+    viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
+    fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
+    fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
+    typeForm: document.querySelector('[data-access-type-form]'),
+    typeFormTitle: document.querySelector('[data-access-type-form-title]'),
+    typeFormMethodHolder: document.querySelector('[data-access-type-method-holder]'),
+    typeSubmitLabel: document.querySelector('[data-access-type-submit-label]'),
+  });
+
+  const getAccessUi = () => {
+    const workspace = getAccessElements().workspace;
+
+    if (!workspace) {
+      return {};
+    }
+
+    return {
+      createAction: workspace.dataset.accessCreateAction,
+      createTitle: workspace.dataset.accessCreateTitle,
+      editTitle: workspace.dataset.accessEditTitle,
+      createSubmit: workspace.dataset.accessCreateSubmit,
+      saveSubmit: workspace.dataset.accessSaveSubmit,
+      fullscreenEnter: workspace.dataset.accessFullscreenEnter,
+      fullscreenExit: workspace.dataset.accessFullscreenExit,
+    };
+  };
+
+  const setAccessView = (view, { updateHash = true } = {}) => {
+    const elements = getAccessElements();
+
+    if (!elements.workspace) {
+      return;
+    }
+
+    activeAccessView = view;
+
+    elements.viewTabs.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.accessViewTab === view);
+    });
+
+    elements.viewPanels.forEach((panel) => {
+      panel.classList.toggle('is-hidden', panel.dataset.accessViewPanel !== view);
+    });
+
+    if (updateHash) {
+      const hash = view === 'types' ? '#types' : '#requests';
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  };
+
+  const setAccessFullscreen = (enabled) => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!elements.workspace) {
+      return;
+    }
+
+    accessFullscreen = enabled;
+    elements.workspace.classList.toggle('access-admin-shell-fullscreen', enabled);
+    document.body.classList.toggle('is-access-fullscreen', enabled);
+
+    elements.fullscreenLabels.forEach((label) => {
+      label.textContent = enabled
+        ? (ui.fullscreenExit || 'Exit fullscreen')
+        : (ui.fullscreenEnter || 'Fullscreen');
+    });
+  };
+
+  const resetAccessTypeForm = () => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!elements.typeForm) {
+      return;
+    }
+
+    elements.typeForm.reset();
+    elements.typeForm.action = ui.createAction || elements.typeForm.action;
+    elements.typeFormMethodHolder.innerHTML = '';
+    elements.typeFormTitle.textContent = ui.createTitle || 'Add type';
+    elements.typeSubmitLabel.textContent = ui.createSubmit || 'Add type';
+
+    if (elements.typeForm.elements.isActive) {
+      elements.typeForm.elements.isActive.checked = true;
+    }
+
+    if (elements.typeForm.elements.sortOrder) {
+      elements.typeForm.elements.sortOrder.value = '0';
+    }
+  };
+
+  const populateAccessTypeForm = (trigger) => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!elements.typeForm || !trigger) {
+      return;
+    }
+
+    elements.typeForm.action = `${ui.createAction}/${trigger.dataset.typeId}?_method=PUT`;
+    elements.typeFormTitle.textContent = ui.editTitle || 'Edit type';
+    elements.typeSubmitLabel.textContent = ui.saveSubmit || 'Save type';
+    elements.typeFormMethodHolder.innerHTML = '';
+
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'PUT';
+    elements.typeFormMethodHolder.appendChild(methodInput);
+
+    elements.typeForm.elements.name.value = trigger.dataset.typeName || '';
+    elements.typeForm.elements.description.value = trigger.dataset.typeDescription || '';
+    elements.typeForm.elements.quota.value = trigger.dataset.typeQuota || '';
+    elements.typeForm.elements.sortOrder.value = trigger.dataset.typeSortOrder || '0';
+
+    if (elements.typeForm.elements.isActive) {
+      elements.typeForm.elements.isActive.checked = trigger.dataset.typeIsActive === '1';
+    }
+
+    setAccessView('types');
+    elements.typeForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const initializeAccessUI = () => {
+    const elements = getAccessElements();
+
+    if (!elements.workspace) {
+      return;
+    }
+
+    const hashView = window.location.hash === '#types' ? 'types' : 'requests';
+
+    if (!['requests', 'types'].includes(activeAccessView)) {
+      activeAccessView = hashView;
+    }
+
+    setAccessView(activeAccessView || hashView, { updateHash: false });
+    setAccessFullscreen(accessFullscreen);
+  };
 
   const getPortalElements = () => ({
     app: document.querySelector('[data-portal-app]'),
@@ -398,6 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       closeSidebar();
+      setAccessFullscreen(false);
       closePortalModal(getPortalElements().requestModal);
       closePortalModal(getPortalElements().importModal);
     }
@@ -410,6 +557,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
+    const accessViewTrigger = event.target.closest('[data-access-view-tab]');
+
+    if (accessViewTrigger) {
+      setAccessView(accessViewTrigger.dataset.accessViewTab || 'requests');
+      return;
+    }
+
+    const accessEditTypeTrigger = event.target.closest('[data-access-edit-type]');
+
+    if (accessEditTypeTrigger) {
+      populateAccessTypeForm(accessEditTypeTrigger);
+      return;
+    }
+
+    const accessTypeResetTrigger = event.target.closest('[data-access-type-reset]');
+
+    if (accessTypeResetTrigger) {
+      resetAccessTypeForm();
+      return;
+    }
+
+    const accessFullscreenTrigger = event.target.closest('[data-access-fullscreen-toggle]');
+
+    if (accessFullscreenTrigger) {
+      setAccessFullscreen(!accessFullscreen);
+      return;
+    }
+
+    const liveFilterResetTrigger = event.target.closest('[data-live-filter-reset]');
+
+    if (liveFilterResetTrigger) {
+      const resetUrl = liveFilterResetTrigger.dataset.filterResetUrl || window.location.pathname;
+      window.history.replaceState({}, '', `${resetUrl}#requests`);
+      activeAccessView = 'requests';
+
+      try {
+        await refreshLiveSections(`${window.location.origin}${resetUrl}`);
+      } catch (error) {
+        window.location.href = resetUrl;
+      }
+
+      return;
+    }
+
     const closeTrigger = event.target.closest('[data-portal-close]');
 
     if (closeTrigger) {
@@ -505,6 +696,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('submit', async (event) => {
     const form = event.target;
 
+    if (form.matches('[data-live-filter-form]')) {
+      event.preventDefault();
+
+      const searchParams = new URLSearchParams(new FormData(form));
+      const targetUrl = `${form.action}?${searchParams.toString()}`;
+
+      try {
+        activeAccessView = 'requests';
+        window.history.replaceState({}, '', `${targetUrl}#requests`);
+        await refreshLiveSections(targetUrl);
+      } catch (error) {
+        window.location.href = targetUrl;
+      }
+
+      return;
+    }
+
     if (form.matches('[data-portal-import-preview-form]')) {
       event.preventDefault();
 
@@ -537,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         await submitLiveForm(form);
         closePortalModal(getPortalElements().requestModal);
+        resetAccessTypeForm();
       } catch (error) {
         showLiveNotice(error.message, 'error');
       }
@@ -570,8 +779,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.addEventListener('codex:live-sections-refreshed', () => {
+    initializeAccessUI();
     initializePortalUI();
   });
 
+  initializeAccessUI();
   initializePortalUI();
 });

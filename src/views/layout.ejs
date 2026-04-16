@@ -19,6 +19,19 @@
           .map((part) => part[0].toUpperCase())
           .join('')
       : '';
+    const eventSection = hasEvent
+      ? currentPath === `/events/${activeEvent.id}`
+        ? 'overview'
+        : currentPath.includes('/wristbands')
+          ? 'wristbands'
+          : currentPath.includes('/passes')
+            ? 'passes'
+            : currentPath.includes('/request-profiles')
+              ? 'profiles'
+              : currentPath.includes('/edit') || currentPath.includes('/members') || currentPath.includes('/activity')
+                ? 'settings'
+                : ''
+      : '';
     const sidebarLinks = [
       {
         href: '/dashboard',
@@ -38,33 +51,33 @@
       sidebarLinks.push(
         {
           href: `/events/${activeEvent.id}`,
-          label: t('nav.event'),
+          label: t('event.sidebar.overview'),
           icon: 'layers',
-          active: currentPath === `/events/${activeEvent.id}`,
+          active: eventSection === 'overview',
         },
-          {
-            href: `/events/${activeEvent.id}/wristbands`,
-            label: t('nav.wristbands'),
-            icon: 'tag',
-            active: currentPath.includes('/wristbands'),
-          },
-          {
-            href: `/events/${activeEvent.id}/passes`,
-            label: t('nav.passes'),
-            icon: 'layers',
-            active: currentPath.includes('/passes'),
-          },
         {
-          href: `/events/${activeEvent.id}/members`,
-          label: t('nav.team'),
+          href: `/events/${activeEvent.id}/wristbands`,
+          label: t('event.sidebar.eventWristbands'),
+          icon: 'tag',
+          active: eventSection === 'wristbands',
+        },
+        {
+          href: `/events/${activeEvent.id}/passes`,
+          label: t('event.sidebar.autoPasses'),
+          icon: 'layers',
+          active: eventSection === 'passes',
+        },
+        {
+          href: `/events/${activeEvent.id}/request-profiles`,
+          label: t('event.sidebar.requestProfiles'),
           icon: 'users',
-          active: currentPath.includes('/members'),
+          active: eventSection === 'profiles',
         },
         {
-          href: `/events/${activeEvent.id}/activity`,
-          label: t('nav.activity'),
+          href: `/events/${activeEvent.id}/edit`,
+          label: t('event.sidebar.settings'),
           icon: 'activity',
-          active: currentPath.includes('/activity'),
+          active: eventSection === 'settings',
         },
       );
     }
@@ -213,27 +226,42 @@
                 </div>
 
                 <div class="worldnic-event-banner__tabs">
-                  <a href="/events/<%= activeEvent.id %>" class="event-tab <%= currentPath === `/events/${activeEvent.id}` ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>" class="event-tab <%= eventSection === 'overview' ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('dashboard.overview') %></span>
+                    <span><%= t('event.sidebar.overview') %></span>
                   </a>
-                  <a href="/events/<%= activeEvent.id %>/wristbands" class="event-tab <%= currentPath.includes('/wristbands') ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>/wristbands" class="event-tab <%= eventSection === 'wristbands' ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/tag.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('nav.wristbands') %></span>
+                    <span><%= t('event.sidebar.eventWristbands') %></span>
                   </a>
-                  <a href="/events/<%= activeEvent.id %>/passes" class="event-tab <%= currentPath.includes('/passes') ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>/passes" class="event-tab <%= eventSection === 'passes' ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('nav.passes') %></span>
+                    <span><%= t('event.sidebar.autoPasses') %></span>
                   </a>
-                  <a href="/events/<%= activeEvent.id %>/members" class="event-tab <%= currentPath.includes('/members') ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>/request-profiles" class="event-tab <%= eventSection === 'profiles' ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/users.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.collaborators') %></span>
+                    <span><%= t('event.sidebar.requestProfiles') %></span>
                   </a>
-                  <a href="/events/<%= activeEvent.id %>/activity" class="event-tab <%= currentPath.includes('/activity') ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>/edit" class="event-tab <%= eventSection === 'settings' ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/activity.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('nav.activity') %></span>
+                    <span><%= t('event.sidebar.settings') %></span>
                   </a>
                 </div>
+
+                <% if (eventSection === 'settings') { %>
+                  <div class="worldnic-event-subtabs">
+                    <a href="/events/<%= activeEvent.id %>/edit" class="event-subtab <%= currentPath.includes('/edit') ? 'event-subtab-active' : '' %>"><%= t('event.settings.edit') %></a>
+                    <a href="/events/<%= activeEvent.id %>/members" class="event-subtab <%= currentPath.includes('/members') ? 'event-subtab-active' : '' %>"><%= t('event.settings.members') %></a>
+                    <a href="/events/<%= activeEvent.id %>/activity" class="event-subtab <%= currentPath.includes('/activity') ? 'event-subtab-active' : '' %>"><%= t('event.settings.activity') %></a>
+                  </div>
+                <% } %>
+
+                <% if (eventSection === 'profiles') { %>
+                  <div class="worldnic-event-subtabs">
+                    <a href="#profile-list" class="event-subtab"><%= t('requestProfiles.nav.list') %></a>
+                    <a href="#profile-create" class="event-subtab"><%= t('requestProfiles.nav.create') %></a>
+                  </div>
+                <% } %>
               </section>
             <% } %>
 

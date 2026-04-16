@@ -86,7 +86,7 @@ function buildAccessController({ categoryService, accessService }) {
       );
 
       return res.render('events/access-management', {
-        pageTitle: `${data.event.name} · ${req.t(`nav.${type === 'pass' ? 'passes' : 'wristbands'}`)}`,
+        pageTitle: `${data.event.name} · ${req.t(type === 'pass' ? 'event.sidebar.autoPasses' : 'event.sidebar.eventWristbands')}`,
         activeEvent: data.event,
         accessType: type,
         categories: data.categories,
@@ -111,11 +111,10 @@ function buildAccessController({ categoryService, accessService }) {
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash(
-        'success',
-        type === 'pass' ? req.t('flash.passTypeCreated') : req.t('flash.wristbandTypeCreated'),
-      );
-      return res.redirect(`/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`);
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: type === 'pass' ? req.t('flash.passTypeCreated') : req.t('flash.wristbandTypeCreated'),
+      });
     },
 
     async updateType(req, res) {
@@ -132,8 +131,10 @@ function buildAccessController({ categoryService, accessService }) {
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', req.t('flash.accessTypeUpdated'));
-      return res.redirect(`/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`);
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: req.t('flash.accessTypeUpdated'),
+      });
     },
 
     async destroyType(req, res) {
@@ -149,8 +150,10 @@ function buildAccessController({ categoryService, accessService }) {
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,
       });
-      req.flash('success', req.t('flash.accessTypeDeleted'));
-      return res.redirect(`/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`);
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${req.params.eventId}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: req.t('flash.accessTypeDeleted'),
+      });
     },
 
     async showRequestProfiles(req, res) {
@@ -240,8 +243,10 @@ function buildAccessController({ categoryService, accessService }) {
       emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
         eventId: event.id,
       });
-      req.flash('success', req.t('flash.requestStatusUpdated'));
-      return res.redirect(`/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`);
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: req.t('flash.requestStatusUpdated'),
+      });
     },
 
     async showPortalLogin(req, res) {

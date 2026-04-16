@@ -3,9 +3,10 @@
   const typeTitle = isPass ? t('nav.passes') : t('nav.wristbands');
   const typeLabel = isPass ? t('accessType.pass') : t('accessType.wristband');
   const routeBase = isPass ? 'passes' : 'wristbands';
+  const sectionTitle = isPass ? t('event.sidebar.autoPasses') : t('event.sidebar.eventWristbands');
 %>
 
-<section class="space-y-6">
+<section class="space-y-6" data-access-admin-page>
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-live-section="access-summary">
     <div class="metric-card">
       <p class="text-sm font-medium text-slate-500"><%= t('access.totalRequests') %></p>
@@ -25,211 +26,283 @@
     </div>
   </div>
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <div class="space-y-6">
-      <div class="shell-card overflow-hidden">
-        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-          <h2 class="text-xl font-bold text-slate-900"><%= t('access.availableTypes', { type: typeTitle }) %></h2>
-          <p class="mt-1 text-sm text-slate-500"><%= t('access.availableTypesDescription', { type: typeLabel }) %></p>
+  <div
+    class="shell-card overflow-hidden access-admin-shell"
+    data-live-section="access-workspace"
+    data-access-workspace
+    data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
+    data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
+    data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
+    data-access-create-submit="<%= t('access.addType', { type: typeLabel }) %>"
+    data-access-save-submit="<%= t('access.saveType') %>"
+    data-access-fullscreen-enter="<%= t('access.workspace.fullscreen') %>"
+    data-access-fullscreen-exit="<%= t('access.workspace.exitFullscreen') %>"
+  >
+    <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="worldnic-eyebrow"><%= sectionTitle %></p>
+          <h1 class="mt-3 text-2xl font-bold text-slate-900"><%= t('access.requestTableTitle', { type: typeTitle }) %></h1>
+          <p class="mt-2 text-sm text-slate-500"><%= t('access.workspace.description') %></p>
         </div>
 
-        <% if (canManage) { %>
-          <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types" method="POST" class="space-y-4 border-b border-slate-200/80 px-5 py-5 sm:px-6">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <div>
-              <label class="field-label" for="<%= accessType %>-type-name"><%= t('access.typeName') %></label>
-              <input id="<%= accessType %>-type-name" name="name" type="text" class="field-input" required />
-            </div>
-            <div>
-              <label class="field-label" for="<%= accessType %>-type-description"><%= t('access.typeDescription') %></label>
-              <textarea id="<%= accessType %>-type-description" name="description" rows="3" class="field-input"></textarea>
-            </div>
-            <div class="grid gap-4 md:grid-cols-2">
-              <div>
-                <label class="field-label" for="<%= accessType %>-type-quota"><%= t('access.referenceQuota') %></label>
-                <input id="<%= accessType %>-type-quota" name="quota" type="number" min="1" class="field-input" />
-              </div>
-              <div>
-                <label class="field-label" for="<%= accessType %>-type-sort-order"><%= t('access.sortOrder') %></label>
-                <input id="<%= accessType %>-type-sort-order" name="sortOrder" type="number" min="0" class="field-input" value="0" />
-              </div>
-            </div>
-            <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-              <input type="checkbox" name="isActive" checked />
-              <%= t('access.typeActive') %>
-            </label>
-            <button type="submit" class="btn-primary w-full"><%= t('access.addType', { type: typeLabel }) %></button>
-          </form>
-        <% } %>
-
-        <div class="space-y-4 px-5 py-5 sm:px-6">
-          <% if (!categories.length) { %>
-            <p class="text-sm text-slate-500"><%= t('access.noTypes', { type: typeTitle }) %></p>
-          <% } %>
-
-          <% categories.forEach((category) => { %>
-            <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=PUT" method="POST" class="rounded-2xl border border-slate-200 p-4">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-              <div class="grid gap-4">
-                <div class="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label class="field-label"><%= t('access.typeName') %></label>
-                    <input name="name" type="text" class="field-input" value="<%= category.name %>" <%= canManage ? '' : 'disabled' %> />
-                  </div>
-                  <div>
-                    <label class="field-label"><%= t('access.referenceQuota') %></label>
-                    <input name="quota" type="number" min="1" class="field-input" value="<%= category.quota || '' %>" <%= canManage ? '' : 'disabled' %> />
-                  </div>
-                </div>
-                <div>
-                  <label class="field-label"><%= t('access.typeDescription') %></label>
-                  <textarea name="description" rows="3" class="field-input" <%= canManage ? '' : 'disabled' %>><%= category.description || '' %></textarea>
-                </div>
-                <div class="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label class="field-label"><%= t('access.sortOrder') %></label>
-                    <input name="sortOrder" type="number" min="0" class="field-input" value="<%= category.sort_order %>" <%= canManage ? '' : 'disabled' %> />
-                  </div>
-                  <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-                    <input type="checkbox" name="isActive" <%= category.is_active ? 'checked' : '' %> <%= canManage ? '' : 'disabled' %> />
-                    <%= t('access.typeActive') %>
-                  </label>
-                </div>
-                <% if (canManage) { %>
-                  <div class="flex flex-wrap gap-3">
-                    <button type="submit" class="btn-secondary"><%= t('access.saveType') %></button>
-                    <button formaction="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" formmethod="POST" class="btn-danger"><%= t('access.deleteType') %></button>
-                  </div>
-                <% } %>
-              </div>
-            </form>
-          <% }) %>
-        </div>
-      </div>
-
-      <div class="shell-card overflow-hidden">
-        <div class="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <h2 class="text-xl font-bold text-slate-900"><%= t('requestProfiles.title') %></h2>
-            <p class="mt-1 text-sm text-slate-500"><%= t('requestProfiles.shortDescription') %></p>
-          </div>
-          <% if (canManage) { %>
-            <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.manageButton') %></a>
-          <% } %>
-        </div>
-
-        <div class="space-y-4 px-5 py-5 sm:px-6" data-live-section="access-profiles">
-          <% if (!profiles.length) { %>
-            <p class="text-sm text-slate-500"><%= t('requestProfiles.none') %></p>
-          <% } %>
-
-          <% profiles.forEach((profile) => { %>
-            <article class="rounded-2xl border border-slate-200 p-4">
-              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-bold text-slate-900"><%= profile.name %></p>
-                    <span class="status-<%= profile.is_active ? 'active' : 'archived' %>"><%= profile.is_active ? t('common.active') : t('common.inactive') %></span>
-                  </div>
-                  <p class="mt-2 text-sm text-slate-500">/p · <%= t('requestProfiles.fields.codeEntryHint') %></p>
-                </div>
-                <% if (canManage) { %>
-                  <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.openManager') %></a>
-                <% } %>
-              </div>
-              <div class="mt-4 flex flex-wrap gap-2">
-                <% profile.quotaUsage.forEach((quota) => { %>
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    <%= quota.category_name %>: <%= quota.used_count %>/<%= quota.quota %> · <%= t('requestProfiles.remaining', { count: quota.remaining_count }) %>
-                  </span>
-                <% }) %>
-              </div>
-            </article>
-          <% }) %>
+        <div class="access-workspace-tabs">
+          <button type="button" class="access-workspace-tab is-active" data-access-view-tab="requests">
+            <img src="/public/design-assets/icons/feather/grid.svg" alt="" />
+            <span><%= t('access.views.requests', { type: typeTitle }) %></span>
+          </button>
+          <button type="button" class="access-workspace-tab" data-access-view-tab="types">
+            <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" />
+            <span><%= t('access.views.types', { type: typeTitle }) %></span>
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="shell-card overflow-hidden">
-      <div class="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-5 sm:px-6">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 class="text-xl font-bold text-slate-900"><%= t('access.requestTableTitle', { type: typeTitle }) %></h2>
-            <p class="mt-1 text-sm text-slate-500"><%= t('access.requestTableDescription', { type: typeLabel }) %></p>
-          </div>
-        </div>
-
-        <form method="GET" action="/events/<%= activeEvent.id %>/<%= routeBase %>" class="grid gap-3 lg:grid-cols-4">
+    <div class="access-workspace-panel" data-access-view-panel="requests">
+      <div class="access-workspace-toolbar">
+        <form method="GET" action="/events/<%= activeEvent.id %>/<%= routeBase %>" class="access-filter-grid" data-live-filter-form>
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
+
           <select name="profileId" class="field-input">
             <option value=""><%= t('access.filters.allProfiles') %></option>
             <% profiles.forEach((profile) => { %>
               <option value="<%= profile.id %>" <%= Number(filters.profileId) === Number(profile.id) ? 'selected' : '' %>><%= profile.name %></option>
             <% }) %>
           </select>
+
           <select name="categoryId" class="field-input">
             <option value=""><%= t('access.filters.allTypes') %></option>
             <% categories.forEach((category) => { %>
               <option value="<%= category.id %>" <%= Number(filters.categoryId) === Number(category.id) ? 'selected' : '' %>><%= category.name %></option>
             <% }) %>
           </select>
+
           <select name="status" class="field-input">
             <option value=""><%= t('access.filters.allStatuses') %></option>
             <option value="pending" <%= filters.status === 'pending' ? 'selected' : '' %>><%= t('statuses.pending') %></option>
             <option value="handed_out" <%= filters.status === 'handed_out' ? 'selected' : '' %>><%= t('statuses.handed_out') %></option>
           </select>
-          <input name="company" value="<%= filters.company %>" class="field-input lg:col-span-3" placeholder="<%= t('access.filters.company') %>" />
-          <div class="flex gap-2">
-            <button type="submit" class="btn-primary w-full"><%= t('buttons.filter') %></button>
-            <a href="/events/<%= activeEvent.id %>/<%= routeBase %>" class="btn-secondary w-full"><%= t('buttons.reset') %></a>
+
+          <input name="company" value="<%= filters.company %>" class="field-input" placeholder="<%= t('access.filters.company') %>" />
+
+          <div class="access-filter-actions">
+            <button type="submit" class="btn-primary"><%= t('buttons.filter') %></button>
+            <button type="button" class="btn-secondary" data-live-filter-reset data-filter-reset-url="/events/<%= activeEvent.id %>/<%= routeBase %>"><%= t('buttons.reset') %></button>
           </div>
         </form>
+
+        <button type="button" class="btn-secondary access-fullscreen-toggle" data-access-fullscreen-toggle>
+          <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
+          <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
+        </button>
       </div>
 
-      <div class="px-5 py-5 sm:px-6" data-live-section="access-requests">
+      <div class="access-table-frame">
         <% if (!requests.length) { %>
-          <p class="text-sm text-slate-500"><%= t('access.noRequests', { type: typeTitle }) %></p>
+          <div class="px-5 py-12 text-center sm:px-6">
+            <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
+          </div>
         <% } else { %>
-          <div class="space-y-4">
-            <% requests.forEach((request) => { %>
-              <article class="rounded-2xl border border-slate-200 p-4">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <p class="text-sm font-bold text-slate-900"><%= request.full_name %></p>
-                      <span class="status-<%= request.status === 'handed_out' ? 'active' : 'pending' %>"><%= t(`statuses.${request.status}`) %></span>
-                    </div>
-                    <div class="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                      <p><strong><%= t('access.fields.type') %>:</strong> <%= request.category_name %></p>
-                      <p><strong><%= t('access.fields.profile') %>:</strong> <%= request.profile_name || t('common.notSet') %></p>
-                      <p><strong><%= t('access.fields.company') %>:</strong> <%= request.company_name || t('common.notSet') %></p>
-                      <p><strong><%= t('access.fields.phone') %>:</strong> <%= request.phone || t('common.notSet') %></p>
-                      <p><strong><%= t('field.email') %>:</strong> <%= request.email || t('common.notSet') %></p>
-                      <p><strong><%= t('access.fields.updated') %>:</strong> <%= helpers.formatDateTime(request.updated_at) %></p>
-                      <% if (request.handed_out_at) { %>
-                        <p class="sm:col-span-2"><strong><%= t('access.fields.handedOutBy') %>:</strong> <%= request.handed_out_by_name || t('audit.actor.system') %> · <%= helpers.formatDateTime(request.handed_out_at) %></p>
-                      <% } %>
-                    </div>
-                    <% if (request.notes) { %>
-                      <p class="mt-3 text-sm text-slate-500"><%= request.notes %></p>
-                    <% } %>
-                  </div>
-
-                  <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="flex flex-col gap-2 min-w-[140px]">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                    <% if (request.status === 'handed_out') { %>
-                      <input type="hidden" name="status" value="pending" />
-                      <button type="submit" class="btn-secondary"><%= t('access.actions.markPending') %></button>
-                    <% } else { %>
-                      <input type="hidden" name="status" value="handed_out" />
-                      <button type="submit" class="btn-primary"><%= t('access.actions.markHandedOut') %></button>
-                    <% } %>
-                  </form>
-                </div>
-              </article>
-            <% }) %>
+          <div class="access-table-scroll">
+            <table class="access-admin-table">
+              <thead>
+                <tr>
+                  <th><%= t('access.workspace.person') %></th>
+                  <th><%= t('access.fields.type') %></th>
+                  <th><%= t('access.workspace.profile') %></th>
+                  <th><%= t('access.workspace.contact') %></th>
+                  <th><%= t('access.workspace.status') %></th>
+                  <th><%= t('access.workspace.updated') %></th>
+                  <th><%= t('access.workspace.actions') %></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% requests.forEach((request) => { %>
+                  <tr>
+                    <td>
+                      <div class="access-person-cell">
+                        <div class="access-person-cell__title">
+                          <img src="/public/design-assets/icons/feather/users.svg" alt="" />
+                          <span><%= request.full_name %></span>
+                        </div>
+                        <% if (request.notes) { %>
+                          <p class="access-person-cell__meta"><%= request.notes %></p>
+                        <% } else if (request.email) { %>
+                          <p class="access-person-cell__meta"><%= request.email %></p>
+                        <% } %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="access-data-stack">
+                        <strong><%= request.category_name %></strong>
+                        <span><%= typeLabel %></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="access-data-stack">
+                        <strong><%= request.company_name || t('common.notSet') %></strong>
+                        <span><%= request.profile_name || t('common.notSet') %></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="access-data-stack">
+                        <strong><%= request.phone || t('common.notSet') %></strong>
+                        <span><%= request.email || t('common.notSet') %></span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="access-data-stack">
+                        <span class="status-<%= request.status === 'handed_out' ? 'active' : 'pending' %>"><%= t(`statuses.${request.status}`) %></span>
+                        <% if (request.handed_out_at) { %>
+                          <span class="access-status-time"><%= t('access.workspace.receivedAt') %> · <%= helpers.formatDateTime(request.handed_out_at) %></span>
+                        <% } else { %>
+                          <span class="access-status-time">&nbsp;</span>
+                        <% } %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="access-data-stack">
+                        <strong><%= helpers.formatDateTime(request.updated_at) %></strong>
+                        <% if (request.handed_out_by_name) { %>
+                          <span><%= request.handed_out_by_name %></span>
+                        <% } %>
+                      </div>
+                    </td>
+                    <td>
+                      <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                        <% if (request.status === 'handed_out') { %>
+                          <input type="hidden" name="status" value="pending" />
+                          <button type="submit" class="access-mini-button access-mini-button--secondary"><%= t('access.actions.markPending') %></button>
+                        <% } else { %>
+                          <input type="hidden" name="status" value="handed_out" />
+                          <button type="submit" class="access-mini-button access-mini-button--primary"><%= t('access.actions.markHandedOut') %></button>
+                        <% } %>
+                      </form>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
           </div>
         <% } %>
+      </div>
+    </div>
+
+    <div class="access-workspace-panel is-hidden" data-access-view-panel="types">
+      <div class="access-type-layout <%= canManage ? '' : 'access-type-layout--readonly' %>">
+        <% if (canManage) { %>
+          <div class="panel access-type-editor">
+            <div class="flex flex-col gap-2">
+              <p class="worldnic-eyebrow"><%= t('access.views.types', { type: typeTitle }) %></p>
+              <h2 class="text-xl font-bold text-slate-900" data-access-type-form-title><%= t('access.types.editorCreate', { type: typeLabel }) %></h2>
+              <p class="text-sm text-slate-500"><%= t('access.types.editorDescription') %></p>
+            </div>
+
+            <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types" method="POST" class="mt-5 grid gap-4" data-live-form data-access-type-form>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <div data-access-type-method-holder></div>
+
+              <div>
+                <label class="field-label"><%= t('access.typeName') %></label>
+                <input name="name" type="text" class="field-input" required />
+              </div>
+
+              <div>
+                <label class="field-label"><%= t('access.typeDescription') %></label>
+                <textarea name="description" rows="4" class="field-input"></textarea>
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="field-label"><%= t('access.referenceQuota') %></label>
+                  <input name="quota" type="number" min="1" class="field-input" />
+                </div>
+                <div>
+                  <label class="field-label"><%= t('access.sortOrder') %></label>
+                  <input name="sortOrder" type="number" min="0" class="field-input" value="0" />
+                </div>
+              </div>
+
+              <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+                <input type="checkbox" name="isActive" checked />
+                <%= t('access.typeActive') %>
+              </label>
+
+              <div class="flex flex-wrap gap-2">
+                <button type="submit" class="btn-primary"><span data-access-type-submit-label><%= t('access.addType', { type: typeLabel }) %></span></button>
+                <button type="button" class="btn-secondary" data-access-type-reset><%= t('access.types.cancelEdit') %></button>
+              </div>
+            </form>
+          </div>
+        <% } %>
+
+        <div class="panel access-type-list">
+          <div class="flex flex-col gap-2">
+            <h2 class="text-xl font-bold text-slate-900"><%= t('access.types.currentList', { type: typeTitle }) %></h2>
+            <p class="text-sm text-slate-500"><%= t('access.types.currentListDescription') %></p>
+          </div>
+
+          <% if (!categories.length) { %>
+            <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6">
+              <p class="text-sm text-slate-500"><%= t('access.noTypes', { type: typeTitle }) %></p>
+            </div>
+          <% } else { %>
+            <div class="access-table-scroll mt-5">
+              <table class="access-admin-table access-admin-table--types">
+                <thead>
+                  <tr>
+                    <th><%= t('access.types.table.name') %></th>
+                    <th><%= t('access.types.table.quota') %></th>
+                    <th><%= t('access.types.table.sort') %></th>
+                    <th><%= t('access.types.table.status') %></th>
+                    <th><%= t('access.types.table.actions') %></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% categories.forEach((category) => { %>
+                    <tr>
+                      <td>
+                        <div class="access-data-stack">
+                          <strong><%= category.name %></strong>
+                          <span><%= category.description || t('common.noDescription') %></span>
+                        </div>
+                      </td>
+                      <td><%= category.quota || '—' %></td>
+                      <td><%= category.sort_order %></td>
+                      <td>
+                        <span class="status-<%= category.is_active ? 'active' : 'archived' %>"><%= category.is_active ? t('common.active') : t('common.inactive') %></span>
+                      </td>
+                      <td>
+                        <div class="flex flex-wrap gap-2">
+                          <% if (canManage) { %>
+                            <button
+                              type="button"
+                              class="access-mini-button access-mini-button--secondary"
+                              data-access-edit-type
+                              data-type-id="<%= category.id %>"
+                              data-type-name="<%= category.name %>"
+                              data-type-description="<%= category.description || '' %>"
+                              data-type-quota="<%= category.quota || '' %>"
+                              data-type-sort-order="<%= category.sort_order %>"
+                              data-type-is-active="<%= category.is_active ? '1' : '0' %>"
+                            ><%= t('access.types.editButton') %></button>
+
+                            <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" method="POST" data-live-form>
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                              <button type="submit" class="access-mini-button access-mini-button--danger"><%= t('access.deleteType') %></button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
       </div>
     </div>
   </div>
