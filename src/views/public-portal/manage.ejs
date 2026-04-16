@@ -8,23 +8,8 @@
 >
   <script id="portal-state" type="application/json"><%- JSON.stringify(portalClientState) %></script>
 
-  <div class="portal-workspace">
-    <aside class="portal-workspace-sidebar" data-live-section="portal-summary">
-      <div class="shell-card portal-profile-card">
-        <div class="portal-profile-card__head">
-          <div>
-            <p class="worldnic-eyebrow"><%= t('portal.eyebrow') %></p>
-            <h1 class="portal-profile-card__title"><%= profile.name %></h1>
-            <p class="portal-profile-card__description"><%= t('portal.manage.description') %></p>
-          </div>
-
-          <form action="/p/logout" method="POST" class="portal-profile-card__logout">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <button type="submit" class="btn-secondary"><%= t('portal.logout') %></button>
-          </form>
-        </div>
-      </div>
-
+  <div class="portal-page-stack">
+    <section class="portal-summary-grid" data-live-section="portal-summary">
       <article class="portal-access-card panel">
         <div class="portal-access-card__head">
           <div class="portal-access-card__copy">
@@ -82,7 +67,7 @@
           <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
         </div>
       </article>
-    </aside>
+    </section>
 
     <section class="shell-card portal-workspace-card">
       <div class="portal-workspace-card__header">

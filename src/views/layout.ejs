@@ -10,6 +10,9 @@
   <%
     const hasEvent = Boolean(activeEvent);
     const portalMode = typeof isPublicPortal === 'undefined' ? false : Boolean(isPublicPortal);
+    const portalHeader = typeof portalHeaderTitle === 'undefined' ? '' : portalHeaderTitle;
+    const portalLogoutTarget = typeof portalLogoutAction === 'undefined' ? '' : portalLogoutAction;
+    const portalLogoutText = typeof portalLogoutLabel === 'undefined' ? t('portal.logout') : portalLogoutLabel;
     const isAuthPage = !currentUser
       && (
         ['/login', '/register', '/forgot-password'].includes(currentPath)
@@ -301,7 +304,9 @@
               </span>
             </a>
           <% } else { %>
-            <div></div>
+            <div class="worldnic-portal-topbar-profile">
+              <strong><%= portalHeader %></strong>
+            </div>
           <% } %>
 
           <div class="worldnic-guest-actions">
@@ -312,7 +317,12 @@
                 </a>
               <% }) %>
             </div>
-            <% if (!isPublicPortal) { %>
+            <% if (isPublicPortal && portalLogoutTarget) { %>
+              <form action="<%= portalLogoutTarget %>" method="POST" class="worldnic-portal-topbar-logout">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn-secondary btn-secondary-sm"><%= portalLogoutText %></button>
+              </form>
+            <% } else if (!isPublicPortal) { %>
               <a href="/login" class="btn-secondary"><%= t('buttons.login') %></a>
               <a href="/register" class="btn-primary"><%= t('buttons.createAccount') %></a>
             <% } %>

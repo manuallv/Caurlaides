@@ -1416,7 +1416,7 @@ body.portal-modal-open {
 }
 
 .worldnic-guest-shell-portal {
-  max-width: min(1640px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
 }
 
 .portal-page {
@@ -1427,6 +1427,17 @@ body.portal-modal-open {
 
 .portal-page-workspace {
   min-height: calc(100vh - 8.5rem);
+}
+
+.portal-page-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .portal-workspace {
@@ -1474,7 +1485,7 @@ body.portal-modal-open {
 .portal-workspace-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: calc(100vh - 8.5rem);
+  min-height: calc(100vh - 18rem);
   overflow: hidden;
 }
 
@@ -2091,12 +2102,40 @@ body.portal-modal-open {
 }
 
 .worldnic-guest-topbar-portal {
-  justify-content: flex-end;
+  justify-content: space-between;
   padding-bottom: 0;
 }
 
 .worldnic-guest-topbar-portal .worldnic-guest-actions {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.worldnic-portal-topbar-profile {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.6rem;
+  min-width: 0;
+  padding: 0.25rem 0;
+}
+
+.worldnic-portal-topbar-profile strong {
+  display: block;
+  max-width: min(48vw, 32rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wn-text);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.worldnic-portal-topbar-logout {
+  display: inline-flex;
+  align-items: center;
 }
 
 .portal-login-highlights {
@@ -2826,7 +2865,8 @@ body.portal-modal-open {
 
   .portal-login-card,
   .portal-access-grid,
-  .portal-workspace {
+  .portal-workspace,
+  .portal-summary-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2926,6 +2966,7 @@ body.portal-modal-open {
   .portal-summary-card__header,
   .portal-table-card__header,
   .portal-access-grid,
+  .portal-summary-grid,
   .portal-table-toolbar,
   .portal-table-scroll,
   .portal-workspace-card__header,
@@ -2954,12 +2995,33 @@ body.portal-modal-open {
   .portal-tab-button,
   .portal-card-actions .btn-primary,
   .portal-card-actions .btn-secondary,
+  .worldnic-portal-topbar-logout .btn-secondary,
   .portal-profile-card__logout .btn-secondary,
   .portal-inline-form__actions .btn-primary,
   .portal-inline-form__actions .btn-secondary,
   .portal-modal__actions .btn-primary,
   .portal-modal__actions .btn-secondary {
     width: 100%;
+  }
+
+  .worldnic-guest-topbar-portal {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .worldnic-guest-topbar-portal .worldnic-guest-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .worldnic-portal-topbar-profile {
+    width: 100%;
+  }
+
+  .worldnic-portal-topbar-profile strong {
+    max-width: 100%;
   }
 
   .portal-modal {

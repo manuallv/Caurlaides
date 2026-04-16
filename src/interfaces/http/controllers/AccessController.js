@@ -386,6 +386,9 @@ function buildAccessController({ categoryService, accessService }) {
       return res.render('public-portal/manage', {
         pageTitle: `${data.profile.name} · ${req.t('portal.manage.title')}`,
         profile: data.profile,
+        portalHeaderTitle: data.profile.name,
+        portalLogoutAction: '/p/logout',
+        portalLogoutLabel: req.t('portal.logout'),
         passQuotaUsage: data.passQuotaUsage,
         wristbandQuotaUsage: data.wristbandQuotaUsage,
         passPortalOpen: data.passPortalOpen,
