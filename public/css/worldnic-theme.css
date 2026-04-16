@@ -266,6 +266,17 @@ body.is-sidebar-open .worldnic-overlay {
   margin-top: 0.25rem;
 }
 
+.worldnic-nav--event {
+  margin-top: 0.95rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(223, 229, 240, 0.9);
+}
+
+.worldnic-nav__item {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .worldnic-nav__link {
   display: flex;
   align-items: center;
@@ -324,6 +335,34 @@ body.is-sidebar-open .worldnic-overlay {
 .worldnic-nav__link.is-active .worldnic-nav__icon img {
   opacity: 1;
   filter: brightness(0) invert(1);
+}
+
+.worldnic-nav__sublinks {
+  display: grid;
+  gap: 0.32rem;
+  margin-left: 3.25rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid rgba(205, 215, 230, 0.92);
+}
+
+.worldnic-nav__sublink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.38rem 0.1rem;
+  color: #76859a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.worldnic-nav__sublink:hover {
+  color: var(--wn-primary);
+  transform: translateX(1px);
+}
+
+.worldnic-nav__sublink.is-active {
+  color: var(--wn-primary);
 }
 
 .worldnic-sidebar__footer {

@@ -46,41 +46,67 @@
         active: currentPath.startsWith('/events/new'),
       },
     ];
-
-    if (hasEvent) {
-      sidebarLinks.push(
-        {
-          href: `/events/${activeEvent.id}`,
-          label: t('event.sidebar.overview'),
-          icon: 'layers',
-          active: eventSection === 'overview',
-        },
-        {
-          href: `/events/${activeEvent.id}/wristbands`,
-          label: t('event.sidebar.eventWristbands'),
-          icon: 'tag',
-          active: eventSection === 'wristbands',
-        },
-        {
-          href: `/events/${activeEvent.id}/passes`,
-          label: t('event.sidebar.autoPasses'),
-          icon: 'layers',
-          active: eventSection === 'passes',
-        },
-        {
-          href: `/events/${activeEvent.id}/request-profiles`,
-          label: t('event.sidebar.requestProfiles'),
-          icon: 'users',
-          active: eventSection === 'profiles',
-        },
-        {
-          href: `/events/${activeEvent.id}/edit`,
-          label: t('event.sidebar.settings'),
-          icon: 'activity',
-          active: eventSection === 'settings',
-        },
-      );
-    }
+    const eventSidebarLinks = hasEvent
+      ? [
+          {
+            href: `/events/${activeEvent.id}`,
+            label: t('event.sidebar.overview'),
+            icon: 'layers',
+            active: eventSection === 'overview',
+          },
+          {
+            href: `/events/${activeEvent.id}/wristbands`,
+            label: t('event.sidebar.eventWristbands'),
+            icon: 'tag',
+            active: eventSection === 'wristbands',
+          },
+          {
+            href: `/events/${activeEvent.id}/passes`,
+            label: t('event.sidebar.autoPasses'),
+            icon: 'layers',
+            active: eventSection === 'passes',
+          },
+          {
+            href: `/events/${activeEvent.id}/request-profiles`,
+            label: t('event.sidebar.requestProfiles'),
+            icon: 'users',
+            active: eventSection === 'profiles',
+            children: [
+              {
+                href: `/events/${activeEvent.id}/request-profiles#profile-list`,
+                label: t('requestProfiles.nav.list'),
+              },
+              {
+                href: `/events/${activeEvent.id}/request-profiles#profile-create`,
+                label: t('requestProfiles.nav.create'),
+              },
+            ],
+          },
+          {
+            href: `/events/${activeEvent.id}/edit`,
+            label: t('event.sidebar.settings'),
+            icon: 'activity',
+            active: eventSection === 'settings',
+            children: [
+              {
+                href: `/events/${activeEvent.id}/edit`,
+                label: t('event.settings.edit'),
+                active: currentPath.includes('/edit'),
+              },
+              {
+                href: `/events/${activeEvent.id}/members`,
+                label: t('event.settings.members'),
+                active: currentPath.includes('/members'),
+              },
+              {
+                href: `/events/${activeEvent.id}/activity`,
+                label: t('event.settings.activity'),
+                active: currentPath.includes('/activity'),
+              },
+            ],
+          },
+        ]
+      : [];
 
     const bodyClass = [
       'worldnic-body',
@@ -138,6 +164,29 @@
               </a>
             <% }) %>
           </nav>
+
+          <% if (eventSidebarLinks.length) { %>
+            <nav class="worldnic-nav worldnic-nav--event">
+              <% eventSidebarLinks.forEach((link) => { %>
+                <div class="worldnic-nav__item">
+                  <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                    <span class="worldnic-nav__icon">
+                      <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                    </span>
+                    <span><%= link.label %></span>
+                  </a>
+
+                  <% if (link.children && link.active) { %>
+                    <div class="worldnic-nav__sublinks">
+                      <% link.children.forEach((child) => { %>
+                        <a href="<%= child.href %>" class="worldnic-nav__sublink <%= child.active ? 'is-active' : '' %>"><%= child.label %></a>
+                      <% }) %>
+                    </div>
+                  <% } %>
+                </div>
+              <% }) %>
+            </nav>
+          <% } %>
 
           <div class="worldnic-sidebar__footer">
             <div class="worldnic-sidebar__hint">
@@ -197,74 +246,6 @@
           </header>
 
           <main class="worldnic-content">
-            <% if (hasEvent) { %>
-              <section class="worldnic-event-banner">
-                <div class="worldnic-event-banner__header">
-                  <div>
-                    <p class="worldnic-eyebrow"><%= t('nav.eventWorkspace') %></p>
-                    <h1 class="worldnic-event-banner__title"><%= activeEvent.name %></h1>
-
-                    <div class="worldnic-meta">
-                      <span class="worldnic-meta__item">
-                        <img src="/public/design-assets/icons/feather/calendar.svg" alt="" />
-                        <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
-                      </span>
-                      <span class="worldnic-meta__item">
-                        <img src="/public/design-assets/icons/feather/layers.svg" alt="" />
-                        <%= activeEvent.location %>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="worldnic-event-banner__actions">
-                    <span class="status-<%= activeEvent.status %>"><%= helpers.statusLabel(activeEvent.status) %></span>
-                    <a href="/events/<%= activeEvent.id %>/edit" class="btn-primary">
-                      <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" class="h-4 w-4 brightness-0 invert" />
-                      <span><%= t('event.editSettings') %></span>
-                    </a>
-                  </div>
-                </div>
-
-                <div class="worldnic-event-banner__tabs">
-                  <a href="/events/<%= activeEvent.id %>" class="event-tab <%= eventSection === 'overview' ? 'event-tab-active' : '' %>">
-                    <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.sidebar.overview') %></span>
-                  </a>
-                  <a href="/events/<%= activeEvent.id %>/wristbands" class="event-tab <%= eventSection === 'wristbands' ? 'event-tab-active' : '' %>">
-                    <img src="/public/design-assets/icons/feather/tag.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.sidebar.eventWristbands') %></span>
-                  </a>
-                  <a href="/events/<%= activeEvent.id %>/passes" class="event-tab <%= eventSection === 'passes' ? 'event-tab-active' : '' %>">
-                    <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.sidebar.autoPasses') %></span>
-                  </a>
-                  <a href="/events/<%= activeEvent.id %>/request-profiles" class="event-tab <%= eventSection === 'profiles' ? 'event-tab-active' : '' %>">
-                    <img src="/public/design-assets/icons/feather/users.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.sidebar.requestProfiles') %></span>
-                  </a>
-                  <a href="/events/<%= activeEvent.id %>/edit" class="event-tab <%= eventSection === 'settings' ? 'event-tab-active' : '' %>">
-                    <img src="/public/design-assets/icons/feather/activity.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('event.sidebar.settings') %></span>
-                  </a>
-                </div>
-
-                <% if (eventSection === 'settings') { %>
-                  <div class="worldnic-event-subtabs">
-                    <a href="/events/<%= activeEvent.id %>/edit" class="event-subtab <%= currentPath.includes('/edit') ? 'event-subtab-active' : '' %>"><%= t('event.settings.edit') %></a>
-                    <a href="/events/<%= activeEvent.id %>/members" class="event-subtab <%= currentPath.includes('/members') ? 'event-subtab-active' : '' %>"><%= t('event.settings.members') %></a>
-                    <a href="/events/<%= activeEvent.id %>/activity" class="event-subtab <%= currentPath.includes('/activity') ? 'event-subtab-active' : '' %>"><%= t('event.settings.activity') %></a>
-                  </div>
-                <% } %>
-
-                <% if (eventSection === 'profiles') { %>
-                  <div class="worldnic-event-subtabs">
-                    <a href="#profile-list" class="event-subtab"><%= t('requestProfiles.nav.list') %></a>
-                    <a href="#profile-create" class="event-subtab"><%= t('requestProfiles.nav.create') %></a>
-                  </div>
-                <% } %>
-              </section>
-            <% } %>
-
             <%- include('partials/flash') %>
             <%- body %>
           </main>
