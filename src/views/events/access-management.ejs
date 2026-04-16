@@ -68,18 +68,6 @@
 
     <div class="access-workspace-panel" data-access-view-panel="requests">
       <div class="access-workspace-toolbar">
-        <% if (canManage) { %>
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p class="worldnic-eyebrow"><%= t('access.requestTableTitle', { type: typeTitle }) %></p>
-              <p class="mt-2 text-sm text-slate-500"><%= t('access.requestTableDescription', { type: typeLabel }) %></p>
-            </div>
-            <button type="button" class="btn-primary" data-access-create-request>
-              <%= t('access.actions.addRequest', { type: typeLabel }) %>
-            </button>
-          </div>
-        <% } %>
-
         <form method="GET" action="/events/<%= activeEvent.id %>/<%= routeBase %>" class="access-filter-grid" data-live-filter-form>
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
 
@@ -111,6 +99,11 @@
               <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
               <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
             </button>
+            <% if (canManage) { %>
+              <button type="button" class="btn-primary" data-access-create-request>
+                <%= t('access.actions.addRequest', { type: typeLabel }) %>
+              </button>
+            <% } %>
           </div>
         </form>
       </div>
