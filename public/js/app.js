@@ -379,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
     fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
     fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
+    exportModal: document.querySelector('[data-access-export-modal]'),
     typeForm: document.querySelector('[data-access-type-form]'),
     typeFormTitle: document.querySelector('[data-access-type-form-title]'),
     typeFormMethodHolder: document.querySelector('[data-access-type-method-holder]'),
@@ -629,6 +630,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const closeAccessExportModal = () => {
+    const { exportModal } = getAccessElements();
+
+    if (!exportModal) {
+      return;
+    }
+
+    exportModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
+  };
+
   const openAccessRequestModal = (trigger = null) => {
     const {
       requestModal,
@@ -646,6 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!requestModal || !requestForm || !workspace) {
       return;
     }
+
+    closeAccessExportModal();
 
     const eventId = document.body.dataset.eventRoom;
     const accessType = window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass';
@@ -701,6 +715,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     requestModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+  };
+
+  const openAccessExportModal = () => {
+    const { exportModal } = getAccessElements();
+
+    if (!exportModal) {
+      return;
+    }
+
+    closeAccessRequestModal();
+    exportModal.classList.add('is-open');
     document.body.classList.add('portal-modal-open');
   };
 
@@ -1025,6 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setAccessFullscreen(false);
       setPortalWorkspaceView('table');
       closeAccessRequestModal();
+      closeAccessExportModal();
     }
   });
 
@@ -1106,10 +1133,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const accessExportTrigger = event.target.closest('[data-access-export-open]');
+
+    if (accessExportTrigger) {
+      openAccessExportModal();
+      return;
+    }
+
     const accessRequestCloseTrigger = event.target.closest('[data-access-request-close]');
 
     if (accessRequestCloseTrigger) {
       closeAccessRequestModal();
+      return;
+    }
+
+    const accessExportCloseTrigger = event.target.closest('[data-access-export-close]');
+
+    if (accessExportCloseTrigger) {
+      closeAccessExportModal();
       return;
     }
 
@@ -1343,6 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('codex:live-sections-refreshed', () => {
     closeAccessRequestModal();
+    closeAccessExportModal();
     initializeAccessUI();
     initializePortalUI();
     initializeRequestProfileUI();

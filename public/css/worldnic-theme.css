@@ -906,6 +906,14 @@ body.is-access-fullscreen {
   box-shadow: 0 10px 18px rgba(20, 31, 56, 0.05);
 }
 
+.access-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .access-workspace-tab img {
   width: 0.95rem;
   height: 0.95rem;
@@ -1125,6 +1133,40 @@ body.is-access-fullscreen {
   align-items: center;
 }
 
+.access-export-grid {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.access-export-option {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(223, 229, 240, 0.95);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.98);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.access-export-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 116, 255, 0.18);
+  box-shadow: var(--wn-shadow-sm);
+}
+
+.access-export-option strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.access-export-option span {
+  color: #718198;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
 .access-type-layout {
   display: grid;
   gap: 1rem;
@@ -1155,9 +1197,14 @@ body.is-access-fullscreen {
 }
 
 @media (max-width: 899px) {
+  .access-workspace-actions,
   .access-filter-actions .btn-primary,
   .access-filter-actions .btn-secondary,
   .access-fullscreen-toggle {
+    width: 100%;
+  }
+
+  .access-workspace-actions .btn-secondary {
     width: 100%;
   }
 }

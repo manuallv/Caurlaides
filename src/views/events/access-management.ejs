@@ -53,14 +53,21 @@
           <p class="mt-2 text-sm text-slate-500"><%= t('access.workspace.description') %></p>
         </div>
 
-        <div class="access-workspace-tabs">
-          <button type="button" class="access-workspace-tab is-active" data-access-view-tab="requests">
-            <img src="/public/design-assets/icons/feather/grid.svg" alt="" />
-            <span><%= t('access.views.requests', { type: typeTitle }) %></span>
-          </button>
-          <button type="button" class="access-workspace-tab" data-access-view-tab="types">
-            <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" />
-            <span><%= t('access.views.types', { type: typeTitle }) %></span>
+        <div class="access-workspace-actions">
+          <div class="access-workspace-tabs">
+            <button type="button" class="access-workspace-tab is-active" data-access-view-tab="requests">
+              <img src="/public/design-assets/icons/feather/grid.svg" alt="" />
+              <span><%= t('access.views.requests', { type: typeTitle }) %></span>
+            </button>
+            <button type="button" class="access-workspace-tab" data-access-view-tab="types">
+              <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" />
+              <span><%= t('access.views.types', { type: typeTitle }) %></span>
+            </button>
+          </div>
+
+          <button type="button" class="btn-secondary" data-access-export-open>
+            <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
+            <span><%= t('buttons.export') %></span>
           </button>
         </div>
       </div>
@@ -297,6 +304,37 @@
               <button type="submit" class="btn-primary" data-access-request-submit-label><%= t('buttons.save') %></button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <div class="portal-modal" data-access-export-modal>
+        <button type="button" class="portal-modal__backdrop" data-access-export-close></button>
+        <div class="portal-modal__dialog shell-card">
+          <div class="portal-modal__header">
+            <div class="portal-modal__title-block">
+              <p class="worldnic-eyebrow"><%= t('access.export.eyebrow') %></p>
+              <h2><%= t('access.export.title') %></h2>
+              <p class="mt-2 text-sm text-slate-500"><%= t('access.export.description') %></p>
+            </div>
+            <button type="button" class="table-icon-button" data-access-export-close aria-label="<%= t('buttons.cancel') %>">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+            </button>
+          </div>
+
+          <div class="access-export-grid">
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=xlsx">
+              <strong><%= t('access.export.formats.xlsx') %></strong>
+              <span><%= t('access.export.formats.xlsxDescription') %></span>
+            </a>
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=csv">
+              <strong><%= t('access.export.formats.csv') %></strong>
+              <span><%= t('access.export.formats.csvDescription') %></span>
+            </a>
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=pdf">
+              <strong><%= t('access.export.formats.pdf') %></strong>
+              <span><%= t('access.export.formats.pdfDescription') %></span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

@@ -46,6 +46,12 @@ function buildEventRoutes({ eventController, accessController }) {
 
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
   router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
+  router.get(
+    '/events/:eventId/:type/export',
+    requireAuth,
+    accessTypeParamValidator,
+    asyncHandler(accessController.exportRequests),
+  );
   router.post(
     '/events/:eventId/:type/types',
     requireAuth,

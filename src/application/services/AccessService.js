@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const dayjs = require('dayjs');
+const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 const { env } = require('../../config/env');
@@ -127,6 +128,112 @@ function normalizeImportRow(rawRow = {}, index = 0, fallbackCompanyName = null) 
   };
 }
 
+function formatExportDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  return dayjs(value).format('YYYY-MM-DD HH:mm');
+}
+
+function sanitizeFileName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'export';
+}
+
+function escapeCsvValue(value) {
+  const stringValue = String(value ?? '');
+
+  if (/[",\n;]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+
+  return stringValue;
+}
+
+function buildAdminExportRows(requests = [], typeLabel = '') {
+  return requests.map((request, index) => ({
+    '#': index + 1,
+    'ID': request.id,
+    'Section': typeLabel,
+    'Full Name': request.full_name || '',
+    'Type': request.category_name || '',
+    'Profile': request.profile_name || '',
+    'Company': request.company_name || '',
+    'Phone': request.phone || '',
+    'Email': request.email || '',
+    'Status': request.status || '',
+    'Status Label': translate(DEFAULT_LOCALE, `statuses.${request.status}`),
+    'Status Updated At': formatExportDateTime(request.status_updated_at),
+    'Status Updated By': request.status_updated_by_name || '',
+    'Handed Out At': formatExportDateTime(request.handed_out_at),
+    'Handed Out By': request.handed_out_by_name || '',
+    'Created At': formatExportDateTime(request.created_at),
+    'Updated At': formatExportDateTime(request.updated_at),
+    'Notes': request.notes || '',
+  }));
+}
+
+function buildCsvBuffer(rows = []) {
+  if (!rows.length) {
+    return Buffer.from('', 'utf8');
+  }
+
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.map((header) => escapeCsvValue(header)).join(','),
+    ...rows.map((row) => headers.map((header) => escapeCsvValue(row[header])).join(',')),
+  ];
+
+  return Buffer.from(lines.join('\n'), 'utf8');
+}
+
+function buildPdfBuffer({ event, title, rows }) {
+  return new Promise((resolve, reject) => {
+    const document = new PDFDocument({
+      size: 'A4',
+      margin: 36,
+      autoFirstPage: true,
+      bufferPages: false,
+    });
+    const chunks = [];
+
+    document.on('data', (chunk) => chunks.push(chunk));
+    document.on('end', () => resolve(Buffer.concat(chunks)));
+    document.on('error', reject);
+
+    document.fontSize(18).fillColor('#0f172a').text(title);
+    document.moveDown(0.35);
+    document.fontSize(10).fillColor('#475569').text(`Event: ${event.name}`);
+    document.text(`Location: ${event.location || '-'}`);
+    document.text(`Dates: ${formatExportDateTime(event.start_date)} - ${formatExportDateTime(event.end_date)}`);
+    document.text(`Total requests: ${rows.length}`);
+    document.text(`Exported at: ${formatExportDateTime(new Date())}`);
+    document.moveDown(0.9);
+
+    rows.forEach((row, index) => {
+      if (document.y > 710) {
+        document.addPage();
+      }
+
+      document.fontSize(11).fillColor('#0f172a').font('Helvetica-Bold').text(`${index + 1}. ${row['Full Name'] || '-'}`);
+      document.font('Helvetica').fontSize(9).fillColor('#475569');
+      document.text(`Type: ${row.Type || '-'} | Profile: ${row.Profile || '-'} | Status: ${row['Status Label'] || row.Status || '-'}`);
+      document.text(`Company: ${row.Company || '-'} | Phone: ${row.Phone || '-'} | Email: ${row.Email || '-'}`);
+      document.text(`Created: ${row['Created At'] || '-'} | Updated: ${row['Updated At'] || '-'} | Status updated: ${row['Status Updated At'] || '-'}`);
+      document.text(`Handed out at: ${row['Handed Out At'] || '-'} | Handed out by: ${row['Handed Out By'] || '-'} | Updated by: ${row['Status Updated By'] || '-'}`);
+      document.text(`Notes: ${row.Notes || '-'}`);
+      document.moveDown(0.8);
+      document.moveTo(36, document.y).lineTo(559, document.y).strokeColor('#dbe3ef').stroke();
+      document.moveDown(0.6);
+    });
+
+    document.end();
+  });
+}
+
 class AccessService {
   constructor({
     pool,
@@ -232,6 +339,65 @@ class AccessService {
       summary,
       canManage: MANAGEMENT_ROLES.includes(event.role),
       type,
+    };
+  }
+
+  async exportAdminRequests(eventId, actorId, type, format, t) {
+    const tx = resolveTranslate(t);
+    const normalizedFormat = String(format || '').trim().toLowerCase();
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!['xlsx', 'csv', 'pdf'].includes(normalizedFormat)) {
+      throw new AppError(tx('service.export.formatInvalid'), 422);
+    }
+
+    const requests = await this.requestRepository.listAdminRequests(eventId, type, {});
+    const typeTitle = tx(type === 'pass' ? 'nav.passes' : 'nav.wristbands');
+    const rows = buildAdminExportRows(requests, typeTitle);
+    const timestamp = dayjs().format('YYYYMMDD-HHmm');
+    const baseFileName = sanitizeFileName(`${event.name}-${typeTitle}-${timestamp}`);
+
+    if (normalizedFormat === 'csv') {
+      return {
+        buffer: buildCsvBuffer(rows),
+        filename: `${baseFileName}.csv`,
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
+
+    if (normalizedFormat === 'xlsx') {
+      const infoSheet = XLSX.utils.json_to_sheet([
+        {
+          event_name: event.name,
+          access_type: typeTitle,
+          location: event.location || '',
+          start_date: formatExportDateTime(event.start_date),
+          end_date: formatExportDateTime(event.end_date),
+          total_requests: rows.length,
+          exported_at: formatExportDateTime(new Date()),
+        },
+      ]);
+      const requestSheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(workbook, infoSheet, 'Info');
+      XLSX.utils.book_append_sheet(workbook, requestSheet, 'Requests');
+
+      return {
+        buffer: XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+        filename: `${baseFileName}.xlsx`,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      };
+    }
+
+    return {
+      buffer: await buildPdfBuffer({
+        event,
+        title: `${event.name} - ${typeTitle}`,
+        rows,
+      }),
+      filename: `${baseFileName}.pdf`,
+      contentType: 'application/pdf',
     };
   }
 

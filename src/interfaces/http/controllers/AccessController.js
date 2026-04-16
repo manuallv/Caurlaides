@@ -353,6 +353,21 @@ function buildAccessController({ categoryService, accessService }) {
       });
     },
 
+    async exportRequests(req, res) {
+      const type = resolveAccessType(req);
+      const exportFile = await accessService.exportAdminRequests(
+        req.params.eventId,
+        req.currentUser.id,
+        type,
+        req.query.format,
+        req.t,
+      );
+
+      res.setHeader('Content-Type', exportFile.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${exportFile.filename}"`);
+      return res.send(exportFile.buffer);
+    },
+
     async showPortalLogin(req, res) {
       const entry = await accessService.getPortalLoginPage();
 
