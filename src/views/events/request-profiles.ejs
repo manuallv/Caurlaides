@@ -87,7 +87,8 @@
             </div>
             <p class="mt-2 text-sm text-slate-500">
               <strong><%= t('requestProfiles.fields.publicLink') %>:</strong>
-              <a href="/portal/<%= profile.public_slug %>" target="_blank" rel="noreferrer" class="font-semibold text-brand-700">/portal/<%= profile.public_slug %></a>
+              <a href="/p" target="_blank" rel="noreferrer" class="font-semibold text-brand-700">/p</a>
+              <span class="ml-2"><%= t('requestProfiles.fields.codeEntryHint') %></span>
             </p>
             <% if (profile.notes) { %>
               <p class="mt-2 text-sm text-slate-500"><%= profile.notes %></p>

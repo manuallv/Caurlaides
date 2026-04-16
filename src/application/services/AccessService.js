@@ -1,12 +1,15 @@
 const crypto = require('crypto');
 const dayjs = require('dayjs');
+const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
 const { comparePassword, hashPassword } = require('../../infrastructure/security/password');
 
-const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfiles';
+const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
+const PUBLIC_PORTAL_IMPORTS_KEY = 'publicRequestProfileImports';
+const IMPORT_SAMPLE_HEADERS = ['Full Name', 'Phone', 'Company', 'Email', 'Notes'];
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -46,6 +49,47 @@ function withRemainingQuota(quotaUsage = []) {
   });
 }
 
+function buildCombinedRequests(passRequests = [], wristbandRequests = []) {
+  return [...passRequests, ...wristbandRequests]
+    .sort((left, right) => {
+      const leftDate = new Date(left.updated_at || left.created_at || 0).getTime();
+      const rightDate = new Date(right.updated_at || right.created_at || 0).getTime();
+      return rightDate - leftDate;
+    })
+    .map((request) => ({
+      ...request,
+      requestTypeLabel: translate(DEFAULT_LOCALE, `nav.${request.request_type === 'pass' ? 'passes' : 'wristbands'}`),
+    }));
+}
+
+function normalizeImportHeader(header = '') {
+  return String(header)
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s-]+/g, '');
+}
+
+function normalizeImportRow(rawRow = {}, index = 0, fallbackCompanyName = null) {
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(rawRow)) {
+    normalized[normalizeImportHeader(key)] = value;
+  }
+
+  return {
+    rowNumber: index + 2,
+    fullName: String(
+      normalized.fullname || normalized.name || normalized.vardsuzvards || normalized.person || '',
+    ).trim(),
+    phone: String(normalized.phone || normalized.tel || normalized.telefons || '').trim(),
+    companyName: String(
+      normalized.company || normalized.companyname || normalized.uznemums || fallbackCompanyName || '',
+    ).trim(),
+    email: String(normalized.email || normalized.epasts || '').trim(),
+    notes: String(normalized.notes || normalized.piezimes || '').trim(),
+  };
+}
+
 class AccessService {
   constructor({
     pool,
@@ -64,11 +108,19 @@ class AccessService {
   }
 
   getPublicProfileSession(session) {
-    if (!session[PUBLIC_PORTAL_SESSION_KEY]) {
-      session[PUBLIC_PORTAL_SESSION_KEY] = {};
+    return Number(session[PUBLIC_PORTAL_SESSION_KEY] || 0);
+  }
+
+  setPublicProfileSession(session, profileId) {
+    session[PUBLIC_PORTAL_SESSION_KEY] = Number(profileId);
+  }
+
+  getPublicImportSession(session) {
+    if (!session[PUBLIC_PORTAL_IMPORTS_KEY]) {
+      session[PUBLIC_PORTAL_IMPORTS_KEY] = {};
     }
 
-    return session[PUBLIC_PORTAL_SESSION_KEY];
+    return session[PUBLIC_PORTAL_IMPORTS_KEY];
   }
 
   generateAccessCode() {
@@ -398,53 +450,62 @@ class AccessService {
     return event;
   }
 
-  async getPortalLoginPage(publicSlug) {
-    const profile = await this.requestProfileRepository.findBySlug(publicSlug);
-
-    if (!profile) {
-      throw new AppError('Portal not found.', 404);
-    }
-
-    return profile;
+  async getPortalLoginPage() {
+    return {
+      portalUrl: '/p',
+    };
   }
 
-  async authorizePublicProfile(publicSlug, accessCode, session, t) {
+  async authorizePublicProfile(accessCode, session, t) {
     const tx = resolveTranslate(t);
-    const profile = await this.requestProfileRepository.findBySlug(publicSlug);
+    const profiles = await this.requestProfileRepository.listActivePortals();
+    let matchedProfile = null;
 
-    if (!profile || !profile.is_active) {
-      throw new AppError(tx('service.portal.accessDenied'), 404);
+    for (const profile of profiles) {
+      const isValid = await comparePassword(accessCode, profile.access_code_hash);
+
+      if (isValid) {
+        matchedProfile = profile;
+        break;
+      }
     }
 
-    const isValid = await comparePassword(accessCode, profile.access_code_hash);
-
-    if (!isValid) {
+    if (!matchedProfile) {
       throw new AppError(tx('service.portal.codeInvalid'), 422);
     }
 
-    this.getPublicProfileSession(session)[publicSlug] = profile.id;
+    this.setPublicProfileSession(session, matchedProfile.id);
+    delete session[PUBLIC_PORTAL_IMPORTS_KEY];
+
+    return matchedProfile;
+  }
+
+  async clearPublicProfileAccess(session) {
+    delete session[PUBLIC_PORTAL_SESSION_KEY];
+    delete session[PUBLIC_PORTAL_IMPORTS_KEY];
+  }
+
+  async getPortalProfileOrFail(session, t) {
+    const tx = resolveTranslate(t);
+    const profileId = this.getPublicProfileSession(session);
+
+    if (profileId <= 0) {
+      throw new AppError(tx('service.portal.loginRequired'), 403);
+    }
+
+    const profile = await this.requestProfileRepository.findPortalById(profileId);
+
+    if (!profile || !profile.is_active) {
+      delete session[PUBLIC_PORTAL_SESSION_KEY];
+      throw new AppError(tx('service.portal.accessDenied'), 404);
+    }
 
     return profile;
   }
 
-  async clearPublicProfileAccess(publicSlug, session) {
-    const profileSession = this.getPublicProfileSession(session);
-    delete profileSession[publicSlug];
-  }
-
-  async getPublicPortal(publicSlug, session, t) {
+  async getPublicPortal(session, t) {
     const tx = resolveTranslate(t);
-    const profile = await this.requestProfileRepository.findBySlug(publicSlug);
-
-    if (!profile || !profile.is_active) {
-      throw new AppError(tx('service.portal.accessDenied'), 404);
-    }
-
-    const profileSession = this.getPublicProfileSession(session);
-
-    if (Number(profileSession[publicSlug]) !== Number(profile.id)) {
-      throw new AppError(tx('service.portal.loginRequired'), 403);
-    }
+    const profile = await this.getPortalProfileOrFail(session, tx);
 
     const passQuotaUsage = withRemainingQuota(
       await this.requestRepository.listQuotaUsage(profile.id, 'pass'),
@@ -452,8 +513,18 @@ class AccessService {
     const wristbandQuotaUsage = withRemainingQuota(
       await this.requestRepository.listQuotaUsage(profile.id, 'wristband'),
     );
-    const passRequests = await this.requestRepository.listProfileRequests(profile.id, 'pass');
-    const wristbandRequests = await this.requestRepository.listProfileRequests(profile.id, 'wristband');
+    const passRequests = (await this.requestRepository.listProfileRequests(profile.id, 'pass')).map((request) => ({
+      ...request,
+      request_type: 'pass',
+      isEditable: this.isPortalRequestEditable(profile, 'pass', request),
+    }));
+    const wristbandRequests = (
+      await this.requestRepository.listProfileRequests(profile.id, 'wristband')
+    ).map((request) => ({
+      ...request,
+      request_type: 'wristband',
+      isEditable: this.isPortalRequestEditable(profile, 'wristband', request),
+    }));
     const passPortalOpen = this.isPortalTypeOpen(profile, 'pass');
     const wristbandPortalOpen = this.isPortalTypeOpen(profile, 'wristband');
 
@@ -467,20 +538,15 @@ class AccessService {
         passPortalOpen && passQuotaUsage.some((quota) => Number(quota.remaining_count) > 0),
       canCreateWristbandRequests:
         wristbandPortalOpen && wristbandQuotaUsage.some((quota) => Number(quota.remaining_count) > 0),
-      passRequests: passRequests.map((request) => ({
-        ...request,
-        isEditable: this.isPortalRequestEditable(profile, 'pass', request),
-      })),
-      wristbandRequests: wristbandRequests.map((request) => ({
-        ...request,
-        isEditable: this.isPortalRequestEditable(profile, 'wristband', request),
-      })),
+      passRequests,
+      wristbandRequests,
+      combinedRequests: buildCombinedRequests(passRequests, wristbandRequests),
     };
   }
 
-  async createPortalRequest(publicSlug, session, type, body, t) {
+  async createPortalRequest(session, type, body, t) {
     const tx = resolveTranslate(t);
-    const portal = await this.getPublicPortal(publicSlug, session, tx);
+    const portal = await this.getPublicPortal(session, tx);
     const payload = buildRequestPayload(body, portal.profile.name);
 
     await this.assertPortalRequestAllowed(portal.profile, type, payload.categoryId, null, tx);
@@ -527,9 +593,9 @@ class AccessService {
     return portal.profile.event_id;
   }
 
-  async updatePortalRequest(publicSlug, session, type, requestId, body, t) {
+  async updatePortalRequest(session, type, requestId, body, t) {
     const tx = resolveTranslate(t);
-    const portal = await this.getPublicPortal(publicSlug, session, tx);
+    const portal = await this.getPublicPortal(session, tx);
     const existingRequest = await this.requestRepository.findById(type, requestId);
 
     if (!existingRequest || Number(existingRequest.request_profile_id) !== Number(portal.profile.id)) {
@@ -581,9 +647,9 @@ class AccessService {
     return portal.profile.event_id;
   }
 
-  async deletePortalRequest(publicSlug, session, type, requestId, t) {
+  async deletePortalRequest(session, type, requestId, t) {
     const tx = resolveTranslate(t);
-    const portal = await this.getPublicPortal(publicSlug, session, tx);
+    const portal = await this.getPublicPortal(session, tx);
     const existingRequest = await this.requestRepository.findById(type, requestId);
 
     if (!existingRequest || Number(existingRequest.request_profile_id) !== Number(portal.profile.id)) {
@@ -631,6 +697,233 @@ class AccessService {
     return portal.profile.event_id;
   }
 
+  async buildImportTemplate(session, type, categoryId, t) {
+    const tx = resolveTranslate(t);
+    this.assertSupportedPortalType(type, tx);
+    const portal = await this.getPublicPortal(session, tx);
+    const quotaUsage = type === 'pass' ? portal.passQuotaUsage : portal.wristbandQuotaUsage;
+    const category = quotaUsage.find((entry) => Number(entry.category_id) === Number(categoryId));
+
+    if (!category) {
+      throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      IMPORT_SAMPLE_HEADERS,
+      ['Janis Berzins', '+37120000000', portal.profile.name, 'janis@example.com', ''],
+      ['Anna Liepa', '+37120000001', portal.profile.name, '', ''],
+    ]);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+
+    return {
+      buffer: XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+      filename: `${type}-${category.category_name}-template.xlsx`
+        .toLowerCase()
+        .replace(/[^a-z0-9.-]+/g, '-'),
+    };
+  }
+
+  async previewPortalImport(session, type, categoryId, file, t) {
+    const tx = resolveTranslate(t);
+    this.assertSupportedPortalType(type, tx);
+    const portal = await this.getPublicPortal(session, tx);
+
+    if (!file || !file.buffer) {
+      throw new AppError(tx('service.portal.importFileRequired'), 422);
+    }
+
+    const quotaUsage = type === 'pass' ? portal.passQuotaUsage : portal.wristbandQuotaUsage;
+    const category = quotaUsage.find((entry) => Number(entry.category_id) === Number(categoryId));
+
+    if (!category) {
+      throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
+    }
+
+    const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+    const firstSheetName = workbook.SheetNames[0];
+
+    if (!firstSheetName) {
+      throw new AppError(tx('service.portal.importEmpty'), 422);
+    }
+
+    const sheet = workbook.Sheets[firstSheetName];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, {
+      defval: '',
+      raw: false,
+      blankrows: false,
+    });
+
+    if (!rawRows.length) {
+      throw new AppError(tx('service.portal.importEmpty'), 422);
+    }
+
+    const rows = rawRows.map((row, index) => {
+      const normalizedRow = normalizeImportRow(row, index, portal.profile.name);
+      const errors = [];
+
+      if (!normalizedRow.fullName || normalizedRow.fullName.length < 2 || normalizedRow.fullName.length > 160) {
+        errors.push(tx('validation.portal.fullName', { min: 2, max: 160 }));
+      }
+
+      if (!normalizedRow.phone || normalizedRow.phone.length < 3 || normalizedRow.phone.length > 40) {
+        errors.push(tx('validation.portal.phoneLength', { min: 3, max: 40 }));
+      }
+
+      if (
+        !normalizedRow.companyName ||
+        normalizedRow.companyName.length < 2 ||
+        normalizedRow.companyName.length > 160
+      ) {
+        errors.push(tx('validation.portal.companyNameLength', { min: 2, max: 160 }));
+      }
+
+      if (normalizedRow.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedRow.email)) {
+        errors.push(tx('validation.portal.email'));
+      }
+
+      if (normalizedRow.notes && normalizedRow.notes.length > 3000) {
+        errors.push(tx('validation.portal.notes', { max: 3000 }));
+      }
+
+      return {
+        ...normalizedRow,
+        errors,
+      };
+    });
+
+    const validRows = rows.filter((row) => row.errors.length === 0);
+    const overallErrors = [];
+
+    if (!this.isPortalTypeOpen(portal.profile, type)) {
+      overallErrors.push(tx('service.portal.deadlinePassed'));
+    }
+
+    if (validRows.length > Number(category.remaining_count || 0)) {
+      overallErrors.push(
+        tx('service.portal.importQuotaExceeded', { remaining: Number(category.remaining_count || 0) }),
+      );
+    }
+
+    const canImport = overallErrors.length === 0 && rows.every((row) => row.errors.length === 0);
+    const token = crypto.randomBytes(12).toString('hex');
+
+    if (canImport) {
+      this.getPublicImportSession(session)[token] = {
+        profileId: portal.profile.id,
+        type,
+        categoryId: Number(categoryId),
+        rows: validRows.map((row) => ({
+          fullName: row.fullName,
+          phone: row.phone,
+          companyName: row.companyName,
+          email: row.email,
+          notes: row.notes,
+        })),
+      };
+    }
+
+    return {
+      token: canImport ? token : null,
+      categoryName: category.category_name,
+      rows,
+      totalRows: rows.length,
+      validRows: validRows.length,
+      canImport,
+      overallErrors,
+    };
+  }
+
+  async commitPortalImport(session, token, t) {
+    const tx = resolveTranslate(t);
+    const portal = await this.getPublicPortal(session, tx);
+    const importSession = this.getPublicImportSession(session);
+    const importBatch = importSession[token];
+
+    if (!importBatch || Number(importBatch.profileId) !== Number(portal.profile.id)) {
+      throw new AppError(tx('service.portal.importExpired'), 409);
+    }
+
+    this.assertSupportedPortalType(importBatch.type, tx);
+    await this.assertPortalTypeOpenOrFail(portal.profile, importBatch.type, tx);
+
+    const quotaUsage = await this.requestRepository.listQuotaUsage(portal.profile.id, importBatch.type);
+    const targetQuota = quotaUsage.find(
+      (entry) => Number(entry.category_id) === Number(importBatch.categoryId),
+    );
+
+    if (!targetQuota) {
+      throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
+    }
+
+    const usedCount = await this.requestRepository.countUsedQuota(
+      portal.profile.id,
+      importBatch.type,
+      importBatch.categoryId,
+    );
+    const remainingCount = Number(targetQuota.quota || 0) - usedCount;
+
+    if (importBatch.rows.length > remainingCount) {
+      throw new AppError(tx('service.portal.importQuotaExceeded', { remaining: Math.max(remainingCount, 0) }), 409);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      for (const row of importBatch.rows) {
+        const requestId = await this.requestRepository.create(connection, importBatch.type, {
+          eventId: portal.profile.event_id,
+          requestProfileId: portal.profile.id,
+          categoryId: importBatch.categoryId,
+          fullName: row.fullName,
+          companyName: row.companyName,
+          phone: row.phone,
+          email: row.email || null,
+          notes: row.notes || null,
+        });
+
+        await this.auditLogService.record(
+          {
+            eventId: portal.profile.event_id,
+            userId: null,
+            entityType: `${importBatch.type}_request`,
+            entityId: requestId,
+            action: 'created',
+            message: translate(DEFAULT_LOCALE, 'audit.message.portalImportRequestCreated', {
+              type: translate(DEFAULT_LOCALE, `accessType.${importBatch.type}`),
+              name: row.fullName,
+            }),
+            afterState: {
+              categoryId: importBatch.categoryId,
+              ...row,
+            },
+            metadata: buildAuditMetadata('audit.message.portalImportRequestCreated', {
+              type: tx(`accessType.${importBatch.type}`),
+              name: row.fullName,
+            }),
+          },
+          connection,
+        );
+      }
+
+      await connection.commit();
+      delete importSession[token];
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return {
+      eventId: portal.profile.event_id,
+      importedCount: importBatch.rows.length,
+    };
+  }
+
   isPortalRequestEditable(profile, type, request) {
     if (!request || request.status === 'handed_out') {
       return false;
@@ -656,6 +949,7 @@ class AccessService {
 
   async assertPortalRequestAllowed(profile, type, categoryId, excludeRequestId, t) {
     const tx = resolveTranslate(t);
+    await this.assertPortalTypeOpenOrFail(profile, type, tx);
     const quotaUsage = await this.requestRepository.listQuotaUsage(profile.id, type);
     const targetQuota = quotaUsage.find((quota) => Number(quota.category_id) === Number(categoryId));
 
@@ -673,13 +967,23 @@ class AccessService {
     if (usedCount >= Number(targetQuota.quota || 0)) {
       throw new AppError(tx('service.portal.quotaReached'), 409);
     }
+  }
 
-    const deadlineField = type === 'pass' ? 'pass_request_deadline' : 'wristband_request_deadline';
+  async assertPortalTypeOpenOrFail(profile, type, t) {
+    const tx = resolveTranslate(t);
 
-    if (profile[deadlineField] && dayjs().isAfter(dayjs(profile[deadlineField]))) {
+    if (!this.isPortalTypeOpen(profile, type)) {
       throw new AppError(tx('service.portal.deadlinePassed'), 409);
+    }
+  }
+
+  assertSupportedPortalType(type, t) {
+    const tx = resolveTranslate(t);
+
+    if (!['pass', 'wristband'].includes(type)) {
+      throw new AppError(tx('validation.accessType.type'), 422);
     }
   }
 }
 
-module.exports = { AccessService, PUBLIC_PORTAL_SESSION_KEY };
+module.exports = { AccessService, PUBLIC_PORTAL_SESSION_KEY, PUBLIC_PORTAL_IMPORTS_KEY };

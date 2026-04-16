@@ -105,6 +105,65 @@ class RequestProfileRepository {
     return rows[0] || null;
   }
 
+  async findPortalById(profileId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.created_at,
+          rp.updated_at,
+          e.name AS event_name,
+          e.status AS event_status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline
+        FROM request_profiles rp
+        INNER JOIN events e ON e.id = rp.event_id
+        WHERE rp.id = ?
+        LIMIT 1
+      `,
+      [profileId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async listActivePortals() {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.created_at,
+          rp.updated_at,
+          e.name AS event_name,
+          e.status AS event_status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline
+        FROM request_profiles rp
+        INNER JOIN events e ON e.id = rp.event_id
+        WHERE rp.is_active = 1
+        ORDER BY rp.updated_at DESC, rp.id DESC
+      `,
+    );
+
+    return rows;
+  }
+
   async create(connection, payload) {
     const [result] = await connection.execute(
       `

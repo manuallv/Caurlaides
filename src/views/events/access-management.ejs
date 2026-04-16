@@ -131,7 +131,7 @@
                     <p class="text-sm font-bold text-slate-900"><%= profile.name %></p>
                     <span class="status-<%= profile.is_active ? 'active' : 'archived' %>"><%= profile.is_active ? t('common.active') : t('common.inactive') %></span>
                   </div>
-                  <p class="mt-2 text-sm text-slate-500">/portal/<%= profile.public_slug %></p>
+                  <p class="mt-2 text-sm text-slate-500">/p · <%= t('requestProfiles.fields.codeEntryHint') %></p>
                 </div>
                 <% if (canManage) { %>
                   <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.openManager') %></a>

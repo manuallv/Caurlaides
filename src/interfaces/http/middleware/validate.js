@@ -7,9 +7,16 @@ function validateRequest(req, res, next) {
     return next();
   }
 
-  errors
-    .array()
-    .forEach((error) => req.flash('error', error.msg));
+  const mappedErrors = errors.array().map((error) => error.msg);
+
+  if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.xhr) {
+    return res.status(422).json({
+      success: false,
+      errors: mappedErrors,
+    });
+  }
+
+  mappedErrors.forEach((message) => req.flash('error', message));
 
   return res.redirect(req.get('Referrer') || '/');
 }

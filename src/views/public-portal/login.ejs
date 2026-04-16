@@ -1,23 +1,27 @@
-<section class="mx-auto max-w-3xl">
-  <div class="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-    <div class="shell-card p-6 sm:p-8">
+<section class="mx-auto max-w-2xl">
+  <div class="shell-card overflow-hidden">
+    <div class="px-6 py-8 text-center sm:px-10">
       <p class="worldnic-eyebrow"><%= t('portal.eyebrow') %></p>
-      <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900"><%= profile.name %></h1>
-      <p class="mt-3 text-sm leading-6 text-slate-600"><%= t('portal.login.description') %></p>
-      <div class="worldnic-auth-note mt-6">
+      <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"><%= t('portal.login.title') %></h1>
+      <p class="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-600"><%= t('portal.login.description') %></p>
+      <div class="worldnic-auth-note mx-auto mt-6 max-w-xl text-left">
         <%= t('portal.login.note') %>
       </div>
     </div>
 
-    <div class="shell-card p-6 sm:p-8">
-      <h2 class="text-2xl font-bold text-slate-900"><%= t('portal.login.title') %></h2>
-      <p class="mt-2 text-sm text-slate-500"><%= t('portal.login.subtitle') %></p>
-
-      <form action="/portal/<%= profile.public_slug %>/access" method="POST" class="mt-6 space-y-4">
+    <div class="border-t border-slate-200/80 px-6 py-8 sm:px-10">
+      <form action="/p/access" method="POST" class="mx-auto max-w-md space-y-4" data-portal-code-form>
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <div>
           <label class="field-label" for="accessCode"><%= t('portal.fields.accessCode') %></label>
-          <input id="accessCode" name="accessCode" type="text" class="field-input" autocomplete="one-time-code" required />
+          <input
+            id="accessCode"
+            name="accessCode"
+            type="text"
+            class="field-input text-center tracking-[0.28em]"
+            autocomplete="one-time-code"
+            required
+          />
         </div>
         <button type="submit" class="btn-primary w-full"><%= t('portal.login.submit') %></button>
       </form>

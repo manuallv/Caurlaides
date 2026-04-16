@@ -19,6 +19,13 @@ function errorHandler(error, req, res, next) {
     console.error(error);
   }
 
+  if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.xhr) {
+    return res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+
   res.status(statusCode).render('errors/error', {
     pageTitle: req.t('errors.generic.title'),
     statusCode,

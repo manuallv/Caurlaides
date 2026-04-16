@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('multer');
 const { asyncHandler } = require('../../../shared/utils/async-handler');
 const { validateRequest } = require('../middleware/validate');
 const {
@@ -9,37 +10,53 @@ const {
 
 function buildPublicAccessRoutes({ accessController }) {
   const router = express.Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 2 * 1024 * 1024,
+    },
+  });
 
-  router.get('/portal/:publicSlug', asyncHandler(accessController.showPortalLogin));
+  router.get('/p', asyncHandler(accessController.showPortalLogin));
+  router.post('/p/access', portalCodeValidator, validateRequest, asyncHandler(accessController.authorizePortal));
+  router.get('/p/manage', asyncHandler(accessController.showPortal));
+  router.post('/p/logout', asyncHandler(accessController.logoutPortal));
+  router.get('/p/import/template', asyncHandler(accessController.downloadImportTemplate));
   router.post(
-    '/portal/:publicSlug/access',
-    portalCodeValidator,
-    validateRequest,
-    asyncHandler(accessController.authorizePortal),
+    '/p/import/preview',
+    upload.single('excelFile'),
+    asyncHandler(accessController.previewPortalImport),
   );
-  router.get('/portal/:publicSlug/manage', asyncHandler(accessController.showPortal));
-  router.post('/portal/:publicSlug/logout', asyncHandler(accessController.logoutPortal));
+  router.post('/p/import/commit', asyncHandler(accessController.commitPortalImport));
 
   router.post(
-    '/portal/:publicSlug/:type',
+    '/p/:type',
     accessTypeParamValidator,
     portalRequestValidator,
     validateRequest,
     asyncHandler(accessController.createPortalRequest),
   );
   router.put(
-    '/portal/:publicSlug/:type/:requestId',
+    '/p/:type/:requestId',
     accessTypeParamValidator,
     portalRequestValidator,
     validateRequest,
     asyncHandler(accessController.updatePortalRequest),
   );
   router.delete(
-    '/portal/:publicSlug/:type/:requestId',
+    '/p/:type/:requestId',
     accessTypeParamValidator,
     validateRequest,
     asyncHandler(accessController.destroyPortalRequest),
   );
+
+  router.get('/portal/:publicSlug', accessController.redirectLegacyPortal);
+  router.get('/portal/:publicSlug/manage', accessController.redirectLegacyPortal);
+  router.post('/portal/:publicSlug/access', accessController.redirectLegacyPortal);
+  router.post('/portal/:publicSlug/logout', accessController.redirectLegacyPortal);
+  router.post('/portal/:publicSlug/:type', accessController.redirectLegacyPortal);
+  router.put('/portal/:publicSlug/:type/:requestId', accessController.redirectLegacyPortal);
+  router.delete('/portal/:publicSlug/:type/:requestId', accessController.redirectLegacyPortal);
 
   return router;
 }

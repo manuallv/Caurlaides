@@ -1,4 +1,7 @@
-const { PUBLIC_PORTAL_SESSION_KEY } = require('../../../application/services/AccessService');
+const {
+  PUBLIC_PORTAL_IMPORTS_KEY,
+  PUBLIC_PORTAL_SESSION_KEY,
+} = require('../../../application/services/AccessService');
 const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
 
 function normalizeCategoryPayload(body) {
@@ -48,6 +51,26 @@ function normalizeRequestPayload(body) {
     email: body.email,
     notes: body.notes,
   };
+}
+
+function isAsyncRequest(req) {
+  return req.get('X-Requested-With') === 'XMLHttpRequest' || req.xhr;
+}
+
+function sendMutationResponse(req, res, { redirectTo, message, payload = {} }) {
+  if (isAsyncRequest(req)) {
+    return res.json({
+      success: true,
+      message,
+      ...payload,
+    });
+  }
+
+  if (message) {
+    req.flash('success', message);
+  }
+
+  return res.redirect(redirectTo);
 }
 
 function buildAccessController({ categoryService, accessService }) {
@@ -222,35 +245,31 @@ function buildAccessController({ categoryService, accessService }) {
     },
 
     async showPortalLogin(req, res) {
-      const profile = await accessService.getPortalLoginPage(req.params.publicSlug);
+      const entry = await accessService.getPortalLoginPage();
 
       return res.render('public-portal/login', {
-        pageTitle: `${profile.name} · ${req.t('portal.login.title')}`,
-        profile,
+        pageTitle: req.t('portal.login.title'),
+        portalEntry: entry,
         layout: 'layout',
+        isPublicPortal: true,
       });
     },
 
     async authorizePortal(req, res) {
-      await accessService.authorizePublicProfile(
-        req.params.publicSlug,
-        req.body.accessCode,
-        req.session,
-        req.t,
-      );
+      await accessService.authorizePublicProfile(req.body.accessCode, req.session, req.t);
 
-      req.flash('success', req.t('flash.portalAccessGranted'));
-      return res.redirect(`/portal/${req.params.publicSlug}/manage`);
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p/manage',
+        message: req.t('flash.portalAccessGranted'),
+      });
     },
 
     async showPortal(req, res) {
-      const portalSession = req.session[PUBLIC_PORTAL_SESSION_KEY] || {};
-
-      if (Number(portalSession[req.params.publicSlug] || 0) <= 0) {
-        return res.redirect(`/portal/${req.params.publicSlug}`);
+      if (Number(req.session[PUBLIC_PORTAL_SESSION_KEY] || 0) <= 0) {
+        return res.redirect('/p');
       }
 
-      const data = await accessService.getPublicPortal(req.params.publicSlug, req.session, req.t);
+      const data = await accessService.getPublicPortal(req.session, req.t);
 
       return res.render('public-portal/manage', {
         pageTitle: `${data.profile.name} · ${req.t('portal.manage.title')}`,
@@ -263,12 +282,37 @@ function buildAccessController({ categoryService, accessService }) {
         canCreateWristbandRequests: data.canCreateWristbandRequests,
         passRequests: data.passRequests,
         wristbandRequests: data.wristbandRequests,
+        combinedRequests: data.combinedRequests,
+        portalClientState: {
+          passQuotaUsage: data.passQuotaUsage,
+          wristbandQuotaUsage: data.wristbandQuotaUsage,
+          ui: {
+            noAvailableCategories: req.t('portal.import.noAvailableCategories'),
+            editRequestTitle: req.t('portal.modal.editRequest'),
+            addPassTitle: req.t('portal.modal.addPass'),
+            addWristbandTitle: req.t('portal.modal.addWristband'),
+            addRequest: req.t('portal.addRequest'),
+            saveRequest: req.t('portal.saveRequest'),
+            importPassTitle: req.t('portal.modal.importPass'),
+            importWristbandTitle: req.t('portal.modal.importWristband'),
+            previewRows: req.t('portal.import.preview.rows'),
+            previewValidRows: req.t('portal.import.preview.validRows'),
+            previewRowColumn: req.t('portal.import.preview.row'),
+            previewNameColumn: req.t('portal.import.preview.name'),
+            previewPhoneColumn: req.t('portal.import.preview.phone'),
+            previewCompanyColumn: req.t('portal.import.preview.company'),
+            previewEmailColumn: req.t('portal.import.preview.email'),
+            previewValidationColumn: req.t('portal.import.preview.validation'),
+            previewOk: req.t('portal.import.preview.ok'),
+          },
+        },
+        portalEventRoom: data.profile.event_id,
+        isPublicPortal: true,
       });
     },
 
     async createPortalRequest(req, res) {
       const eventId = await accessService.createPortalRequest(
-        req.params.publicSlug,
         req.session,
         req.params.type,
         normalizeRequestPayload(req.body),
@@ -276,13 +320,14 @@ function buildAccessController({ categoryService, accessService }) {
       );
 
       emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
-      req.flash('success', req.t('flash.portalRequestCreated'));
-      return res.redirect(`/portal/${req.params.publicSlug}/manage`);
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p/manage',
+        message: req.t('flash.portalRequestCreated'),
+      });
     },
 
     async updatePortalRequest(req, res) {
       const eventId = await accessService.updatePortalRequest(
-        req.params.publicSlug,
         req.session,
         req.params.type,
         req.params.requestId,
@@ -291,13 +336,14 @@ function buildAccessController({ categoryService, accessService }) {
       );
 
       emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
-      req.flash('success', req.t('flash.portalRequestUpdated'));
-      return res.redirect(`/portal/${req.params.publicSlug}/manage`);
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p/manage',
+        message: req.t('flash.portalRequestUpdated'),
+      });
     },
 
     async destroyPortalRequest(req, res) {
       const eventId = await accessService.deletePortalRequest(
-        req.params.publicSlug,
         req.session,
         req.params.type,
         req.params.requestId,
@@ -305,14 +351,74 @@ function buildAccessController({ categoryService, accessService }) {
       );
 
       emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
-      req.flash('success', req.t('flash.portalRequestDeleted'));
-      return res.redirect(`/portal/${req.params.publicSlug}/manage`);
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p/manage',
+        message: req.t('flash.portalRequestDeleted'),
+      });
     },
 
     async logoutPortal(req, res) {
-      await accessService.clearPublicProfileAccess(req.params.publicSlug, req.session);
-      req.flash('success', req.t('flash.portalLoggedOut'));
-      return res.redirect(`/portal/${req.params.publicSlug}`);
+      await accessService.clearPublicProfileAccess(req.session);
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p',
+        message: req.t('flash.portalLoggedOut'),
+        payload: {
+          redirectTo: '/p',
+        },
+      });
+    },
+
+    async downloadImportTemplate(req, res) {
+      const template = await accessService.buildImportTemplate(
+        req.session,
+        req.query.type,
+        req.query.categoryId,
+        req.t,
+      );
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', `attachment; filename=\"${template.filename}\"`);
+      return res.send(template.buffer);
+    },
+
+    async previewPortalImport(req, res) {
+      const preview = await accessService.previewPortalImport(
+        req.session,
+        req.body.type,
+        req.body.categoryId,
+        req.file,
+        req.t,
+      );
+
+      return res.json({
+        success: true,
+        preview,
+      });
+    },
+
+    async commitPortalImport(req, res) {
+      const result = await accessService.commitPortalImport(req.session, req.body.token, req.t);
+
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      return sendMutationResponse(req, res, {
+        redirectTo: '/p/manage',
+        message: req.t('flash.portalImportCreated', { count: result.importedCount }),
+        payload: {
+          importedCount: result.importedCount,
+        },
+      });
+    },
+
+    redirectLegacyPortal(req, res) {
+      if (Number(req.session[PUBLIC_PORTAL_SESSION_KEY] || 0) > 0) {
+        return res.redirect('/p/manage');
+      }
+
+      delete req.session[PUBLIC_PORTAL_IMPORTS_KEY];
+      return res.redirect('/p');
     },
   };
 }
