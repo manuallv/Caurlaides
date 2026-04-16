@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS request_profiles (
   event_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(160) NOT NULL,
   public_slug CHAR(36) NOT NULL,
+  access_code VARCHAR(32) NULL,
   access_code_hash VARCHAR(255) NOT NULL,
   max_people INT UNSIGNED NOT NULL DEFAULT 1,
   notes TEXT NULL,
@@ -135,6 +136,7 @@ CREATE TABLE IF NOT EXISTS request_profiles (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_request_profiles_public_slug (public_slug),
+  UNIQUE KEY uq_request_profiles_access_code (access_code),
   KEY idx_request_profiles_event_id (event_id),
   CONSTRAINT fk_request_profiles_event
     FOREIGN KEY (event_id) REFERENCES events (id)

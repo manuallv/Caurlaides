@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const dayjs = require('dayjs');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
+const { env } = require('../../config/env');
 const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
@@ -49,6 +50,29 @@ function withRemainingQuota(quotaUsage = []) {
   });
 }
 
+function buildQuotaTotals(quotaUsage = []) {
+  return quotaUsage.reduce(
+    (totals, entry) => {
+      totals.quota += Number(entry.quota || 0);
+      totals.used += Number(entry.used_count || 0);
+      totals.remaining += Number(entry.remaining_count || 0);
+      return totals;
+    },
+    {
+      quota: 0,
+      used: 0,
+      remaining: 0,
+    },
+  );
+}
+
+function buildQuotaMap(quotaUsage = []) {
+  return quotaUsage.reduce((map, entry) => {
+    map[entry.category_id] = Number(entry.quota || 0);
+    return map;
+  }, {});
+}
+
 function buildCombinedRequests(passRequests = [], wristbandRequests = []) {
   return [...passRequests, ...wristbandRequests]
     .sort((left, right) => {
@@ -60,6 +84,15 @@ function buildCombinedRequests(passRequests = [], wristbandRequests = []) {
       ...request,
       requestTypeLabel: translate(DEFAULT_LOCALE, `nav.${request.request_type === 'pass' ? 'passes' : 'wristbands'}`),
     }));
+}
+
+function normalizeAccessCode(accessCode) {
+  return String(accessCode || '').trim().toUpperCase();
+}
+
+function buildInviteUrl(accessCode) {
+  const baseUrl = env.appUrl.replace(/\/$/, '');
+  return `${baseUrl}/p/${encodeURIComponent(accessCode)}`;
 }
 
 function normalizeImportHeader(header = '') {
@@ -127,6 +160,50 @@ class AccessService {
     return crypto.randomBytes(4).toString('hex').slice(0, 8).toUpperCase();
   }
 
+  async generateUniqueAccessCode() {
+    for (let index = 0; index < 12; index += 1) {
+      const accessCode = normalizeAccessCode(this.generateAccessCode());
+      const existingProfile = await this.requestProfileRepository.findByAccessCode(accessCode);
+
+      if (!existingProfile) {
+        return accessCode;
+      }
+    }
+
+    throw new Error('Unable to generate a unique access code');
+  }
+
+  async ensureRequestProfileAccessCode(profile) {
+    if (profile.access_code) {
+      return profile;
+    }
+
+    const accessCode = await this.generateUniqueAccessCode();
+    const accessCodeHash = await hashPassword(accessCode);
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.requestProfileRepository.updateAccessCode(connection, profile.id, {
+        accessCode,
+        accessCodeHash,
+        userId: null,
+      });
+      await connection.commit();
+
+      return {
+        ...profile,
+        access_code: accessCode,
+        access_code_hash: accessCodeHash,
+      };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
     const categories = await this.categoryRepository.listByEvent(eventId, type);
@@ -165,15 +242,26 @@ class AccessService {
     const profiles = await this.requestProfileRepository.listByEvent(eventId);
 
     const enrichedProfiles = await Promise.all(
-      profiles.map(async (profile) => ({
-        ...profile,
-        passQuotaUsage: withRemainingQuota(
+      profiles.map(async (rawProfile) => {
+        const profile = await this.ensureRequestProfileAccessCode(rawProfile);
+        const passQuotaUsage = withRemainingQuota(
           await this.requestRepository.listQuotaUsage(profile.id, 'pass'),
-        ),
-        wristbandQuotaUsage: withRemainingQuota(
+        );
+        const wristbandQuotaUsage = withRemainingQuota(
           await this.requestRepository.listQuotaUsage(profile.id, 'wristband'),
-        ),
-      })),
+        );
+
+        return {
+          ...profile,
+          invite_url: buildInviteUrl(profile.access_code),
+          passQuotaUsage,
+          wristbandQuotaUsage,
+          passTotals: buildQuotaTotals(passQuotaUsage),
+          wristbandTotals: buildQuotaTotals(wristbandQuotaUsage),
+          passQuotaMap: buildQuotaMap(passQuotaUsage),
+          wristbandQuotaMap: buildQuotaMap(wristbandQuotaUsage),
+        };
+      }),
     );
 
     return {
@@ -199,7 +287,7 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
-    const accessCode = this.generateAccessCode();
+    const accessCode = await this.generateUniqueAccessCode();
     const accessCodeHash = await hashPassword(accessCode);
     const maxPeople = [...passQuotas, ...wristbandQuotas].reduce((sum, entry) => sum + entry.quota, 0) || 1;
 
@@ -213,6 +301,7 @@ class AccessService {
         userId: actorId,
         name: payload.name,
         publicSlug: uuidv4(),
+        accessCode,
         accessCodeHash,
         maxPeople,
         notes: payload.notes || null,
@@ -373,7 +462,7 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.notFound'), 404);
     }
 
-    const accessCode = this.generateAccessCode();
+    const accessCode = await this.generateUniqueAccessCode();
     const accessCodeHash = await hashPassword(accessCode);
     const connection = await this.pool.getConnection();
 
@@ -381,6 +470,7 @@ class AccessService {
       await connection.beginTransaction();
 
       await this.requestProfileRepository.updateAccessCode(connection, profileId, {
+        accessCode,
         accessCodeHash,
         userId: actorId,
       });
@@ -458,15 +548,25 @@ class AccessService {
 
   async authorizePublicProfile(accessCode, session, t) {
     const tx = resolveTranslate(t);
-    const profiles = await this.requestProfileRepository.listActivePortals();
+    const normalizedCode = normalizeAccessCode(accessCode);
     let matchedProfile = null;
 
-    for (const profile of profiles) {
-      const isValid = await comparePassword(accessCode, profile.access_code_hash);
+    if (!normalizedCode) {
+      throw new AppError(tx('service.portal.codeInvalid'), 422);
+    }
 
-      if (isValid) {
-        matchedProfile = profile;
-        break;
+    matchedProfile = await this.requestProfileRepository.findActivePortalByAccessCode(normalizedCode);
+
+    if (!matchedProfile) {
+      const profiles = await this.requestProfileRepository.listActivePortals();
+
+      for (const profile of profiles) {
+        const isValid = await comparePassword(normalizedCode, profile.access_code_hash);
+
+        if (isValid) {
+          matchedProfile = profile;
+          break;
+        }
       }
     }
 

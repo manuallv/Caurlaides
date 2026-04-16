@@ -22,6 +22,7 @@ function buildPublicAccessRoutes({ accessController }) {
   router.get('/p/manage', asyncHandler(accessController.showPortal));
   router.post('/p/logout', asyncHandler(accessController.logoutPortal));
   router.get('/p/import/template', asyncHandler(accessController.downloadImportTemplate));
+  router.get('/p/:accessCode', asyncHandler(accessController.authorizePortalFromLink));
   router.post(
     '/p/import/preview',
     upload.single('excelFile'),

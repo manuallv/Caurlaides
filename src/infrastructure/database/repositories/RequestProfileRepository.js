@@ -34,6 +34,7 @@ class RequestProfileRepository {
           rp.event_id,
           rp.name,
           rp.public_slug,
+          rp.access_code,
           rp.max_people,
           rp.notes,
           rp.is_active,
@@ -58,6 +59,7 @@ class RequestProfileRepository {
           rp.event_id,
           rp.name,
           rp.public_slug,
+          rp.access_code,
           rp.access_code_hash,
           rp.max_people,
           rp.notes,
@@ -83,6 +85,7 @@ class RequestProfileRepository {
           rp.event_id,
           rp.name,
           rp.public_slug,
+          rp.access_code,
           rp.access_code_hash,
           rp.max_people,
           rp.notes,
@@ -113,6 +116,7 @@ class RequestProfileRepository {
           rp.event_id,
           rp.name,
           rp.public_slug,
+          rp.access_code,
           rp.access_code_hash,
           rp.max_people,
           rp.notes,
@@ -143,6 +147,7 @@ class RequestProfileRepository {
           rp.event_id,
           rp.name,
           rp.public_slug,
+          rp.access_code,
           rp.access_code_hash,
           rp.max_people,
           rp.notes,
@@ -171,6 +176,7 @@ class RequestProfileRepository {
           event_id,
           name,
           public_slug,
+          access_code,
           access_code_hash,
           max_people,
           notes,
@@ -179,12 +185,13 @@ class RequestProfileRepository {
           created_by_user_id,
           updated_by_user_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         payload.eventId,
         payload.name,
         payload.publicSlug,
+        payload.accessCode,
         payload.accessCodeHash,
         payload.maxPeople,
         payload.notes,
@@ -228,12 +235,71 @@ class RequestProfileRepository {
       `
         UPDATE request_profiles
         SET
+          access_code = ?,
           access_code_hash = ?,
           updated_by_user_id = ?
         WHERE id = ?
       `,
-      [payload.accessCodeHash, payload.userId, profileId],
+      [payload.accessCode, payload.accessCodeHash, payload.userId, profileId],
     );
+  }
+
+  async findByAccessCode(accessCode) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.created_at,
+          rp.updated_at
+        FROM request_profiles rp
+        WHERE rp.access_code = ?
+        LIMIT 1
+      `,
+      [accessCode],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findActivePortalByAccessCode(accessCode) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.created_at,
+          rp.updated_at,
+          e.name AS event_name,
+          e.status AS event_status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline
+        FROM request_profiles rp
+        INNER JOIN events e ON e.id = rp.event_id
+        WHERE rp.access_code = ?
+          AND rp.is_active = 1
+        LIMIT 1
+      `,
+      [accessCode],
+    );
+
+    return rows[0] || null;
   }
 
   async delete(profileId) {

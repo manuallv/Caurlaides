@@ -173,6 +173,204 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  const copyTextToClipboard = async (value) => {
+    const text = String(value || '').trim();
+
+    if (!text) {
+      return false;
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', 'readonly');
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    textArea.remove();
+    return true;
+  };
+
+  const getRequestProfileState = () => {
+    const stateNode = document.getElementById('request-profile-state');
+
+    if (!stateNode) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(stateNode.textContent);
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getRequestProfileElements = () => ({
+    app: document.querySelector('[data-request-profile-app]'),
+    form: document.getElementById('request-profile-form'),
+    methodHolder: document.querySelector('[data-request-profile-method-holder]'),
+    title: document.querySelector('[data-request-profile-title]'),
+    description: document.querySelector('[data-request-profile-description]'),
+    submitLabel: document.querySelector('[data-request-profile-submit-label]'),
+    resetButton: document.querySelector('[data-request-profile-reset]'),
+    activeInput: document.querySelector('[data-request-profile-active]'),
+    statusChip: document.querySelector('[data-request-profile-status]'),
+    meta: document.querySelector('[data-request-profile-meta]'),
+    codeInput: document.querySelector('[data-request-profile-code]'),
+    inviteInput: document.querySelector('[data-request-profile-invite-link]'),
+    copyCurrentButton: document.querySelector('[data-request-profile-copy-current]'),
+    regenerateForm: document.querySelector('[data-request-profile-regenerate-form]'),
+    deleteForm: document.querySelector('[data-request-profile-delete-form]'),
+    searchInput: document.querySelector('[data-request-profile-search]'),
+    rows: [...document.querySelectorAll('[data-request-profile-row]')],
+    emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
+  });
+
+  const getRequestProfileUi = () => getRequestProfileState()?.ui || {};
+
+  const updateRequestProfileEmptyState = () => {
+    const { rows, emptyRows, searchInput } = getRequestProfileElements();
+
+    if (!emptyRows.length) {
+      return;
+    }
+
+    emptyRows.forEach((row) => {
+      row.classList.add('hidden');
+    });
+
+    if (!rows.length) {
+      emptyRows[0]?.classList.remove('hidden');
+      return;
+    }
+
+    const visibleRows = rows.filter((row) => row.style.display !== 'none');
+
+    if (!visibleRows.length && searchInput?.value.trim()) {
+      emptyRows[1]?.classList.remove('hidden');
+    }
+  };
+
+  const fillRequestProfileQuotaInputs = (prefix, quotaMap = {}) => {
+    const { form } = getRequestProfileElements();
+
+    if (!form) {
+      return;
+    }
+
+    form.querySelectorAll(`input[name^="${prefix}Quota["]`).forEach((input) => {
+      const match = input.name.match(/\[(\d+)\]/);
+      const categoryId = match ? match[1] : null;
+      input.value = categoryId ? Number(quotaMap[categoryId] || 0) : 0;
+    });
+  };
+
+  const resetRequestProfileForm = () => {
+    const state = getRequestProfileState();
+    const elements = getRequestProfileElements();
+    const ui = getRequestProfileUi();
+
+    if (!elements.form || !state) {
+      return;
+    }
+
+    elements.form.reset();
+    elements.form.action = state.createAction;
+    elements.methodHolder.innerHTML = '';
+    elements.title.textContent = ui.createTitle || 'Add new profile';
+    elements.description.textContent = ui.createDescription || '';
+    elements.submitLabel.textContent = ui.createButton || 'Create profile';
+    elements.statusChip.textContent = ui.activeStatus || 'Active';
+    elements.statusChip.className = 'status-active request-profile-editor__status';
+    elements.activeInput.checked = true;
+    elements.meta.classList.add('hidden');
+    elements.codeInput.value = '';
+    elements.inviteInput.value = '';
+    elements.copyCurrentButton.dataset.copyText = '';
+    elements.resetButton.classList.add('hidden');
+    elements.regenerateForm.classList.add('hidden');
+    elements.deleteForm.classList.add('hidden');
+    fillRequestProfileQuotaInputs('pass');
+    fillRequestProfileQuotaInputs('wristband');
+  };
+
+  const populateRequestProfileForm = (profileId) => {
+    const state = getRequestProfileState();
+    const elements = getRequestProfileElements();
+    const ui = getRequestProfileUi();
+
+    if (!state || !elements.form) {
+      return;
+    }
+
+    const profile = (state.profiles || []).find((entry) => Number(entry.id) === Number(profileId));
+
+    if (!profile) {
+      return;
+    }
+
+    resetRequestProfileForm();
+    elements.form.action = `${state.createAction}/${profile.id}`;
+    elements.title.textContent = ui.editTitle || 'Edit profile';
+    elements.description.textContent = ui.editDescription || '';
+    elements.submitLabel.textContent = ui.saveButton || 'Save profile';
+    elements.form.elements.name.value = profile.name || '';
+    elements.form.elements.notes.value = profile.notes || '';
+    elements.activeInput.checked = Boolean(profile.isActive);
+    elements.statusChip.textContent = profile.isActive
+      ? (ui.activeStatus || 'Active')
+      : (ui.inactiveStatus || 'Inactive');
+    elements.statusChip.className = `request-profile-editor__status ${profile.isActive ? 'status-active' : 'status-archived'}`;
+    elements.meta.classList.remove('hidden');
+    elements.codeInput.value = profile.accessCode || '';
+    elements.inviteInput.value = profile.inviteUrl || '';
+    elements.copyCurrentButton.dataset.copyText = profile.inviteUrl || '';
+    elements.resetButton.classList.remove('hidden');
+    elements.regenerateForm.classList.remove('hidden');
+    elements.regenerateForm.action = `${state.createAction}/${profile.id}/regenerate-code`;
+    elements.deleteForm.classList.remove('hidden');
+    elements.deleteForm.action = `${state.createAction}/${profile.id}`;
+    fillRequestProfileQuotaInputs('pass', profile.passQuotaMap);
+    fillRequestProfileQuotaInputs('wristband', profile.wristbandQuotaMap);
+
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'PUT';
+    elements.methodHolder.innerHTML = '';
+    elements.methodHolder.appendChild(methodInput);
+    elements.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const filterRequestProfileRows = () => {
+    const { rows, searchInput } = getRequestProfileElements();
+    const query = String(searchInput?.value || '').trim().toLowerCase();
+
+    rows.forEach((row) => {
+      const haystack = row.dataset.searchIndex || '';
+      row.style.display = !query || haystack.includes(query) ? '' : 'none';
+    });
+
+    updateRequestProfileEmptyState();
+  };
+
+  const initializeRequestProfileUI = () => {
+    const elements = getRequestProfileElements();
+
+    if (!elements.app) {
+      return;
+    }
+
+    resetRequestProfileForm();
+    filterRequestProfileRows();
+  };
+
   const getAccessElements = () => ({
     workspace: document.querySelector('[data-access-workspace]'),
     viewTabs: [...document.querySelectorAll('[data-access-view-tab]')],
@@ -598,6 +796,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
+    const copyTrigger = event.target.closest('[data-copy-text]');
+
+    if (copyTrigger) {
+      try {
+        const copied = await copyTextToClipboard(copyTrigger.dataset.copyText || '');
+
+        if (!copied) {
+          return;
+        }
+
+        showLiveNotice(
+          copyTrigger.dataset.copySuccessMessage || getRequestProfileUi().copySuccess || 'Copied',
+          'success',
+        );
+      } catch (error) {
+        showLiveNotice(error.message || 'Copy failed', 'error');
+      }
+      return;
+    }
+
+    const requestProfileEditTrigger = event.target.closest('[data-request-profile-edit]');
+
+    if (requestProfileEditTrigger) {
+      populateRequestProfileForm(requestProfileEditTrigger.dataset.profileId);
+      return;
+    }
+
+    const requestProfileResetTrigger = event.target.closest('[data-request-profile-reset]');
+
+    if (requestProfileResetTrigger) {
+      resetRequestProfileForm();
+      return;
+    }
+
     const accessViewTrigger = event.target.closest('[data-access-view-tab]');
 
     if (accessViewTrigger) {
@@ -733,6 +965,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.addEventListener('input', (event) => {
+    if (event.target.matches('[data-request-profile-search]')) {
+      filterRequestProfileRows();
+    }
+  });
+
   document.addEventListener('submit', async (event) => {
     const form = event.target;
 
@@ -823,8 +1061,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('codex:live-sections-refreshed', () => {
     initializeAccessUI();
     initializePortalUI();
+    initializeRequestProfileUI();
   });
 
   initializeAccessUI();
   initializePortalUI();
+  initializeRequestProfileUI();
 });

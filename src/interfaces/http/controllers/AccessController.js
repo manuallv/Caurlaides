@@ -73,6 +73,19 @@ function sendMutationResponse(req, res, { redirectTo, message, payload = {} }) {
   return res.redirect(redirectTo);
 }
 
+function saveSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
 function buildAccessController({ categoryService, accessService }) {
   return {
     async showTypePage(req, res) {
@@ -263,11 +276,27 @@ function buildAccessController({ categoryService, accessService }) {
 
     async authorizePortal(req, res) {
       await accessService.authorizePublicProfile(req.body.accessCode, req.session, req.t);
+      await saveSession(req);
 
       return sendMutationResponse(req, res, {
         redirectTo: '/p/manage',
         message: req.t('flash.portalAccessGranted'),
       });
+    },
+
+    async authorizePortalFromLink(req, res) {
+      try {
+        await accessService.authorizePublicProfile(req.params.accessCode, req.session, req.t);
+        await saveSession(req);
+        return res.redirect('/p/manage');
+      } catch (error) {
+        if (!error.statusCode || error.statusCode >= 500) {
+          throw error;
+        }
+
+        req.flash('error', req.t('service.portal.codeInvalid'));
+        return res.redirect('/p');
+      }
     },
 
     async showPortal(req, res) {
@@ -366,16 +395,7 @@ function buildAccessController({ categoryService, accessService }) {
 
     async logoutPortal(req, res) {
       await accessService.clearPublicProfileAccess(req.session);
-      await new Promise((resolve, reject) => {
-        req.session.save((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-
-          resolve();
-        });
-      });
+      await saveSession(req);
       return sendMutationResponse(req, res, {
         redirectTo: '/p',
         message: req.t('flash.portalLoggedOut'),
