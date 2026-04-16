@@ -8,7 +8,7 @@
         <p><%= t('portal.manage.description') %></p>
       </div>
 
-      <form action="/p/logout" method="POST" data-live-form class="portal-summary-card__logout">
+      <form action="/p/logout" method="POST" class="portal-summary-card__logout">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <button type="submit" class="btn-secondary"><%= t('portal.logout') %></button>
       </form>

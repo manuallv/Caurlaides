@@ -364,6 +364,16 @@ function buildAccessController({ categoryService, accessService }) {
 
     async logoutPortal(req, res) {
       await accessService.clearPublicProfileAccess(req.session);
+      await new Promise((resolve, reject) => {
+        req.session.save((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
       return sendMutationResponse(req, res, {
         redirectTo: '/p',
         message: req.t('flash.portalLoggedOut'),
