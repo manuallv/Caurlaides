@@ -196,17 +196,13 @@ const portalRequestValidator = [
     .isLength({ min: 2, max: 160 })
     .withMessage((value, { req }) => req.t('validation.portal.fullName', { min: 2, max: 160 })),
   body('companyName')
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage((value, { req }) => req.t('validation.portal.companyNameRequired'))
-    .bail()
     .isLength({ min: 2, max: 160 })
     .withMessage((value, { req }) => req.t('validation.portal.companyNameLength', { min: 2, max: 160 })),
   body('phone')
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage((value, { req }) => req.t('validation.portal.phoneRequired'))
-    .bail()
     .isLength({ min: 3, max: 40 })
     .withMessage((value, { req }) => req.t('validation.portal.phoneLength', { min: 3, max: 40 })),
   body('email')

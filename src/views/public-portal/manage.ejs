@@ -185,7 +185,7 @@
                               data-request-type="<%= request.request_type %>"
                               data-category-id="<%= request.category_id %>"
                               data-full-name="<%= request.full_name %>"
-                              data-company-name="<%= request.company_name || profile.name %>"
+                              data-company-name="<%= request.company_name || '' %>"
                               data-phone="<%= request.phone || '' %>"
                               data-email="<%= request.email || '' %>"
                               data-notes="<%= request.notes || '' %>"
@@ -224,11 +224,11 @@
               </div>
               <div>
                 <label class="field-label"><%= t('portal.fields.phone') %></label>
-                <input name="phone" type="text" class="field-input" required />
+                <input name="phone" type="text" class="field-input" />
               </div>
               <div>
                 <label class="field-label"><%= t('portal.fields.company') %></label>
-                <input name="companyName" type="text" class="field-input" value="<%= profile.name %>" required />
+                <input name="companyName" type="text" class="field-input" />
               </div>
               <div>
                 <label class="field-label"><%= t('field.email') %></label>
