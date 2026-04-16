@@ -101,8 +101,7 @@ class RequestRepository {
         LEFT JOIN users status_updated_by ON status_updated_by.id = request.status_updated_by_user_id
         WHERE ${where.join(' AND ')}
         ORDER BY
-          FIELD(request.status, 'pending', 'handed_out', 'approved', 'rejected', 'returned', 'finalized'),
-          request.updated_at DESC,
+          request.created_at DESC,
           request.id DESC
       `,
       params,

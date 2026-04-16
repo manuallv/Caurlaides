@@ -321,7 +321,7 @@ function buildAccessController({ categoryService, accessService }) {
 
     async updateRequestStatus(req, res) {
       const type = resolveAccessType(req);
-      const event = await accessService.updateRequestStatus(
+      const result = await accessService.updateRequestStatus(
         req.params.eventId,
         req.params.requestId,
         req.currentUser.id,
@@ -330,12 +330,26 @@ function buildAccessController({ categoryService, accessService }) {
         req.t,
       );
 
-      emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
-        eventId: event.id,
+      emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
+        eventId: result.event.id,
       });
       return sendMutationResponse(req, res, {
-        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        redirectTo: `/events/${result.event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
         message: req.t('flash.requestStatusUpdated'),
+        payload: {
+          liveStatusUpdate: {
+            requestId: Number(req.params.requestId),
+            status: result.request.status,
+            statusLabel: req.t(`statuses.${result.request.status}`),
+            statusTone: result.request.status === 'handed_out' ? 'active' : 'pending',
+            statusUpdatedAtLabel: res.locals.helpers.formatDateTime(result.request.status_updated_at),
+            updatedByName: req.currentUser.full_name || '',
+            nextStatus: result.request.status === 'handed_out' ? 'pending' : 'handed_out',
+            nextStatusLabel: req.t(`statuses.${result.request.status === 'handed_out' ? 'pending' : 'handed_out'}`),
+            nextStatusTone: result.request.status === 'handed_out' ? 'secondary' : 'primary',
+            summary: result.summary,
+          },
+        },
       });
     },
 

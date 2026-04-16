@@ -641,7 +641,14 @@ class AccessService {
       }),
     });
 
-    return event;
+    const request = await this.requestRepository.findById(type, requestId);
+    const summary = await this.requestRepository.getAdminSummary(eventId, type);
+
+    return {
+      event,
+      request,
+      summary,
+    };
   }
 
   async createAdminRequest(eventId, actorId, type, payload, t) {

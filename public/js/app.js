@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let refreshInProgress = false;
   let liveFilterTimer = null;
   let activeRefreshController = null;
+  let suppressSocketRefreshUntil = 0;
   let portalTableSearchQuery = '';
   let portalTableSortField = 'updated';
   let portalTableSortDirection = 'desc';
@@ -198,6 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (payload?.message) {
       showLiveNotice(payload.message, 'success');
+    }
+
+    if (payload?.liveStatusUpdate && form.matches('[data-request-status-form]')) {
+      applyAccessStatusUpdate(payload.liveStatusUpdate);
+      suppressSocketRefreshUntil = Date.now() + 1800;
+      return;
     }
 
     await refreshLiveSections();
@@ -501,6 +508,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+  };
+
+  const updateAccessSummary = (summary = {}) => {
+    const totalNode = document.querySelector('[data-access-summary-total]');
+    const pendingNode = document.querySelector('[data-access-summary-pending]');
+    const handedOutNode = document.querySelector('[data-access-summary-handed-out]');
+
+    if (totalNode && typeof summary.totalRequests !== 'undefined') {
+      totalNode.textContent = summary.totalRequests;
+    }
+
+    if (pendingNode && typeof summary.pendingRequests !== 'undefined') {
+      pendingNode.textContent = summary.pendingRequests;
+    }
+
+    if (handedOutNode && typeof summary.handedOutRequests !== 'undefined') {
+      handedOutNode.textContent = summary.handedOutRequests;
+    }
+  };
+
+  const applyAccessStatusUpdate = (payload = {}) => {
+    const row = document.querySelector(`[data-request-row-id="${escapeSelector(payload.requestId)}"]`);
+
+    if (!row) {
+      return;
+    }
+
+    row.dataset.requestStatus = payload.status || '';
+
+    const statusBadge = row.querySelector('[data-request-status-badge]');
+    const statusTime = row.querySelector('[data-request-status-time]');
+    const updatedBy = row.querySelector('[data-request-updated-by]');
+    const statusForm = row.querySelector('[data-request-status-form]');
+    const statusInput = row.querySelector('[data-request-status-input]');
+    const statusButton = row.querySelector('[data-request-status-button]');
+
+    if (statusBadge) {
+      statusBadge.textContent = payload.statusLabel || '';
+      statusBadge.classList.remove('status-active', 'status-pending');
+      statusBadge.classList.add(payload.statusTone === 'active' ? 'status-active' : 'status-pending');
+    }
+
+    if (statusTime) {
+      statusTime.textContent = payload.statusUpdatedAtLabel || '';
+    }
+
+    if (updatedBy) {
+      updatedBy.textContent = payload.updatedByName || '';
+    }
+
+    if (statusInput) {
+      statusInput.value = payload.nextStatus || 'pending';
+    }
+
+    if (statusButton) {
+      statusButton.textContent = payload.nextStatusLabel || '';
+      statusButton.classList.remove('access-mini-button--primary', 'access-mini-button--secondary');
+      statusButton.classList.add(
+        payload.nextStatusTone === 'primary'
+          ? 'access-mini-button--primary'
+          : 'access-mini-button--secondary',
+      );
+    }
+
+    if (statusForm) {
+      statusForm.dataset.currentStatus = payload.status || '';
+    }
+
+    updateAccessSummary(payload.summary || {});
   };
 
   const closeAccessRequestModal = () => {
@@ -1221,6 +1297,10 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('event:join', eventRoom);
 
     socket.on('dashboard:refresh', async () => {
+      if (Date.now() < suppressSocketRefreshUntil) {
+        return;
+      }
+
       if (refreshInProgress) {
         return;
       }
