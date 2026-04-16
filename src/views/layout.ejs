@@ -53,7 +53,7 @@
           {
             href: '/system/settings',
             label: t('system.settings.title'),
-            icon: 'settings',
+            icon: 'activity',
             active: currentPath.startsWith('/system/settings'),
           },
         ]
@@ -155,81 +155,75 @@
             <button type="button" class="worldnic-close" data-mobile-sidebar-close aria-label="<%= t('nav.menu') %>">&times;</button>
           </div>
 
-          <% if (hasEvent) { %>
-            <section class="worldnic-sidebar__workspace">
-              <p class="worldnic-workspace__eyebrow"><%= t('nav.eventWorkspace') %></p>
-              <h2 class="worldnic-workspace__title"><%= activeEvent.name %></h2>
-              <div class="worldnic-workspace__meta">
-                <span>
-                  <img src="/public/design-assets/icons/feather/calendar.svg" alt="" />
-                  <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
-                </span>
-                <span>
-                  <img src="/public/design-assets/icons/feather/layers.svg" alt="" />
-                  <%= activeEvent.location %>
-                </span>
-              </div>
-              <span class="status-<%= activeEvent.status %>"><%= helpers.statusLabel(activeEvent.status) %></span>
-            </section>
-          <% } %>
+          <div class="worldnic-sidebar__scroll">
+            <% if (sidebarLinks.length || eventSidebarLinks.length) { %>
+              <section class="worldnic-sidebar__section">
+                <p class="worldnic-sidebar__section-title"><%= t('nav.sidebar.events') %></p>
 
-          <% if (sidebarLinks.length) { %>
-            <nav class="worldnic-nav">
-              <% sidebarLinks.forEach((link) => { %>
-                <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
-                  <span class="worldnic-nav__icon">
-                    <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
-                  </span>
-                  <span><%= link.label %></span>
-                </a>
-              <% }) %>
-            </nav>
-          <% } %>
+                <% if (sidebarLinks.length) { %>
+                  <nav class="worldnic-nav">
+                    <% sidebarLinks.forEach((link) => { %>
+                      <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                        <span class="worldnic-nav__icon">
+                          <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                        </span>
+                        <span><%= link.label %></span>
+                      </a>
+                    <% }) %>
+                  </nav>
+                <% } %>
 
-          <% if (eventSidebarLinks.length) { %>
-            <nav class="worldnic-nav worldnic-nav--event">
-              <% eventSidebarLinks.forEach((link) => { %>
-                <div class="worldnic-nav__item">
-                  <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
-                    <span class="worldnic-nav__icon">
-                      <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
-                    </span>
-                    <span><%= link.label %></span>
-                  </a>
+                <% if (eventSidebarLinks.length) { %>
+                  <nav class="worldnic-nav <%= sidebarLinks.length ? 'worldnic-nav--event' : '' %>">
+                    <% eventSidebarLinks.forEach((link) => { %>
+                      <div class="worldnic-nav__item">
+                        <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                          <span class="worldnic-nav__icon">
+                            <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                          </span>
+                          <span><%= link.label %></span>
+                        </a>
 
-                  <% if (link.children && link.active) { %>
-                    <div class="worldnic-nav__sublinks">
-                      <% link.children.forEach((child) => { %>
-                        <a href="<%= child.href %>" class="worldnic-nav__sublink <%= child.active ? 'is-active' : '' %>"><%= child.label %></a>
-                      <% }) %>
-                    </div>
-                  <% } %>
-                </div>
-              <% }) %>
-            </nav>
-          <% } %>
+                        <% if (link.children && link.active) { %>
+                          <div class="worldnic-nav__sublinks">
+                            <% link.children.forEach((child) => { %>
+                              <a href="<%= child.href %>" class="worldnic-nav__sublink <%= child.active ? 'is-active' : '' %>"><%= child.label %></a>
+                            <% }) %>
+                          </div>
+                        <% } %>
+                      </div>
+                    <% }) %>
+                  </nav>
+                <% } %>
+              </section>
+            <% } %>
 
-          <% if (systemLinks.length) { %>
-            <nav class="worldnic-nav worldnic-nav--system">
-              <% systemLinks.forEach((link) => { %>
-                <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
-                  <span class="worldnic-nav__icon">
-                    <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
-                  </span>
-                  <span><%= link.label %></span>
-                </a>
-              <% }) %>
-            </nav>
-          <% } %>
+            <% if (systemLinks.length) { %>
+              <section class="worldnic-sidebar__section worldnic-sidebar__section--system">
+                <p class="worldnic-sidebar__section-title"><%= t('nav.sidebar.system') %></p>
 
-          <div class="worldnic-sidebar__footer">
-            <form action="/logout" method="POST">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-              <button type="submit" class="btn-secondary worldnic-sidebar__logout">
-                <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
-                <span><%= t('nav.logout') %></span>
-              </button>
-            </form>
+                <nav class="worldnic-nav worldnic-nav--system">
+                  <% systemLinks.forEach((link) => { %>
+                    <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                      <span class="worldnic-nav__icon">
+                        <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                      </span>
+                      <span><%= link.label %></span>
+                    </a>
+                  <% }) %>
+                </nav>
+              </section>
+            <% } %>
+
+            <div class="worldnic-sidebar__footer">
+              <form action="/logout" method="POST">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn-secondary worldnic-sidebar__logout">
+                  <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
+                  <span><%= t('nav.logout') %></span>
+                </button>
+              </form>
+            </div>
           </div>
         </aside>
 
