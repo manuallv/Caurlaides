@@ -156,6 +156,7 @@
                     data-request-row-id="<%= request.id %>"
                     data-request-status="<%= request.status %>"
                     data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
+                    data-request-category-id="<%= request.category_id %>"
                   >
                     <td>
                       <div class="access-person-cell">
@@ -419,6 +420,7 @@
                 <thead>
                   <tr>
                     <th><%= t('access.types.table.name') %></th>
+                    <th><%= t('access.types.table.requests') %></th>
                     <th><%= t('access.types.table.quota') %></th>
                     <th><%= t('access.types.table.sort') %></th>
                     <th><%= t('access.types.table.status') %></th>
@@ -432,6 +434,18 @@
                         <div class="access-data-stack">
                           <strong><%= category.name %></strong>
                           <span><%= category.description || t('common.noDescription') %></span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="access-data-stack access-type-usage">
+                          <strong>
+                            <span data-access-type-total="<%= category.id %>"><%= category.total_requests || 0 %></span>
+                            <span> <%= t('access.types.submittedCount') %></span>
+                          </strong>
+                          <span>
+                            <span data-access-type-handed="<%= category.id %>"><%= category.handed_out_requests || 0 %></span>
+                            <span> <%= t('access.types.handedOutCount') %></span>
+                          </span>
                         </div>
                       </td>
                       <td><%= category.quota || '—' %></td>

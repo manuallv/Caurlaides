@@ -133,6 +133,34 @@ class RequestRepository {
     };
   }
 
+  async listCategoryRequestCounts(eventId, type) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          category.id AS category_id,
+          COUNT(request.id) AS total_requests,
+          SUM(CASE WHEN request.status = 'handed_out' THEN 1 ELSE 0 END) AS handed_out_requests
+        FROM ${config.categoryTable} category
+        LEFT JOIN ${config.requestTable} request
+          ON request.${config.categoryIdField} = category.id
+         AND request.event_id = category.event_id
+         AND request.deleted_at IS NULL
+        WHERE category.event_id = ?
+          AND category.deleted_at IS NULL
+        GROUP BY category.id, category.sort_order, category.name
+        ORDER BY category.sort_order ASC, category.name ASC
+      `,
+      [eventId],
+    );
+
+    return rows.map((row) => ({
+      category_id: Number(row.category_id),
+      total_requests: Number(row.total_requests || 0),
+      handed_out_requests: Number(row.handed_out_requests || 0),
+    }));
+  }
+
   async findById(type, requestId) {
     const config = this.resolveConfig(type);
     const [rows] = await this.pool.execute(

@@ -1093,6 +1093,13 @@ body.is-access-fullscreen {
   line-height: 1.4;
 }
 
+.access-type-usage strong,
+.access-type-usage span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
 .access-status-time {
   min-height: 1rem;
 }

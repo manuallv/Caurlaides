@@ -436,6 +436,8 @@ document.addEventListener('DOMContentLoaded', () => {
     requestSubmitLabel: document.querySelector('[data-access-request-submit-label]'),
     requestProfile: document.querySelector('[data-access-request-profile]'),
     requestCategory: document.querySelector('[data-access-request-category]'),
+    typeTotalNodes: [...document.querySelectorAll('[data-access-type-total]')],
+    typeHandedNodes: [...document.querySelectorAll('[data-access-type-handed]')],
   });
 
   const getAccessUi = () => {
@@ -582,6 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
     updateAccessFilteredCount();
+    updateAccessTypeUsageMetrics();
   };
 
   const updateAccessSummary = (summary = {}) => {
@@ -628,6 +631,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     filteredCountNodes.forEach((node) => {
       node.textContent = formatAccessFilteredCount(visibleCount);
+    });
+  };
+
+  const updateAccessTypeUsageMetrics = () => {
+    const { tableBody, typeTotalNodes, typeHandedNodes } = getAccessElements();
+
+    if (!tableBody || (!typeTotalNodes.length && !typeHandedNodes.length)) {
+      return;
+    }
+
+    const counts = {};
+
+    [...tableBody.querySelectorAll('[data-request-row-id]')].forEach((row) => {
+      const categoryId = String(row.dataset.requestCategoryId || '');
+
+      if (!categoryId) {
+        return;
+      }
+
+      if (!counts[categoryId]) {
+        counts[categoryId] = { total: 0, handed: 0 };
+      }
+
+      counts[categoryId].total += 1;
+
+      if (row.dataset.requestStatus === 'handed_out') {
+        counts[categoryId].handed += 1;
+      }
+    });
+
+    typeTotalNodes.forEach((node) => {
+      const categoryId = String(node.dataset.accessTypeTotal || '');
+      node.textContent = String(counts[categoryId]?.total || 0);
+    });
+
+    typeHandedNodes.forEach((node) => {
+      const categoryId = String(node.dataset.accessTypeHanded || '');
+      node.textContent = String(counts[categoryId]?.handed || 0);
     });
   };
 
@@ -712,6 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.requestRowId = request.id;
     row.dataset.requestStatus = request.status || '';
     row.dataset.requestCreatedTs = request.createdAtTs || 0;
+    row.dataset.requestCategoryId = request.categoryId || '';
 
     row.innerHTML = `
       <td>
@@ -842,10 +884,12 @@ document.addEventListener('DOMContentLoaded', () => {
           return false;
         }
         updateAccessFilteredCount();
+        updateAccessTypeUsageMetrics();
         return true;
       }
 
       updateAccessFilteredCount();
+      updateAccessTypeUsageMetrics();
       return true;
     }
 
@@ -854,6 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (existingRow) {
       existingRow.replaceWith(nextRow);
       updateAccessFilteredCount();
+      updateAccessTypeUsageMetrics();
       return true;
     }
 
@@ -863,6 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     insertAccessRowSorted(nextRow);
     updateAccessFilteredCount();
+    updateAccessTypeUsageMetrics();
     return true;
   };
 
@@ -890,6 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateAccessFilteredCount();
+    updateAccessTypeUsageMetrics();
     return true;
   };
 

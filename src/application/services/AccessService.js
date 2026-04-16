@@ -456,16 +456,25 @@ class AccessService {
 
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
-    const [categories, profiles, requests, summary] = await Promise.all([
+    const [categories, categoryCounts, profiles, requests, summary] = await Promise.all([
       this.categoryRepository.listByEvent(eventId, type),
+      this.requestRepository.listCategoryRequestCounts(eventId, type),
       this.requestProfileRepository.listByEvent(eventId),
       this.requestRepository.listAdminRequests(eventId, type, filters),
       this.requestRepository.getAdminSummary(eventId, type),
     ]);
+    const categoryCountMap = categoryCounts.reduce((map, entry) => {
+      map[entry.category_id] = entry;
+      return map;
+    }, {});
 
     return {
       event,
-      categories,
+      categories: categories.map((category) => ({
+        ...category,
+        total_requests: Number(categoryCountMap[Number(category.id)]?.total_requests || 0),
+        handed_out_requests: Number(categoryCountMap[Number(category.id)]?.handed_out_requests || 0),
+      })),
       profiles: profiles.map((profile) => ({
         id: profile.id,
         name: profile.name,
