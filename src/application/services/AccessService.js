@@ -319,22 +319,20 @@ class AccessService {
 
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
-    const categories = await this.categoryRepository.listByEvent(eventId, type);
-    const profiles = await this.requestProfileRepository.listByEvent(eventId);
-    const requests = await this.requestRepository.listAdminRequests(eventId, type, filters);
-    const summary = await this.requestRepository.getAdminSummary(eventId, type);
-
-    const profileSummaries = await Promise.all(
-      profiles.map(async (profile) => ({
-        ...profile,
-        quotaUsage: withRemainingQuota(await this.requestRepository.listQuotaUsage(profile.id, type)),
-      })),
-    );
+    const [categories, profiles, requests, summary] = await Promise.all([
+      this.categoryRepository.listByEvent(eventId, type),
+      this.requestProfileRepository.listByEvent(eventId),
+      this.requestRepository.listAdminRequests(eventId, type, filters),
+      this.requestRepository.getAdminSummary(eventId, type),
+    ]);
 
     return {
       event,
       categories,
-      profiles: profileSummaries,
+      profiles: profiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+      })),
       requests,
       summary,
       canManage: MANAGEMENT_ROLES.includes(event.role),
