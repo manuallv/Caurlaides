@@ -111,6 +111,21 @@
                 data-portal-table-search
               />
             </div>
+            <div class="portal-table-sort">
+              <label class="sr-only" for="portal-table-sort"><%= t('portal.sort.label') %></label>
+              <select id="portal-table-sort" class="field-input" data-portal-table-sort>
+                <option value="updated"><%= t('portal.sort.updated') %></option>
+                <option value="name"><%= t('portal.sort.name') %></option>
+                <option value="email"><%= t('portal.sort.email') %></option>
+                <option value="phone"><%= t('portal.sort.phone') %></option>
+                <option value="company"><%= t('portal.sort.company') %></option>
+                <option value="category"><%= t('portal.sort.category') %></option>
+                <option value="status"><%= t('portal.sort.status') %></option>
+              </select>
+              <button type="button" class="btn-secondary portal-sort-direction" data-portal-sort-direction>
+                <span data-portal-sort-direction-label><%= t('portal.sort.directionDesc') %></span>
+              </button>
+            </div>
             <div class="portal-table-tabs">
               <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
               <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
@@ -147,7 +162,19 @@
                 </thead>
                 <tbody>
                   <% combinedRequests.forEach((request) => { %>
-                    <tr class="portal-request-row" data-request-row data-request-type="<%= request.request_type %>" data-request-search="<%= [request.full_name, request.category_name, request.company_name || '', request.phone || '', request.email || '', request.notes || ''].join(' ').toLowerCase() %>">
+                    <tr
+                      class="portal-request-row"
+                      data-request-row
+                      data-request-type="<%= request.request_type %>"
+                      data-request-search="<%= [request.full_name, request.category_name, request.company_name || '', request.phone || '', request.email || '', request.notes || ''].join(' ').toLowerCase() %>"
+                      data-sort-name="<%= (request.full_name || '').toLowerCase() %>"
+                      data-sort-email="<%= (request.email || '').toLowerCase() %>"
+                      data-sort-phone="<%= (request.phone || '').toLowerCase() %>"
+                      data-sort-company="<%= (request.company_name || '').toLowerCase() %>"
+                      data-sort-category="<%= (request.category_name || '').toLowerCase() %>"
+                      data-sort-status="<%= (request.status || '').toLowerCase() %>"
+                      data-sort-updated="<%= new Date(request.updated_at).getTime() || 0 %>"
+                    >
                       <td>
                         <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
                           <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>

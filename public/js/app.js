@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let liveFilterTimer = null;
   let activeRefreshController = null;
   let portalTableSearchQuery = '';
+  let portalTableSortField = 'updated';
+  let portalTableSortDirection = 'desc';
   const escapeSelector = (value) => {
     if (window.CSS && typeof window.CSS.escape === 'function') {
       return window.CSS.escape(value);
@@ -302,9 +304,39 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const filterPortalRows = () => {
-    const rows = [...document.querySelectorAll('[data-request-row]')];
+    const table = document.querySelector('[data-portal-table]');
+    const tbody = table?.querySelector('tbody');
+    const rows = tbody ? [...tbody.querySelectorAll('[data-request-row]')] : [];
     const searchInput = document.querySelector('[data-portal-table-search]');
     const query = String(searchInput?.value || portalTableSearchQuery || '').trim().toLowerCase();
+    const sortKey = `sort${portalTableSortField.charAt(0).toUpperCase()}${portalTableSortField.slice(1)}`;
+
+    if (tbody && rows.length) {
+      const directionMultiplier = portalTableSortDirection === 'asc' ? 1 : -1;
+      const sortedRows = [...rows].sort((left, right) => {
+        if (portalTableSortField === 'updated') {
+          const leftValue = Number(left.dataset.sortUpdated || 0);
+          const rightValue = Number(right.dataset.sortUpdated || 0);
+
+          if (leftValue === rightValue) {
+            return 0;
+          }
+
+          return (leftValue - rightValue) * directionMultiplier;
+        }
+
+        const leftValue = String(left.dataset[sortKey] || '').trim();
+        const rightValue = String(right.dataset[sortKey] || '').trim();
+        return leftValue.localeCompare(rightValue, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        }) * directionMultiplier;
+      });
+
+      sortedRows.forEach((row) => {
+        tbody.appendChild(row);
+      });
+    }
 
     rows.forEach((row) => {
       const rowType = row.dataset.requestType;
@@ -623,7 +655,24 @@ document.addEventListener('DOMContentLoaded', () => {
     importConfirmButton: document.querySelector('[data-portal-import-confirm]'),
     tableRows: [...document.querySelectorAll('[data-request-row]')],
     tabButtons: [...document.querySelectorAll('[data-portal-tab]')],
+    sortSelect: document.querySelector('[data-portal-table-sort]'),
+    sortDirectionLabel: document.querySelector('[data-portal-sort-direction-label]'),
   });
+
+  const syncPortalSortControls = () => {
+    const { sortSelect, sortDirectionLabel } = getPortalElements();
+    const ui = getPortalUi();
+
+    if (sortSelect) {
+      sortSelect.value = portalTableSortField;
+    }
+
+    if (sortDirectionLabel) {
+      sortDirectionLabel.textContent = portalTableSortDirection === 'asc'
+        ? (ui.sortDirectionAsc || 'Ascending')
+        : (ui.sortDirectionDesc || 'Newest first');
+    }
+  };
 
   const setPortalTab = (tab) => {
     activePortalTab = tab;
@@ -854,6 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
       searchInput.value = portalTableSearchQuery;
     }
 
+    syncPortalSortControls();
     setPortalTab(activePortalTab);
     setPortalWorkspaceView(activePortalWorkspaceView);
     updateImportTemplateLink();
@@ -889,6 +939,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
+    const sortDirectionTrigger = event.target.closest('[data-portal-sort-direction]');
+
+    if (sortDirectionTrigger) {
+      portalTableSortDirection = portalTableSortDirection === 'asc' ? 'desc' : 'asc';
+      syncPortalSortControls();
+      filterPortalRows();
+      return;
+    }
+
     const copyTrigger = event.target.closest('[data-copy-text]');
 
     if (copyTrigger) {
@@ -1061,6 +1120,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('change', (event) => {
+    if (event.target.matches('[data-portal-table-sort]')) {
+      portalTableSortField = event.target.value || 'updated';
+      filterPortalRows();
+      return;
+    }
+
     if (event.target.matches('[data-portal-import-category]')) {
       updateImportTemplateLink();
     }

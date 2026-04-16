@@ -2058,6 +2058,22 @@ body.portal-modal-open {
   margin-right: auto;
 }
 
+.portal-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.portal-table-sort .field-input {
+  min-width: 12rem;
+}
+
+.portal-sort-direction {
+  min-width: 8.6rem;
+  justify-content: center;
+}
+
 .portal-login-shell {
   display: grid;
   place-items: center;

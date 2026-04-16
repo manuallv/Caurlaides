@@ -416,6 +416,8 @@ function buildAccessController({ categoryService, accessService }) {
             previewEmailColumn: req.t('portal.import.preview.email'),
             previewValidationColumn: req.t('portal.import.preview.validation'),
             previewOk: req.t('portal.import.preview.ok'),
+            sortDirectionAsc: req.t('portal.sort.directionAsc'),
+            sortDirectionDesc: req.t('portal.sort.directionDesc'),
           },
         },
         portalEventRoom: data.profile.event_id,
