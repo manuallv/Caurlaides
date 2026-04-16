@@ -73,12 +73,19 @@
             active: eventSection === 'profiles',
             children: [
               {
-                href: `/events/${activeEvent.id}/request-profiles#profile-list`,
+                href: `/events/${activeEvent.id}/request-profiles`,
                 label: t('requestProfiles.nav.list'),
+                active: currentPath === `/events/${activeEvent.id}/request-profiles`,
               },
               {
-                href: `/events/${activeEvent.id}/request-profiles#profile-create`,
+                href: `/events/${activeEvent.id}/request-profiles/new`,
                 label: t('requestProfiles.nav.create'),
+                active:
+                  currentPath === `/events/${activeEvent.id}/request-profiles/new`
+                  || (
+                    currentPath.includes(`/events/${activeEvent.id}/request-profiles/`)
+                    && currentPath.endsWith('/edit')
+                  ),
               },
             ],
           },

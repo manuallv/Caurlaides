@@ -3,6 +3,7 @@ const { asyncHandler } = require('../../../shared/utils/async-handler');
 const { requireAuth } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validate');
 const {
+  adminRequestEditorValidator,
   accessTypeParamValidator,
   accessTypeValidator,
   eventValidator,
@@ -70,6 +71,12 @@ function buildEventRoutes({ eventController, accessController }) {
   );
 
   router.get('/events/:eventId/request-profiles', requireAuth, asyncHandler(accessController.showRequestProfiles));
+  router.get('/events/:eventId/request-profiles/new', requireAuth, asyncHandler(accessController.showRequestProfileForm));
+  router.get(
+    '/events/:eventId/request-profiles/:profileId/edit',
+    requireAuth,
+    asyncHandler(accessController.showRequestProfileForm),
+  );
   router.post(
     '/events/:eventId/request-profiles',
     requireAuth,
@@ -95,6 +102,14 @@ function buildEventRoutes({ eventController, accessController }) {
     asyncHandler(accessController.regenerateRequestProfileCode),
   );
 
+  router.put(
+    '/events/:eventId/:type/requests/:requestId',
+    requireAuth,
+    accessTypeParamValidator,
+    adminRequestEditorValidator,
+    validateRequest,
+    asyncHandler(accessController.updateRequest),
+  );
   router.put(
     '/events/:eventId/:type/requests/:requestId/status',
     requireAuth,

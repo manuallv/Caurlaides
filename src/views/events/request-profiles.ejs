@@ -1,166 +1,13 @@
-<section
-  class="request-profile-page space-y-6"
-  data-request-profile-app
->
-  <section id="profile-create" class="shell-card request-profile-editor">
-      <div class="request-profile-editor__head">
-        <div>
-          <p class="request-profile-editor__eyebrow"><%= t('requestProfiles.nav.create') %></p>
-          <h1 class="request-profile-editor__title" data-request-profile-title><%= t('requestProfiles.editorCreateTitle') %></h1>
-          <p class="request-profile-editor__description" data-request-profile-description><%= t('requestProfiles.editorCreateDescription') %></p>
-        </div>
-        <span class="status-active request-profile-editor__status" data-request-profile-status><%= t('common.active') %></span>
+<section class="request-profile-page request-profile-page--list space-y-6">
+  <section class="shell-card request-profile-table-card">
+    <div class="request-profile-table-card__head">
+      <div>
+        <p class="request-profile-table-card__eyebrow"><%= t('requestProfiles.nav.list') %></p>
+        <h1><%= t('requestProfiles.listTitle') %></h1>
+        <p><%= t('requestProfiles.listDescription') %></p>
       </div>
 
-      <form
-        id="request-profile-form"
-        action="/events/<%= activeEvent.id %>/request-profiles"
-        method="POST"
-        class="request-profile-editor__form"
-      >
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <div data-request-profile-method-holder></div>
-
-        <div class="request-profile-editor__fields">
-          <div>
-            <label class="field-label" for="request-profile-name"><%= t('requestProfiles.fields.name') %></label>
-            <input id="request-profile-name" name="name" type="text" class="field-input" required />
-          </div>
-
-          <div>
-            <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
-            <textarea id="request-profile-notes" name="notes" rows="4" class="field-input"></textarea>
-          </div>
-
-          <label class="request-profile-toggle">
-            <input type="checkbox" name="isActive" checked data-request-profile-active />
-            <span><%= t('requestProfiles.fields.active') %></span>
-          </label>
-        </div>
-
-        <div class="request-profile-editor__meta hidden" data-request-profile-meta>
-          <div class="request-profile-meta-field">
-            <label class="field-label" for="request-profile-code"><%= t('requestProfiles.editorAccessCode') %></label>
-            <div class="request-profile-inline-input">
-              <input id="request-profile-code" type="text" class="field-input" readonly data-request-profile-code />
-            </div>
-          </div>
-
-          <div class="request-profile-meta-field">
-            <label class="field-label" for="request-profile-link"><%= t('requestProfiles.editorInviteLink') %></label>
-            <div class="request-profile-inline-input">
-              <input id="request-profile-link" type="text" class="field-input" readonly data-request-profile-invite-link />
-              <button
-                type="button"
-                class="table-icon-button"
-                data-request-profile-copy-current
-                data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
-                title="<%= t('requestProfiles.copyInviteLink') %>"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="request-profile-help panel">
-          <p class="request-profile-help__title"><%= t('requestProfiles.helpTitle') %></p>
-          <p class="request-profile-help__body" data-request-profile-help-copy><%= t('requestProfiles.editorFooter') %></p>
-        </div>
-
-        <div class="request-profile-editor__quotas">
-          <section class="request-profile-quota-card panel">
-            <div class="request-profile-quota-card__head">
-              <div>
-                <h2><%= t('nav.wristbands') %></h2>
-              </div>
-            </div>
-
-            <div class="request-profile-quota-list">
-              <% if (!wristbandCategories.length) { %>
-                <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
-              <% } %>
-
-              <% wristbandCategories.forEach((category) => { %>
-                <label class="request-profile-quota-row">
-                  <span class="request-profile-quota-row__copy">
-                    <span class="request-profile-quota-row__title"><%= category.name %></span>
-                    <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
-                  </span>
-                  <input
-                    name="wristbandQuota[<%= category.id %>]"
-                    type="number"
-                    min="0"
-                    class="field-input request-profile-quota-input"
-                    value="0"
-                  />
-                </label>
-              <% }) %>
-            </div>
-          </section>
-
-          <section class="request-profile-quota-card panel">
-            <div class="request-profile-quota-card__head">
-              <div>
-                <h2><%= t('nav.passes') %></h2>
-              </div>
-            </div>
-
-            <div class="request-profile-quota-list">
-              <% if (!passCategories.length) { %>
-                <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noPassTypes') %></p>
-              <% } %>
-
-              <% passCategories.forEach((category) => { %>
-                <label class="request-profile-quota-row">
-                  <span class="request-profile-quota-row__copy">
-                    <span class="request-profile-quota-row__title"><%= category.name %></span>
-                    <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
-                  </span>
-                  <input
-                    name="passQuota[<%= category.id %>]"
-                    type="number"
-                    min="0"
-                    class="field-input request-profile-quota-input"
-                    value="0"
-                  />
-                </label>
-              <% }) %>
-            </div>
-          </section>
-        </div>
-      </form>
-
-      <div class="request-profile-editor__actions">
-        <button type="button" class="btn-secondary hidden" data-request-profile-reset><%= t('requestProfiles.cancelEdit') %></button>
-
-        <div class="request-profile-editor__actions-right">
-          <form action="" method="POST" class="hidden" data-request-profile-regenerate-form>
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <button type="submit" class="btn-secondary"><%= t('requestProfiles.regenerateCode') %></button>
-          </form>
-
-          <form action="" method="POST" class="hidden" data-request-profile-delete-form>
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <input type="hidden" name="_method" value="DELETE" />
-            <button type="submit" class="btn-danger"><%= t('requestProfiles.deleteButton') %></button>
-          </form>
-
-          <button type="submit" form="request-profile-form" class="btn-primary" data-request-profile-submit-label><%= t('requestProfiles.createButton') %></button>
-        </div>
-      </div>
-  </section>
-
-  <section id="profile-list" class="shell-card request-profile-table-card">
-      <div class="request-profile-table-card__head">
-        <div>
-          <p class="request-profile-table-card__eyebrow"><%= t('requestProfiles.nav.list') %></p>
-          <h2><%= t('requestProfiles.listTitle') %></h2>
-          <p><%= t('requestProfiles.listDescription') %></p>
-        </div>
-
+      <div class="request-profile-table-card__actions">
         <div class="request-profile-search">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M8.5 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 1.6a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Zm5.38 8.64 3.02 3.02-1.13 1.13-3.02-3.02z" />
@@ -172,141 +19,117 @@
             data-request-profile-search
           />
         </div>
+
+        <a href="/events/<%= activeEvent.id %>/request-profiles/new" class="btn-primary">
+          <img src="/public/design-assets/icons/feather/plus.svg" alt="" class="h-4 w-4 brightness-0 invert" />
+          <span><%= t('requestProfiles.createButton') %></span>
+        </a>
       </div>
+    </div>
 
-      <div class="request-profile-table-scroll">
-        <table class="request-profile-table">
-          <thead>
-            <tr>
-              <th><%= t('requestProfiles.table.profile') %></th>
-              <th><%= t('requestProfiles.table.code') %></th>
-              <th><%= t('requestProfiles.table.wristbands') %></th>
-              <th><%= t('requestProfiles.table.passes') %></th>
-              <th><%= t('requestProfiles.table.link') %></th>
-              <th><%= t('requestProfiles.table.status') %></th>
-              <th><%= t('requestProfiles.table.actions') %></th>
-            </tr>
-          </thead>
-          <tbody data-request-profile-table-body>
-            <% if (!profiles.length) { %>
-              <tr data-request-profile-empty-row>
-                <td colspan="7">
-                  <div class="request-profile-empty"><%= t('requestProfiles.none') %></div>
-                </td>
-              </tr>
-            <% } %>
-
-            <% profiles.forEach((profile) => { %>
-              <tr
-                data-request-profile-row
-                data-search-index="<%= [profile.name, profile.access_code, profile.notes || '', profile.invite_url, `${profile.wristbandTotals.used}/${profile.wristbandTotals.quota}`, `${profile.passTotals.used}/${profile.passTotals.quota}`, profile.is_active ? t('common.active') : t('common.inactive')].join(' ').toLowerCase() %>"
-              >
-                <td>
-                  <div class="request-profile-cell">
-                    <p class="request-profile-cell__title"><%= profile.name %></p>
-                    <p class="request-profile-cell__meta"><%= profile.notes || t('common.noDescription') %></p>
-                  </div>
-                </td>
-                <td>
-                  <div class="request-profile-code-pill"><%= profile.access_code || '----' %></div>
-                </td>
-                <td>
-                  <div class="request-profile-quota-metric">
-                    <strong><%= profile.wristbandTotals.used %>/<%= profile.wristbandTotals.quota %></strong>
-                    <span><%= t('requestProfiles.remaining', { count: profile.wristbandTotals.remaining }) %></span>
-                  </div>
-                </td>
-                <td>
-                  <div class="request-profile-quota-metric">
-                    <strong><%= profile.passTotals.used %>/<%= profile.passTotals.quota %></strong>
-                    <span><%= t('requestProfiles.remaining', { count: profile.passTotals.remaining }) %></span>
-                  </div>
-                </td>
-                <td>
-                  <div class="request-profile-link-cell">
-                    <a href="<%= profile.invite_url %>" target="_blank" rel="noreferrer"><%= `/p/${profile.access_code}` %></a>
-                  </div>
-                </td>
-                <td>
-                  <span class="status-<%= profile.is_active ? 'active' : 'archived' %>"><%= profile.is_active ? t('common.active') : t('common.inactive') %></span>
-                </td>
-                <td>
-                  <div class="request-profile-actions">
-                    <button
-                      type="button"
-                      class="table-icon-button"
-                      data-request-profile-edit
-                      data-profile-id="<%= profile.id %>"
-                      title="<%= t('requestProfiles.editProfile') %>"
-                    >
-                      <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M13.85 2.85a1.8 1.8 0 0 1 2.55 2.55l-8.1 8.1-3.38.83.84-3.38zm1.42 1.13-1.7-1.7" />
-                      </svg>
-                    </button>
-
-                    <button
-                      type="button"
-                      class="table-icon-button"
-                      data-copy-text="<%= profile.invite_url %>"
-                      data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
-                      title="<%= t('requestProfiles.copyInviteLink') %>"
-                    >
-                      <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
-                      </svg>
-                    </button>
-
-                    <a
-                      href="<%= profile.invite_url %>"
-                      target="_blank"
-                      rel="noreferrer"
-                      class="table-icon-button"
-                      title="<%= t('requestProfiles.openInviteLink') %>"
-                    >
-                      <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M11 3h6v6M10 10l7-7M16 11v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" />
-                      </svg>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            <% }) %>
-
-            <tr class="hidden" data-request-profile-empty-row>
+    <div class="request-profile-table-scroll">
+      <table class="request-profile-table">
+        <thead>
+          <tr>
+            <th><%= t('requestProfiles.table.profile') %></th>
+            <th><%= t('requestProfiles.table.code') %></th>
+            <th><%= t('requestProfiles.table.wristbands') %></th>
+            <th><%= t('requestProfiles.table.passes') %></th>
+            <th><%= t('requestProfiles.table.link') %></th>
+            <th><%= t('requestProfiles.table.status') %></th>
+            <th><%= t('requestProfiles.table.actions') %></th>
+          </tr>
+        </thead>
+        <tbody data-request-profile-table-body>
+          <% if (!profiles.length) { %>
+            <tr data-request-profile-empty-row>
               <td colspan="7">
-                <div class="request-profile-empty"><%= t('requestProfiles.emptySearch') %></div>
+                <div class="request-profile-empty"><%= t('requestProfiles.none') %></div>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
+          <% } %>
+
+          <% profiles.forEach((profile) => { %>
+            <tr
+              data-request-profile-row
+              data-search-index="<%= [profile.name, profile.access_code, profile.notes || '', profile.invite_url, `${profile.wristbandTotals.used}/${profile.wristbandTotals.quota}`, `${profile.passTotals.used}/${profile.passTotals.quota}`, profile.is_active ? t('common.active') : t('common.inactive')].join(' ').toLowerCase() %>"
+            >
+              <td>
+                <div class="request-profile-cell">
+                  <p class="request-profile-cell__title"><%= profile.name %></p>
+                  <p class="request-profile-cell__meta"><%= profile.notes || t('common.noDescription') %></p>
+                </div>
+              </td>
+              <td>
+                <div class="request-profile-code-pill"><%= profile.access_code || '----' %></div>
+              </td>
+              <td>
+                <div class="request-profile-quota-metric">
+                  <strong><%= profile.wristbandTotals.used %>/<%= profile.wristbandTotals.quota %></strong>
+                  <span><%= t('requestProfiles.remaining', { count: profile.wristbandTotals.remaining }) %></span>
+                </div>
+              </td>
+              <td>
+                <div class="request-profile-quota-metric">
+                  <strong><%= profile.passTotals.used %>/<%= profile.passTotals.quota %></strong>
+                  <span><%= t('requestProfiles.remaining', { count: profile.passTotals.remaining }) %></span>
+                </div>
+              </td>
+              <td>
+                <div class="request-profile-link-cell">
+                  <a href="<%= profile.invite_url %>" target="_blank" rel="noreferrer"><%= `/p/${profile.access_code}` %></a>
+                </div>
+              </td>
+              <td>
+                <span class="status-<%= profile.is_active ? 'active' : 'archived' %>"><%= profile.is_active ? t('common.active') : t('common.inactive') %></span>
+              </td>
+              <td>
+                <div class="request-profile-actions">
+                  <a
+                    href="/events/<%= activeEvent.id %>/request-profiles/<%= profile.id %>/edit"
+                    class="table-icon-button"
+                    title="<%= t('requestProfiles.editProfile') %>"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M13.85 2.85a1.8 1.8 0 0 1 2.55 2.55l-8.1 8.1-3.38.83.84-3.38zm1.42 1.13-1.7-1.7" />
+                    </svg>
+                  </a>
+
+                  <button
+                    type="button"
+                    class="table-icon-button"
+                    data-copy-text="<%= profile.invite_url %>"
+                    data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
+                    title="<%= t('requestProfiles.copyInviteLink') %>"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
+                    </svg>
+                  </button>
+
+                  <a
+                    href="<%= profile.invite_url %>"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="table-icon-button"
+                    title="<%= t('requestProfiles.openInviteLink') %>"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M11 3h6v6M10 10l7-7M16 11v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" />
+                    </svg>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+
+          <tr class="hidden" data-request-profile-empty-row>
+            <td colspan="7">
+              <div class="request-profile-empty"><%= t('requestProfiles.emptySearch') %></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </section>
-
-<script id="request-profile-state" type="application/json">
-  <%- JSON.stringify({
-    createAction: `/events/${activeEvent.id}/request-profiles`,
-    profiles: profiles.map((profile) => ({
-      id: profile.id,
-      name: profile.name,
-      notes: profile.notes || '',
-      isActive: Boolean(profile.is_active),
-      accessCode: profile.access_code || '',
-      inviteUrl: profile.invite_url || '',
-      passQuotaMap: profile.passQuotaMap || {},
-      wristbandQuotaMap: profile.wristbandQuotaMap || {},
-    })),
-    ui: {
-      createTitle: t('requestProfiles.editorCreateTitle'),
-      editTitle: t('requestProfiles.editorEditTitle'),
-      createDescription: t('requestProfiles.editorCreateDescription'),
-      editDescription: t('requestProfiles.editorEditDescription'),
-      createButton: t('requestProfiles.createButton'),
-      saveButton: t('requestProfiles.saveButton'),
-      cancelEdit: t('requestProfiles.cancelEdit'),
-      copySuccess: t('requestProfiles.copySuccess'),
-      activeStatus: t('common.active'),
-      inactiveStatus: t('common.inactive'),
-    },
-  }) %>
-</script>

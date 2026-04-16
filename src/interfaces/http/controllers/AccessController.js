@@ -3,6 +3,7 @@ const {
   PUBLIC_PORTAL_SESSION_KEY,
 } = require('../../../application/services/AccessService');
 const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
+const { AppError } = require('../../../shared/errors/AppError');
 
 function normalizeCategoryPayload(body) {
   return {
@@ -175,9 +176,27 @@ function buildAccessController({ categoryService, accessService }) {
       return res.render('events/request-profiles', {
         pageTitle: `${data.event.name} · ${req.t('nav.requestProfiles')}`,
         activeEvent: data.event,
+        profiles: data.profiles,
+      });
+    },
+
+    async showRequestProfileForm(req, res) {
+      const data = await accessService.getRequestProfilesPage(req.params.eventId, req.currentUser.id, req.t);
+      const editingProfileId = req.params.profileId ? Number(req.params.profileId) : null;
+      const editingProfile = editingProfileId
+        ? data.profiles.find((profile) => Number(profile.id) === editingProfileId)
+        : null;
+
+      if (editingProfileId && !editingProfile) {
+        throw new AppError(req.t('service.requestProfile.notFound'), 404);
+      }
+
+      return res.render('events/request-profile-form', {
+        pageTitle: `${data.event.name} · ${editingProfile ? req.t('requestProfiles.editorEditTitle') : req.t('requestProfiles.editorCreateTitle')}`,
+        activeEvent: data.event,
         passCategories: data.passCategories,
         wristbandCategories: data.wristbandCategories,
-        profiles: data.profiles,
+        editingProfile,
       });
     },
 
@@ -240,6 +259,26 @@ function buildAccessController({ categoryService, accessService }) {
       });
       req.flash('success', req.t('flash.requestProfileCodeRegenerated', { code: accessCode }));
       return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+    },
+
+    async updateRequest(req, res) {
+      const type = resolveAccessType(req);
+      const event = await accessService.updateAdminRequest(
+        req.params.eventId,
+        req.params.requestId,
+        req.currentUser.id,
+        type,
+        normalizeRequestPayload(req.body),
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
+        eventId: event.id,
+      });
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: req.t('flash.portalRequestUpdated'),
+      });
     },
 
     async updateRequestStatus(req, res) {

@@ -87,18 +87,20 @@
           <input name="company" value="<%= filters.company %>" class="field-input" placeholder="<%= t('access.filters.company') %>" />
 
           <div class="access-filter-actions">
-            <button type="submit" class="btn-primary"><%= t('buttons.filter') %></button>
             <button type="button" class="btn-secondary" data-live-filter-reset data-filter-reset-url="/events/<%= activeEvent.id %>/<%= routeBase %>"><%= t('buttons.reset') %></button>
+            <button type="button" class="btn-secondary access-fullscreen-toggle" data-access-fullscreen-toggle>
+              <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
+              <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
+            </button>
           </div>
         </form>
-
-        <button type="button" class="btn-secondary access-fullscreen-toggle" data-access-fullscreen-toggle>
-          <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
-          <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
-        </button>
       </div>
 
       <div class="access-table-frame">
+        <div class="access-table-frame__meta">
+          <span class="toolbar-chip toolbar-chip-active"><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+          <span class="access-table-frame__hint"><%= t('access.workspace.dynamicHint') %></span>
+        </div>
         <% if (!requests.length) { %>
           <div class="px-5 py-12 text-center sm:px-6">
             <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
@@ -170,16 +172,31 @@
                       </div>
                     </td>
                     <td>
-                      <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form>
-                        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                        <% if (request.status === 'handed_out') { %>
-                          <input type="hidden" name="status" value="pending" />
-                          <button type="submit" class="access-mini-button access-mini-button--secondary"><%= t('access.actions.markPending') %></button>
-                        <% } else { %>
-                          <input type="hidden" name="status" value="handed_out" />
-                          <button type="submit" class="access-mini-button access-mini-button--primary"><%= t('access.actions.markHandedOut') %></button>
-                        <% } %>
-                      </form>
+                      <div class="access-row-actions">
+                        <button
+                          type="button"
+                          class="access-mini-button access-mini-button--secondary"
+                          data-access-edit-request
+                          data-request-id="<%= request.id %>"
+                          data-request-category-id="<%= request.category_id %>"
+                          data-request-full-name="<%= request.full_name %>"
+                          data-request-company-name="<%= request.company_name || '' %>"
+                          data-request-phone="<%= request.phone || '' %>"
+                          data-request-email="<%= request.email || '' %>"
+                          data-request-notes="<%= request.notes || '' %>"
+                        ><%= t('access.actions.editRequest') %></button>
+
+                        <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form>
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                          <% if (request.status === 'handed_out') { %>
+                            <input type="hidden" name="status" value="pending" />
+                            <button type="submit" class="access-mini-button access-mini-button--secondary"><%= t('access.actions.markPending') %></button>
+                          <% } else { %>
+                            <input type="hidden" name="status" value="handed_out" />
+                            <button type="submit" class="access-mini-button access-mini-button--primary"><%= t('access.actions.markHandedOut') %></button>
+                          <% } %>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 <% }) %>
@@ -187,6 +204,74 @@
             </table>
           </div>
         <% } %>
+
+        <div class="access-table-footer">
+          <span><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+        </div>
+      </div>
+
+      <div class="portal-modal" data-access-request-modal>
+        <button type="button" class="portal-modal__backdrop" data-access-request-close></button>
+        <div class="portal-modal__dialog shell-card">
+          <div class="portal-modal__header">
+            <div class="portal-modal__title-block">
+              <p class="worldnic-eyebrow"><%= t('access.actions.editRequest') %></p>
+              <h2><%= t('access.modal.editTitle', { type: typeTitle }) %></h2>
+            </div>
+
+            <button type="button" class="table-icon-button" data-access-request-close aria-label="<%= t('buttons.cancel') %>">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 5l10 10M15 5 5 15" />
+              </svg>
+            </button>
+          </div>
+
+          <form action="" method="POST" class="portal-modal__form" data-live-form data-access-request-form>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <input type="hidden" name="_method" value="PUT" />
+
+            <div class="portal-form-grid">
+              <div>
+                <label class="field-label"><%= t('portal.selectType') %></label>
+                <select name="categoryId" class="field-input" required data-access-request-category>
+                  <% categories.forEach((category) => { %>
+                    <option value="<%= category.id %>"><%= category.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div>
+                <label class="field-label"><%= t('portal.fields.fullName') %></label>
+                <input name="fullName" type="text" class="field-input" required />
+              </div>
+
+              <div>
+                <label class="field-label"><%= t('portal.fields.company') %></label>
+                <input name="companyName" type="text" class="field-input" required />
+              </div>
+
+              <div>
+                <label class="field-label"><%= t('portal.fields.phone') %></label>
+                <input name="phone" type="text" class="field-input" required />
+              </div>
+
+              <div>
+                <label class="field-label"><%= t('portal.fields.email') %></label>
+                <input name="email" type="email" class="field-input" />
+              </div>
+
+              <div class="portal-form-grid__full">
+                <label class="field-label"><%= t('portal.fields.notes') %></label>
+                <textarea name="notes" rows="4" class="field-input"></textarea>
+              </div>
+            </div>
+
+            <div class="portal-modal__actions">
+              <button type="button" class="btn-secondary" data-access-request-close><%= t('buttons.cancel') %></button>
+              <button type="submit" class="btn-primary"><%= t('buttons.save') %></button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 

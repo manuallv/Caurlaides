@@ -540,6 +540,62 @@ class AccessService {
     return event;
   }
 
+  async updateAdminRequest(eventId, requestId, actorId, type, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const existingRequest = await this.requestRepository.findById(type, requestId);
+
+    if (!existingRequest || Number(existingRequest.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    const category = await this.categoryRepository.findById(type, payload.categoryId);
+
+    if (!category || Number(category.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.request.typeInvalid'), 422);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.requestRepository.update(connection, type, requestId, payload);
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: `${type}_request`,
+          entityId: requestId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.portalRequestUpdated', {
+            type: translate(DEFAULT_LOCALE, `accessType.${type}`),
+            name: payload.fullName,
+          }),
+          beforeState: existingRequest,
+          afterState: {
+            ...payload,
+            categoryName: category.name,
+          },
+          metadata: buildAuditMetadata('audit.message.portalRequestUpdated', {
+            type: tx(`accessType.${type}`),
+            name: payload.fullName,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return event;
+  }
+
   async getPortalLoginPage() {
     return {
       portalUrl: '/p',

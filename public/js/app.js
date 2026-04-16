@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
   let refreshInProgress = false;
+  let liveFilterTimer = null;
+  let activeRefreshController = null;
 
   const closeSidebar = () => {
     if (!sidebar) {
@@ -70,7 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4200);
   };
 
-  const refreshLiveSections = async (targetUrl = window.location.href) => {
+  const refreshLiveSections = async (targetUrl = window.location.href, options = {}) => {
+    const { abortPrevious = false } = options;
     const currentSections = [...document.querySelectorAll('[data-live-section]')];
 
     if (!currentSections.length) {
@@ -78,39 +81,53 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const response = await fetch(targetUrl, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'same-origin',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Live refresh failed with status ${response.status}`);
+    if (abortPrevious && activeRefreshController) {
+      activeRefreshController.abort();
     }
 
-    const html = await response.text();
-    const nextDocument = new DOMParser().parseFromString(html, 'text/html');
-    let replacedSections = 0;
+    const controller = new AbortController();
+    activeRefreshController = controller;
 
-    currentSections.forEach((section) => {
-      const sectionName = section.dataset.liveSection;
-      const nextSection = nextDocument.querySelector(`[data-live-section="${sectionName}"]`);
+    try {
+      const response = await fetch(targetUrl, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+        signal: controller.signal,
+      });
 
-      if (!nextSection) {
+      if (!response.ok) {
+        throw new Error(`Live refresh failed with status ${response.status}`);
+      }
+
+      const html = await response.text();
+      const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+      let replacedSections = 0;
+
+      currentSections.forEach((section) => {
+        const sectionName = section.dataset.liveSection;
+        const nextSection = nextDocument.querySelector(`[data-live-section="${sectionName}"]`);
+
+        if (!nextSection) {
+          return;
+        }
+
+        section.replaceWith(nextSection);
+        replacedSections += 1;
+      });
+
+      if (!replacedSections) {
+        window.location.href = targetUrl;
         return;
       }
 
-      section.replaceWith(nextSection);
-      replacedSections += 1;
-    });
-
-    if (!replacedSections) {
-      window.location.href = targetUrl;
-      return;
+      window.dispatchEvent(new CustomEvent('codex:live-sections-refreshed'));
+    } finally {
+      if (activeRefreshController === controller) {
+        activeRefreshController = null;
+      }
     }
-
-    window.dispatchEvent(new CustomEvent('codex:live-sections-refreshed'));
   };
 
   const submitLiveForm = async (form) => {
@@ -204,42 +221,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
-  const getRequestProfileState = () => {
-    const stateNode = document.getElementById('request-profile-state');
-
-    if (!stateNode) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(stateNode.textContent);
-    } catch (error) {
-      return null;
-    }
-  };
-
   const getRequestProfileElements = () => ({
-    app: document.querySelector('[data-request-profile-app]'),
-    form: document.getElementById('request-profile-form'),
-    methodHolder: document.querySelector('[data-request-profile-method-holder]'),
-    title: document.querySelector('[data-request-profile-title]'),
-    description: document.querySelector('[data-request-profile-description]'),
-    submitLabel: document.querySelector('[data-request-profile-submit-label]'),
-    resetButton: document.querySelector('[data-request-profile-reset]'),
-    activeInput: document.querySelector('[data-request-profile-active]'),
-    statusChip: document.querySelector('[data-request-profile-status]'),
-    meta: document.querySelector('[data-request-profile-meta]'),
-    codeInput: document.querySelector('[data-request-profile-code]'),
-    inviteInput: document.querySelector('[data-request-profile-invite-link]'),
-    copyCurrentButton: document.querySelector('[data-request-profile-copy-current]'),
-    regenerateForm: document.querySelector('[data-request-profile-regenerate-form]'),
-    deleteForm: document.querySelector('[data-request-profile-delete-form]'),
     searchInput: document.querySelector('[data-request-profile-search]'),
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
   });
-
-  const getRequestProfileUi = () => getRequestProfileState()?.ui || {};
 
   const updateRequestProfileEmptyState = () => {
     const { rows, emptyRows, searchInput } = getRequestProfileElements();
@@ -264,97 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const fillRequestProfileQuotaInputs = (prefix, quotaMap = {}) => {
-    const { form } = getRequestProfileElements();
-
-    if (!form) {
-      return;
-    }
-
-    form.querySelectorAll(`input[name^="${prefix}Quota["]`).forEach((input) => {
-      const match = input.name.match(/\[(\d+)\]/);
-      const categoryId = match ? match[1] : null;
-      input.value = categoryId ? Number(quotaMap[categoryId] || 0) : 0;
-    });
-  };
-
-  const resetRequestProfileForm = () => {
-    const state = getRequestProfileState();
-    const elements = getRequestProfileElements();
-    const ui = getRequestProfileUi();
-
-    if (!elements.form || !state) {
-      return;
-    }
-
-    elements.form.reset();
-    elements.form.action = state.createAction;
-    elements.methodHolder.innerHTML = '';
-    elements.title.textContent = ui.createTitle || 'Add new profile';
-    elements.description.textContent = ui.createDescription || '';
-    elements.submitLabel.textContent = ui.createButton || 'Create profile';
-    elements.statusChip.textContent = ui.activeStatus || 'Active';
-    elements.statusChip.className = 'status-active request-profile-editor__status';
-    elements.activeInput.checked = true;
-    elements.meta.classList.add('hidden');
-    elements.codeInput.value = '';
-    elements.inviteInput.value = '';
-    elements.copyCurrentButton.dataset.copyText = '';
-    elements.resetButton.classList.add('hidden');
-    elements.regenerateForm.classList.add('hidden');
-    elements.deleteForm.classList.add('hidden');
-    fillRequestProfileQuotaInputs('pass');
-    fillRequestProfileQuotaInputs('wristband');
-  };
-
-  const populateRequestProfileForm = (profileId) => {
-    const state = getRequestProfileState();
-    const elements = getRequestProfileElements();
-    const ui = getRequestProfileUi();
-
-    if (!state || !elements.form) {
-      return;
-    }
-
-    const profile = (state.profiles || []).find((entry) => Number(entry.id) === Number(profileId));
-
-    if (!profile) {
-      return;
-    }
-
-    resetRequestProfileForm();
-    elements.form.action = `${state.createAction}/${profile.id}`;
-    elements.title.textContent = ui.editTitle || 'Edit profile';
-    elements.description.textContent = ui.editDescription || '';
-    elements.submitLabel.textContent = ui.saveButton || 'Save profile';
-    elements.form.elements.name.value = profile.name || '';
-    elements.form.elements.notes.value = profile.notes || '';
-    elements.activeInput.checked = Boolean(profile.isActive);
-    elements.statusChip.textContent = profile.isActive
-      ? (ui.activeStatus || 'Active')
-      : (ui.inactiveStatus || 'Inactive');
-    elements.statusChip.className = `request-profile-editor__status ${profile.isActive ? 'status-active' : 'status-archived'}`;
-    elements.meta.classList.remove('hidden');
-    elements.codeInput.value = profile.accessCode || '';
-    elements.inviteInput.value = profile.inviteUrl || '';
-    elements.copyCurrentButton.dataset.copyText = profile.inviteUrl || '';
-    elements.resetButton.classList.remove('hidden');
-    elements.regenerateForm.classList.remove('hidden');
-    elements.regenerateForm.action = `${state.createAction}/${profile.id}/regenerate-code`;
-    elements.deleteForm.classList.remove('hidden');
-    elements.deleteForm.action = `${state.createAction}/${profile.id}`;
-    fillRequestProfileQuotaInputs('pass', profile.passQuotaMap);
-    fillRequestProfileQuotaInputs('wristband', profile.wristbandQuotaMap);
-
-    const methodInput = document.createElement('input');
-    methodInput.type = 'hidden';
-    methodInput.name = '_method';
-    methodInput.value = 'PUT';
-    elements.methodHolder.innerHTML = '';
-    elements.methodHolder.appendChild(methodInput);
-    elements.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const filterRequestProfileRows = () => {
     const { rows, searchInput } = getRequestProfileElements();
     const query = String(searchInput?.value || '').trim().toLowerCase();
@@ -368,13 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const initializeRequestProfileUI = () => {
-    const elements = getRequestProfileElements();
-
-    if (!elements.app) {
-      return;
-    }
-
-    resetRequestProfileForm();
     filterRequestProfileRows();
   };
 
@@ -388,6 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
     typeFormTitle: document.querySelector('[data-access-type-form-title]'),
     typeFormMethodHolder: document.querySelector('[data-access-type-method-holder]'),
     typeSubmitLabel: document.querySelector('[data-access-type-submit-label]'),
+    requestModal: document.querySelector('[data-access-request-modal]'),
+    requestForm: document.querySelector('[data-access-request-form]'),
+    requestCategory: document.querySelector('[data-access-request-category]'),
   });
 
   const getAccessUi = () => {
@@ -520,6 +411,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+  };
+
+  const closeAccessRequestModal = () => {
+    const { requestModal, requestForm } = getAccessElements();
+
+    if (!requestModal || !requestForm) {
+      return;
+    }
+
+    requestModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
+    requestForm.reset();
+    requestForm.action = '';
+  };
+
+  const openAccessRequestModal = (trigger) => {
+    const { requestModal, requestForm, requestCategory } = getAccessElements();
+    const workspace = getAccessElements().workspace;
+
+    if (!requestModal || !requestForm || !workspace || !trigger) {
+      return;
+    }
+
+    const eventId = document.body.dataset.eventRoom;
+    const accessType = window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass';
+
+    requestForm.action = `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`;
+    requestForm.elements.fullName.value = trigger.dataset.requestFullName || '';
+    requestForm.elements.companyName.value = trigger.dataset.requestCompanyName || '';
+    requestForm.elements.phone.value = trigger.dataset.requestPhone || '';
+    requestForm.elements.email.value = trigger.dataset.requestEmail || '';
+    requestForm.elements.notes.value = trigger.dataset.requestNotes || '';
+
+    if (requestCategory) {
+      requestCategory.value = trigger.dataset.requestCategoryId || '';
+    }
+
+    requestModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+  };
+
+  const submitLiveFilterForm = async (form, { delay = 0 } = {}) => {
+    window.clearTimeout(liveFilterTimer);
+
+    const run = async () => {
+      const searchParams = new URLSearchParams(new FormData(form));
+      const targetUrl = `${form.action}?${searchParams.toString()}`;
+
+      try {
+        activeAccessView = 'requests';
+        window.history.replaceState({}, '', `${targetUrl}#requests`);
+        await refreshLiveSections(targetUrl, { abortPrevious: true });
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          return;
+        }
+
+        window.location.href = targetUrl;
+      }
+    };
+
+    if (delay > 0) {
+      liveFilterTimer = window.setTimeout(run, delay);
+      return;
+    }
+
+    await run();
   };
 
   const getPortalElements = () => ({
@@ -793,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeSidebar();
       setAccessFullscreen(false);
       setPortalWorkspaceView('table');
+      closeAccessRequestModal();
     }
   });
 
@@ -814,26 +773,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showLiveNotice(
-          copyTrigger.dataset.copySuccessMessage || getRequestProfileUi().copySuccess || 'Copied',
+          copyTrigger.dataset.copySuccessMessage || 'Copied',
           'success',
         );
       } catch (error) {
         showLiveNotice(error.message || 'Copy failed', 'error');
       }
-      return;
-    }
-
-    const requestProfileEditTrigger = event.target.closest('[data-request-profile-edit]');
-
-    if (requestProfileEditTrigger) {
-      populateRequestProfileForm(requestProfileEditTrigger.dataset.profileId);
-      return;
-    }
-
-    const requestProfileResetTrigger = event.target.closest('[data-request-profile-reset]');
-
-    if (requestProfileResetTrigger) {
-      resetRequestProfileForm();
       return;
     }
 
@@ -865,15 +810,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const accessEditRequestTrigger = event.target.closest('[data-access-edit-request]');
+
+    if (accessEditRequestTrigger) {
+      openAccessRequestModal(accessEditRequestTrigger);
+      return;
+    }
+
+    const accessRequestCloseTrigger = event.target.closest('[data-access-request-close]');
+
+    if (accessRequestCloseTrigger) {
+      closeAccessRequestModal();
+      return;
+    }
+
     const liveFilterResetTrigger = event.target.closest('[data-live-filter-reset]');
 
     if (liveFilterResetTrigger) {
+      window.clearTimeout(liveFilterTimer);
       const resetUrl = liveFilterResetTrigger.dataset.filterResetUrl || window.location.pathname;
       window.history.replaceState({}, '', `${resetUrl}#requests`);
       activeAccessView = 'requests';
 
       try {
-        await refreshLiveSections(`${window.location.origin}${resetUrl}`);
+        await refreshLiveSections(`${window.location.origin}${resetUrl}`, { abortPrevious: true });
       } catch (error) {
         window.location.href = resetUrl;
       }
@@ -970,11 +930,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target.matches('[data-portal-import-category]')) {
       updateImportTemplateLink();
     }
+
+    const liveFilterForm = event.target.closest('[data-live-filter-form]');
+
+    if (liveFilterForm && event.target.matches('select, input')) {
+      submitLiveFilterForm(liveFilterForm);
+    }
   });
 
   document.addEventListener('input', (event) => {
     if (event.target.matches('[data-request-profile-search]')) {
       filterRequestProfileRows();
+    }
+
+    const liveFilterForm = event.target.closest('[data-live-filter-form]');
+
+    if (liveFilterForm && event.target.matches('input[type="search"], input[type="text"], input:not([type])')) {
+      submitLiveFilterForm(liveFilterForm, { delay: 260 });
     }
   });
 
@@ -983,17 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (form.matches('[data-live-filter-form]')) {
       event.preventDefault();
-
-      const searchParams = new URLSearchParams(new FormData(form));
-      const targetUrl = `${form.action}?${searchParams.toString()}`;
-
-      try {
-        activeAccessView = 'requests';
-        window.history.replaceState({}, '', `${targetUrl}#requests`);
-        await refreshLiveSections(targetUrl);
-      } catch (error) {
-        window.location.href = targetUrl;
-      }
+      await submitLiveFilterForm(form);
 
       return;
     }
@@ -1029,6 +991,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await submitLiveForm(form);
+        if (form.matches('[data-access-request-form]')) {
+          closeAccessRequestModal();
+        }
         if (form.matches('[data-portal-request-form]')) {
           setPortalWorkspaceView('table');
         }
@@ -1066,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.addEventListener('codex:live-sections-refreshed', () => {
+    closeAccessRequestModal();
     initializeAccessUI();
     initializePortalUI();
     initializeRequestProfileUI();

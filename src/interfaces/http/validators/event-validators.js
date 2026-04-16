@@ -130,6 +130,41 @@ const requestStatusValidator = [
     .withMessage((value, { req }) => req.t('validation.request.status')),
 ];
 
+const adminRequestEditorValidator = [
+  body('categoryId')
+    .isInt({ min: 1 })
+    .withMessage((value, { req }) => req.t('validation.portal.category')),
+  body('fullName')
+    .trim()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.portal.fullName', { min: 2, max: 160 })),
+  body('companyName')
+    .trim()
+    .notEmpty()
+    .withMessage((value, { req }) => req.t('validation.portal.companyNameRequired'))
+    .bail()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.portal.companyNameLength', { min: 2, max: 160 })),
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage((value, { req }) => req.t('validation.portal.phoneRequired'))
+    .bail()
+    .isLength({ min: 3, max: 40 })
+    .withMessage((value, { req }) => req.t('validation.portal.phoneLength', { min: 3, max: 40 })),
+  body('email')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage((value, { req }) => req.t('validation.portal.email'))
+    .normalizeEmail(),
+  body('notes')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 3000 })
+    .withMessage((value, { req }) => req.t('validation.portal.notes', { max: 3000 })),
+];
+
 const portalCodeValidator = [
   body('accessCode')
     .trim()
@@ -175,6 +210,7 @@ const portalRequestValidator = [
 module.exports = {
   accessTypeParamValidator,
   accessTypeValidator,
+  adminRequestEditorValidator,
   categoryValidator,
   categoryUpdateValidator,
   eventValidator,
