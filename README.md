@@ -78,10 +78,10 @@ mysql -u root -p < db/schema.sql
 
 4. Update `.env` with your local MySQL credentials and a strong `SESSION_SECRET`.
 
-5. Build Tailwind CSS:
+5. Build Tailwind CSS locally:
 
 ```bash
-npm run build
+npm run build:css
 ```
 
 6. Start the development environment:
@@ -177,6 +177,7 @@ This repository is prepared so Hostinger can recognize it more reliably as an Ex
 - `start` script runs the server from the root entry point
 - `.nvmrc` and `package.json` both target Node.js `20.x`
 - compiled Tailwind CSS is included in `public/css/app.css`
+- production `build` script does not require Tailwind on the server
 
 If Hostinger still shows an unsupported structure warning, refresh the repository list after the first real push to `main`, because the remote repository was empty before publishing.
 
@@ -204,6 +205,7 @@ If Hostinger still shows an unsupported structure warning, refresh the repositor
 ## Verification completed
 
 - `npm install`
+- `npm run build:css`
 - `npm run build`
 - App bootstrap smoke test with `node -e "const createApp = require('./src/app'); createApp(); console.log('app bootstrap ok');"`
 
