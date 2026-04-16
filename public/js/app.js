@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuPanel = document.querySelector('[data-mobile-menu]');
   const eventRoom = document.body.dataset.eventRoom;
   let activePortalTab = 'all';
+  let activePortalWorkspaceView = 'table';
+  let activePortalRequestType = 'pass';
+  let activePortalRequestMode = 'create';
+  let activePortalImportType = 'pass';
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
   let refreshInProgress = false;
@@ -154,6 +158,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getPortalUi = () => getPortalState()?.ui || {};
 
+  const getPortalWorkspaceCopy = () => {
+    const app = document.querySelector('[data-portal-app]');
+
+    if (!app) {
+      return {};
+    }
+
+    return {
+      tableTitle: app.dataset.portalTableTitle || 'All submitted requests',
+      tableDescription: app.dataset.portalTableDescription || '',
+      requestDescription: app.dataset.portalRequestDescription || '',
+      importDescription: app.dataset.portalImportDescription || '',
+    };
+  };
+
   const getAccessElements = () => ({
     workspace: document.querySelector('[data-access-workspace]'),
     viewTabs: [...document.querySelectorAll('[data-access-view-tab]')],
@@ -300,15 +319,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getPortalElements = () => ({
     app: document.querySelector('[data-portal-app]'),
-    requestModal: document.querySelector('[data-portal-request-modal]'),
+    workspaceTitle: document.querySelector('[data-portal-workspace-title]'),
+    workspaceDescription: document.querySelector('[data-portal-workspace-description]'),
+    viewPanels: [...document.querySelectorAll('[data-portal-view-panel]')],
+    backButtons: [...document.querySelectorAll('[data-portal-back-to-table]')],
     requestForm: document.querySelector('[data-portal-request-form]'),
-    requestTitle: document.querySelector('[data-portal-request-modal-title]'),
     requestSubmitLabel: document.querySelector('[data-portal-request-submit-label]'),
     requestCategorySelect: document.querySelector('[data-portal-category-select]'),
     requestMethodHolder: document.querySelector('[data-portal-method-holder]'),
-    importModal: document.querySelector('[data-portal-import-modal]'),
     importPreviewForm: document.querySelector('[data-portal-import-preview-form]'),
-    importTitle: document.querySelector('[data-portal-import-title]'),
     importTypeInput: document.querySelector('[data-portal-import-type]'),
     importCategory: document.querySelector('[data-portal-import-category]'),
     importFileInput: document.querySelector('[data-portal-import-file]'),
@@ -335,27 +354,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const closePortalModal = (modal) => {
-    if (!modal) {
+  const syncPortalWorkspaceHeader = () => {
+    const elements = getPortalElements();
+    const ui = getPortalUi();
+    const copy = getPortalWorkspaceCopy();
+
+    if (!elements.workspaceTitle || !elements.workspaceDescription) {
       return;
     }
 
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-
-    if (!document.querySelector('.portal-modal.is-open')) {
-      document.body.classList.remove('portal-modal-open');
+    if (activePortalWorkspaceView === 'request') {
+      elements.workspaceTitle.textContent = activePortalRequestMode === 'edit'
+        ? (ui.editRequestTitle || 'Edit request')
+        : activePortalRequestType === 'pass'
+          ? (ui.addPassTitle || 'Add pass')
+          : (ui.addWristbandTitle || 'Add wristband');
+      elements.workspaceDescription.textContent = copy.requestDescription || '';
+      return;
     }
+
+    if (activePortalWorkspaceView === 'import') {
+      elements.workspaceTitle.textContent = activePortalImportType === 'pass'
+        ? (ui.importPassTitle || 'Import passes from Excel')
+        : (ui.importWristbandTitle || 'Import wristbands from Excel');
+      elements.workspaceDescription.textContent = copy.importDescription || '';
+      return;
+    }
+
+    elements.workspaceTitle.textContent = copy.tableTitle || 'All submitted requests';
+    elements.workspaceDescription.textContent = copy.tableDescription || '';
   };
 
-  const openPortalModal = (modal) => {
-    if (!modal) {
-      return;
-    }
+  const setPortalWorkspaceView = (view) => {
+    activePortalWorkspaceView = view;
+    const elements = getPortalElements();
 
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('portal-modal-open');
+    elements.viewPanels.forEach((panel) => {
+      panel.classList.toggle('is-active', panel.dataset.portalViewPanel === view);
+    });
+
+    elements.backButtons.forEach((button) => {
+      button.classList.toggle('hidden', view === 'table');
+    });
+
+    syncPortalWorkspaceHeader();
   };
 
   const fillCategoryOptions = (select, type, currentCategoryId = null) => {
@@ -394,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const openRequestModal = ({ type, mode = 'create', request = null }) => {
+  const openRequestPanel = ({ type, mode = 'create', request = null }) => {
     const elements = getPortalElements();
 
     if (!elements.requestForm) {
@@ -402,13 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const ui = getPortalUi();
+    activePortalRequestType = type;
+    activePortalRequestMode = mode;
     elements.requestForm.reset();
     elements.requestForm.action = `/p/${type}`;
-    elements.requestTitle.textContent = mode === 'edit'
-      ? (ui.editRequestTitle || 'Edit request')
-      : type === 'pass'
-        ? (ui.addPassTitle || 'Add pass')
-        : (ui.addWristbandTitle || 'Add wristband');
     elements.requestSubmitLabel.textContent = mode === 'edit'
       ? (ui.saveRequest || 'Save request')
       : (ui.addRequest || 'Add request');
@@ -432,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     elements.requestForm.dataset.requestType = type;
-    openPortalModal(elements.requestModal);
+    setPortalWorkspaceView('request');
   };
 
   const updateImportTemplateLink = () => {
@@ -447,26 +486,23 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.importTemplateLink.href = `/p/import/template?type=${encodeURIComponent(type)}&categoryId=${encodeURIComponent(categoryId)}`;
   };
 
-  const openImportModal = (type) => {
+  const openImportPanel = (type) => {
     const elements = getPortalElements();
 
     if (!elements.importPreviewForm) {
       return;
     }
 
-    const ui = getPortalUi();
+    activePortalImportType = type;
     elements.importPreviewForm.reset();
     elements.importTypeInput.value = type;
-    elements.importTitle.textContent = type === 'pass'
-      ? (ui.importPassTitle || 'Import passes from Excel')
-      : (ui.importWristbandTitle || 'Import wristbands from Excel');
     elements.importPreview.classList.add('hidden');
     elements.importPreview.innerHTML = '';
     elements.importConfirmButton.classList.add('hidden');
     elements.importConfirmButton.dataset.token = '';
     fillCategoryOptions(elements.importCategory, type);
     updateImportTemplateLink();
-    openPortalModal(elements.importModal);
+    setPortalWorkspaceView('import');
   };
 
   const renderImportPreview = (preview) => {
@@ -529,6 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setPortalTab(activePortalTab);
+    setPortalWorkspaceView(activePortalWorkspaceView);
     updateImportTemplateLink();
   };
 
@@ -550,8 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'Escape') {
       closeSidebar();
       setAccessFullscreen(false);
-      closePortalModal(getPortalElements().requestModal);
-      closePortalModal(getPortalElements().importModal);
+      setPortalWorkspaceView('table');
     }
   });
 
@@ -606,11 +642,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const closeTrigger = event.target.closest('[data-portal-close]');
+    const closeTrigger = event.target.closest('[data-portal-back-to-table]');
 
     if (closeTrigger) {
-      closePortalModal(getPortalElements().requestModal);
-      closePortalModal(getPortalElements().importModal);
+      setPortalWorkspaceView('table');
       return;
     }
 
@@ -619,14 +654,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabTrigger) {
       const tab = tabTrigger.dataset.tab || 'all';
       setPortalTab(tab);
-      document.querySelector('[data-live-section="portal-table"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setPortalWorkspaceView('table');
       return;
     }
 
-    const createTrigger = event.target.closest('[data-portal-open-request-modal]');
+    const createTrigger = event.target.closest('[data-portal-open-request-panel]');
 
     if (createTrigger) {
-      openRequestModal({
+      openRequestPanel({
         type: createTrigger.dataset.requestType,
       });
       return;
@@ -635,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const editTrigger = event.target.closest('[data-portal-edit-request]');
 
     if (editTrigger) {
-      openRequestModal({
+      openRequestPanel({
         type: editTrigger.dataset.requestType,
         mode: 'edit',
         request: {
@@ -651,10 +686,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const importTrigger = event.target.closest('[data-portal-open-import-modal]');
+    const importTrigger = event.target.closest('[data-portal-open-import-panel]');
 
     if (importTrigger) {
-      openImportModal(importTrigger.dataset.requestType);
+      openImportPanel(importTrigger.dataset.requestType);
       return;
     }
 
@@ -683,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error(payload?.error || 'Import failed');
         }
 
-        closePortalModal(getPortalElements().importModal);
+        setPortalWorkspaceView('table');
         showLiveNotice(payload.message, 'success');
         await refreshLiveSections();
       } catch (error) {
@@ -749,7 +784,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await submitLiveForm(form);
-        closePortalModal(getPortalElements().requestModal);
+        if (form.matches('[data-portal-request-form]')) {
+          setPortalWorkspaceView('table');
+        }
         resetAccessTypeForm();
       } catch (error) {
         showLiveNotice(error.message, 'error');

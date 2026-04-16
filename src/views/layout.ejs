@@ -273,7 +273,7 @@
     <% } else if (isAuthPage) { %>
       <%- body %>
     <% } else { %>
-      <div class="worldnic-guest-shell">
+      <div class="worldnic-guest-shell <%= isPublicPortal && portalPageMode === 'manage' ? 'worldnic-guest-shell-portal' : '' %>">
         <header class="worldnic-guest-topbar">
           <a href="<%= isPublicPortal ? '/p' : '/login' %>" class="worldnic-brand">
             <span class="worldnic-brand__badge">

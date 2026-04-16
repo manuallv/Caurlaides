@@ -1337,10 +1337,137 @@ body.portal-modal-open {
   overflow: hidden;
 }
 
+.worldnic-guest-shell-portal {
+  max-width: min(1640px, calc(100vw - 24px));
+}
+
 .portal-page {
   display: grid;
   gap: 1.4rem;
   width: 100%;
+}
+
+.portal-page-workspace {
+  min-height: calc(100vh - 8.5rem);
+}
+
+.portal-workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.portal-workspace-sidebar {
+  display: grid;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.portal-profile-card {
+  padding: 1.2rem;
+}
+
+.portal-profile-card__head {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-profile-card__title {
+  margin: 0.7rem 0 0;
+  color: var(--wn-text);
+  font-size: 1.55rem;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.portal-profile-card__description {
+  margin: 0.75rem 0 0;
+  color: var(--wn-muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.portal-profile-card__logout {
+  display: flex;
+}
+
+.portal-workspace-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: calc(100vh - 8.5rem);
+  overflow: hidden;
+}
+
+.portal-workspace-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem 1.05rem;
+  border-bottom: 1px solid rgba(223, 229, 240, 0.82);
+}
+
+.portal-workspace-card__copy h2 {
+  margin: 0.7rem 0 0;
+  color: var(--wn-text);
+  font-size: 1.8rem;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.portal-workspace-card__copy p {
+  margin: 0.75rem 0 0;
+  color: var(--wn-muted);
+  font-size: 0.92rem;
+  line-height: 1.68;
+}
+
+.portal-workspace-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.portal-workspace-card__body {
+  min-height: 0;
+  display: grid;
+}
+
+.portal-workspace-view {
+  display: none;
+  min-height: 0;
+}
+
+.portal-workspace-view.is-active {
+  display: grid;
+}
+
+.portal-workspace-view[data-portal-view-panel="table"].is-active {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.portal-workspace-view[data-portal-view-panel="request"].is-active,
+.portal-workspace-view[data-portal-view-panel="import"].is-active {
+  align-content: start;
+  padding: 1.2rem 1.5rem 1.45rem;
+}
+
+.portal-table-toolbar {
+  padding: 1rem 1.5rem 0;
+}
+
+.portal-inline-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-inline-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .portal-login-shell {
@@ -1636,6 +1763,7 @@ body.portal-modal-open {
   width: 100%;
   overflow-x: auto;
   padding: 1rem 1.5rem 1.45rem;
+  min-height: 0;
 }
 
 .portal-requests-table {
@@ -2076,7 +2204,8 @@ body.portal-modal-open {
   }
 
   .portal-login-card,
-  .portal-access-grid {
+  .portal-access-grid,
+  .portal-workspace {
     grid-template-columns: 1fr;
   }
 
@@ -2086,13 +2215,22 @@ body.portal-modal-open {
 
   .portal-summary-card__header,
   .portal-table-card__header,
-  .portal-access-card__head {
+  .portal-access-card__head,
+  .portal-workspace-card__header {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .portal-table-tabs {
     width: 100%;
+  }
+
+  .portal-workspace-sidebar {
+    position: static;
+  }
+
+  .portal-workspace-card {
+    min-height: 0;
   }
 }
 
@@ -2138,7 +2276,11 @@ body.portal-modal-open {
   .portal-summary-card__header,
   .portal-table-card__header,
   .portal-access-grid,
+  .portal-table-toolbar,
   .portal-table-scroll,
+  .portal-workspace-card__header,
+  .portal-workspace-view[data-portal-view-panel="request"].is-active,
+  .portal-workspace-view[data-portal-view-panel="import"].is-active,
   .portal-modal__dialog {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -2157,10 +2299,14 @@ body.portal-modal-open {
     grid-template-columns: 1fr;
   }
 
+  .portal-inline-form__actions,
   .portal-state-pill,
   .portal-tab-button,
   .portal-card-actions .btn-primary,
   .portal-card-actions .btn-secondary,
+  .portal-profile-card__logout .btn-secondary,
+  .portal-inline-form__actions .btn-primary,
+  .portal-inline-form__actions .btn-secondary,
   .portal-modal__actions .btn-primary,
   .portal-modal__actions .btn-secondary {
     width: 100%;

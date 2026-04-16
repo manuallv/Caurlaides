@@ -1,20 +1,30 @@
-<section class="portal-page" data-portal-app>
-  <div class="shell-card portal-summary-card" data-live-section="portal-summary">
-    <script id="portal-state" type="application/json"><%- JSON.stringify(portalClientState) %></script>
-    <div class="portal-summary-card__header">
-      <div class="portal-summary-card__title">
-        <p class="worldnic-eyebrow"><%= t('portal.eyebrow') %></p>
-        <h1><%= profile.name %></h1>
-        <p><%= t('portal.manage.description') %></p>
+<section
+  class="portal-page portal-page-workspace"
+  data-portal-app
+  data-portal-table-title="<%= t('portal.tableTitle') %>"
+  data-portal-table-description="<%= t('portal.tableDescription') %>"
+  data-portal-request-description="<%= t('portal.manage.description') %>"
+  data-portal-import-description="<%= t('portal.manage.description') %>"
+>
+  <script id="portal-state" type="application/json"><%- JSON.stringify(portalClientState) %></script>
+
+  <div class="portal-workspace">
+    <aside class="portal-workspace-sidebar" data-live-section="portal-summary">
+      <div class="shell-card portal-profile-card">
+        <div class="portal-profile-card__head">
+          <div>
+            <p class="worldnic-eyebrow"><%= t('portal.eyebrow') %></p>
+            <h1 class="portal-profile-card__title"><%= profile.name %></h1>
+            <p class="portal-profile-card__description"><%= t('portal.manage.description') %></p>
+          </div>
+
+          <form action="/p/logout" method="POST" class="portal-profile-card__logout">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button type="submit" class="btn-secondary"><%= t('portal.logout') %></button>
+          </form>
+        </div>
       </div>
 
-      <form action="/p/logout" method="POST" class="portal-summary-card__logout">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <button type="submit" class="btn-secondary"><%= t('portal.logout') %></button>
-      </form>
-    </div>
-
-    <div class="portal-access-grid">
       <article class="portal-access-card panel">
         <div class="portal-access-card__head">
           <div class="portal-access-card__copy">
@@ -38,9 +48,9 @@
         </div>
 
         <div class="portal-card-actions">
-          <button type="button" class="btn-primary" data-portal-open-request-modal data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
+          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
           <button type="button" class="btn-secondary" data-portal-set-tab data-tab="wristband"><%= t('portal.manageWristbandButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-open-import-modal data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
+          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
         </div>
       </article>
 
@@ -67,198 +77,191 @@
         </div>
 
         <div class="portal-card-actions">
-          <button type="button" class="btn-primary" data-portal-open-request-modal data-request-type="pass"><%= t('portal.addPassButton') %></button>
+          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
           <button type="button" class="btn-secondary" data-portal-set-tab data-tab="pass"><%= t('portal.managePassButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-open-import-modal data-request-type="pass"><%= t('portal.importPassButton') %></button>
+          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
         </div>
       </article>
-    </div>
-  </div>
+    </aside>
 
-  <div class="shell-card portal-table-card" data-live-section="portal-table">
-    <div class="portal-table-card__header">
-      <div class="portal-table-card__copy">
-        <h2><%= t('portal.tableTitle') %></h2>
-        <p><%= t('portal.tableDescription') %></p>
-      </div>
-
-      <div class="portal-table-tabs">
-        <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
-        <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
-        <button type="button" class="portal-tab-button" data-portal-tab data-tab="pass"><%= t('portal.tabs.passes') %></button>
-      </div>
-    </div>
-
-    <div class="portal-table-scroll">
-      <% if (!combinedRequests.length) { %>
-        <p class="portal-empty-copy portal-empty-copy-table"><%= t('portal.noRequestsCombined') %></p>
-      <% } else { %>
-        <table class="portal-requests-table" data-portal-table>
-          <colgroup>
-            <col class="portal-col-type" />
-            <col class="portal-col-name" />
-            <col class="portal-col-category" />
-            <col class="portal-col-company" />
-            <col class="portal-col-phone" />
-            <col class="portal-col-status" />
-            <col class="portal-col-updated" />
-            <col class="portal-col-actions" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th><%= t('portal.table.type') %></th>
-              <th><%= t('portal.table.name') %></th>
-              <th><%= t('portal.table.category') %></th>
-              <th><%= t('portal.table.company') %></th>
-              <th><%= t('portal.table.phone') %></th>
-              <th><%= t('portal.table.status') %></th>
-              <th><%= t('portal.table.updated') %></th>
-              <th><%= t('portal.table.actions') %></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% combinedRequests.forEach((request) => { %>
-              <tr class="portal-request-row" data-request-row data-request-type="<%= request.request_type %>">
-                <td>
-                  <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
-                    <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>
-                  </span>
-                </td>
-                <td>
-                  <div class="portal-person-cell">
-                    <p class="portal-person-cell__title"><%= request.full_name %></p>
-                  <% if (request.email) { %>
-                      <p class="portal-person-cell__meta"><%= request.email %></p>
-                  <% } %>
-                  </div>
-                </td>
-                <td><div class="portal-data-cell"><%= request.category_name %></div></td>
-                <td><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
-                <td><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
-                <td>
-                  <div class="portal-status-stack">
-                    <span class="portal-status-pill <%= request.status === 'handed_out' ? 'is-locked' : 'is-pending' %>"><%= t(`statuses.${request.status}`) %></span>
-                  </div>
-                </td>
-                <td>
-                  <div class="portal-updated-cell">
-                    <span><%= helpers.formatDateTime(request.updated_at) %></span>
-                  </div>
-                </td>
-                <td>
-                  <div class="portal-row-actions">
-                    <% if (request.isEditable) { %>
-                      <button
-                        type="button"
-                        class="portal-action-button"
-                        data-portal-edit-request
-                        data-request-id="<%= request.id %>"
-                        data-request-type="<%= request.request_type %>"
-                        data-category-id="<%= request.category_id %>"
-                        data-full-name="<%= request.full_name %>"
-                        data-company-name="<%= request.company_name || profile.name %>"
-                        data-phone="<%= request.phone || '' %>"
-                        data-email="<%= request.email || '' %>"
-                        data-notes="<%= request.notes || '' %>"
-                      ><%= t('portal.editRequest') %></button>
-
-                      <form action="/p/<%= request.request_type %>/<%= request.id %>?_method=DELETE" method="POST" data-live-form>
-                        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                        <button type="submit" class="portal-action-button portal-action-button-danger"><%= t('portal.deleteRequest') %></button>
-                      </form>
-                    <% } else { %>
-                      <span class="portal-lock-label"><%= t('portal.requestLockedShort') %></span>
-                    <% } %>
-                  </div>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% } %>
-    </div>
-  </div>
-
-  <section class="portal-modal" data-portal-request-modal aria-hidden="true">
-    <button type="button" class="portal-modal__backdrop" data-portal-close aria-label="<%= t('event.form.cancel') %>"></button>
-    <div class="portal-modal__dialog shell-card">
-      <div class="portal-modal__header">
-        <div class="portal-modal__title-block">
+    <section class="shell-card portal-workspace-card">
+      <div class="portal-workspace-card__header">
+        <div class="portal-workspace-card__copy">
           <p class="worldnic-eyebrow"><%= t('portal.manage.title') %></p>
-          <h2 data-portal-request-modal-title><%= t('portal.addRequest') %></h2>
+          <h2 data-portal-workspace-title><%= t('portal.tableTitle') %></h2>
+          <p data-portal-workspace-description><%= t('portal.tableDescription') %></p>
         </div>
-        <button type="button" class="btn-secondary" data-portal-close><%= t('event.form.cancel') %></button>
+
+        <div class="portal-workspace-card__actions">
+          <button type="button" class="btn-secondary hidden" data-portal-back-to-table><%= t('portal.tableTitle') %></button>
+        </div>
       </div>
 
-      <form action="/p/pass" method="POST" class="portal-modal__form" data-portal-request-form data-live-form>
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <div data-portal-method-holder></div>
-        <div class="portal-form-grid">
-          <div class="portal-form-grid__full">
-            <label class="field-label"><%= t('access.fields.type') %></label>
-            <select name="categoryId" class="field-input" data-portal-category-select required></select>
+      <div class="portal-workspace-card__body">
+        <section class="portal-workspace-view is-active" data-portal-view-panel="table" data-live-section="portal-table">
+          <div class="portal-table-toolbar">
+            <div class="portal-table-tabs">
+              <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
+              <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
+              <button type="button" class="portal-tab-button" data-portal-tab data-tab="pass"><%= t('portal.tabs.passes') %></button>
+            </div>
           </div>
-          <div>
-            <label class="field-label"><%= t('portal.fields.fullName') %></label>
-            <input name="fullName" type="text" class="field-input" required />
-          </div>
-          <div>
-            <label class="field-label"><%= t('portal.fields.phone') %></label>
-            <input name="phone" type="text" class="field-input" required />
-          </div>
-          <div>
-            <label class="field-label"><%= t('portal.fields.company') %></label>
-            <input name="companyName" type="text" class="field-input" value="<%= profile.name %>" required />
-          </div>
-          <div>
-            <label class="field-label"><%= t('field.email') %></label>
-            <input name="email" type="email" class="field-input" />
-          </div>
-          <div class="portal-form-grid__full">
-            <label class="field-label"><%= t('portal.fields.notes') %></label>
-            <textarea name="notes" rows="4" class="field-input"></textarea>
-          </div>
-        </div>
 
-        <div class="portal-modal__actions">
-          <button type="submit" class="btn-primary"><span data-portal-request-submit-label><%= t('portal.addRequest') %></span></button>
-          <button type="button" class="btn-secondary" data-portal-close><%= t('event.form.cancel') %></button>
-        </div>
-      </form>
-    </div>
-  </section>
+          <div class="portal-table-scroll">
+            <% if (!combinedRequests.length) { %>
+              <p class="portal-empty-copy portal-empty-copy-table"><%= t('portal.noRequestsCombined') %></p>
+            <% } else { %>
+              <table class="portal-requests-table" data-portal-table>
+                <colgroup>
+                  <col class="portal-col-type" />
+                  <col class="portal-col-name" />
+                  <col class="portal-col-category" />
+                  <col class="portal-col-company" />
+                  <col class="portal-col-phone" />
+                  <col class="portal-col-status" />
+                  <col class="portal-col-updated" />
+                  <col class="portal-col-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th><%= t('portal.table.type') %></th>
+                    <th><%= t('portal.table.name') %></th>
+                    <th><%= t('portal.table.category') %></th>
+                    <th><%= t('portal.table.company') %></th>
+                    <th><%= t('portal.table.phone') %></th>
+                    <th><%= t('portal.table.status') %></th>
+                    <th><%= t('portal.table.updated') %></th>
+                    <th><%= t('portal.table.actions') %></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% combinedRequests.forEach((request) => { %>
+                    <tr class="portal-request-row" data-request-row data-request-type="<%= request.request_type %>">
+                      <td>
+                        <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
+                          <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>
+                        </span>
+                      </td>
+                      <td>
+                        <div class="portal-person-cell">
+                          <p class="portal-person-cell__title"><%= request.full_name %></p>
+                          <% if (request.email) { %>
+                            <p class="portal-person-cell__meta"><%= request.email %></p>
+                          <% } %>
+                        </div>
+                      </td>
+                      <td><div class="portal-data-cell"><%= request.category_name %></div></td>
+                      <td><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
+                      <td><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
+                      <td>
+                        <div class="portal-status-stack">
+                          <span class="portal-status-pill <%= request.status === 'handed_out' ? 'is-locked' : 'is-pending' %>"><%= t(`statuses.${request.status}`) %></span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="portal-updated-cell">
+                          <span><%= helpers.formatDateTime(request.updated_at) %></span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="portal-row-actions">
+                          <% if (request.isEditable) { %>
+                            <button
+                              type="button"
+                              class="portal-action-button"
+                              data-portal-edit-request
+                              data-request-id="<%= request.id %>"
+                              data-request-type="<%= request.request_type %>"
+                              data-category-id="<%= request.category_id %>"
+                              data-full-name="<%= request.full_name %>"
+                              data-company-name="<%= request.company_name || profile.name %>"
+                              data-phone="<%= request.phone || '' %>"
+                              data-email="<%= request.email || '' %>"
+                              data-notes="<%= request.notes || '' %>"
+                            ><%= t('portal.editRequest') %></button>
 
-  <section class="portal-modal" data-portal-import-modal aria-hidden="true">
-    <button type="button" class="portal-modal__backdrop" data-portal-close aria-label="<%= t('event.form.cancel') %>"></button>
-    <div class="portal-modal__dialog shell-card portal-modal__dialog-wide">
-      <div class="portal-modal__header">
-        <div class="portal-modal__title-block">
-          <p class="worldnic-eyebrow"><%= t('portal.importTitle') %></p>
-          <h2 data-portal-import-title><%= t('portal.importTitle') %></h2>
-        </div>
-        <button type="button" class="btn-secondary" data-portal-close><%= t('event.form.cancel') %></button>
+                            <form action="/p/<%= request.request_type %>/<%= request.id %>?_method=DELETE" method="POST" data-live-form>
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                              <button type="submit" class="portal-action-button portal-action-button-danger"><%= t('portal.deleteRequest') %></button>
+                            </form>
+                          <% } else { %>
+                            <span class="portal-lock-label"><%= t('portal.requestLockedShort') %></span>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            <% } %>
+          </div>
+        </section>
+
+        <section class="portal-workspace-view" data-portal-view-panel="request">
+          <form action="/p/pass" method="POST" class="portal-inline-form" data-portal-request-form data-live-form>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <div data-portal-method-holder></div>
+
+            <div class="portal-form-grid">
+              <div class="portal-form-grid__full">
+                <label class="field-label"><%= t('access.fields.type') %></label>
+                <select name="categoryId" class="field-input" data-portal-category-select required></select>
+              </div>
+              <div>
+                <label class="field-label"><%= t('portal.fields.fullName') %></label>
+                <input name="fullName" type="text" class="field-input" required />
+              </div>
+              <div>
+                <label class="field-label"><%= t('portal.fields.phone') %></label>
+                <input name="phone" type="text" class="field-input" required />
+              </div>
+              <div>
+                <label class="field-label"><%= t('portal.fields.company') %></label>
+                <input name="companyName" type="text" class="field-input" value="<%= profile.name %>" required />
+              </div>
+              <div>
+                <label class="field-label"><%= t('field.email') %></label>
+                <input name="email" type="email" class="field-input" />
+              </div>
+              <div class="portal-form-grid__full">
+                <label class="field-label"><%= t('portal.fields.notes') %></label>
+                <textarea name="notes" rows="6" class="field-input"></textarea>
+              </div>
+            </div>
+
+            <div class="portal-inline-form__actions">
+              <button type="submit" class="btn-primary"><span data-portal-request-submit-label><%= t('portal.addRequest') %></span></button>
+              <button type="button" class="btn-secondary" data-portal-back-to-table><%= t('portal.tableTitle') %></button>
+            </div>
+          </form>
+        </section>
+
+        <section class="portal-workspace-view" data-portal-view-panel="import">
+          <form class="portal-inline-form" data-portal-import-preview-form>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <input type="hidden" name="type" value="pass" data-portal-import-type />
+
+            <div class="portal-form-grid">
+              <div class="portal-form-grid__full">
+                <label class="field-label"><%= t('access.fields.type') %></label>
+                <select name="categoryId" class="field-input" data-portal-import-category required></select>
+              </div>
+              <div class="portal-form-grid__full portal-import-tools">
+                <a href="#" class="btn-secondary" data-portal-template-link><%= t('portal.downloadTemplate') %></a>
+                <input type="file" name="excelFile" accept=".xlsx,.xls" class="field-input" data-portal-import-file required />
+              </div>
+            </div>
+
+            <div class="portal-inline-form__actions">
+              <button type="submit" class="btn-primary"><%= t('portal.previewImport') %></button>
+              <button type="button" class="btn-secondary hidden" data-portal-import-confirm><%= t('portal.confirmImport') %></button>
+              <button type="button" class="btn-secondary" data-portal-back-to-table><%= t('portal.tableTitle') %></button>
+            </div>
+          </form>
+
+          <div class="portal-import-preview hidden" data-portal-import-preview></div>
+        </section>
       </div>
-
-      <form class="portal-modal__form" data-portal-import-preview-form>
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <input type="hidden" name="type" value="pass" data-portal-import-type />
-        <div class="portal-form-grid">
-          <div class="portal-form-grid__full">
-            <label class="field-label"><%= t('access.fields.type') %></label>
-            <select name="categoryId" class="field-input" data-portal-import-category required></select>
-          </div>
-          <div class="portal-form-grid__full portal-import-tools">
-            <a href="#" class="btn-secondary" data-portal-template-link><%= t('portal.downloadTemplate') %></a>
-            <input type="file" name="excelFile" accept=".xlsx,.xls" class="field-input" data-portal-import-file required />
-          </div>
-        </div>
-        <div class="portal-modal__actions">
-          <button type="submit" class="btn-primary"><%= t('portal.previewImport') %></button>
-          <button type="button" class="btn-secondary hidden" data-portal-import-confirm><%= t('portal.confirmImport') %></button>
-        </div>
-      </form>
-
-      <div class="portal-import-preview hidden" data-portal-import-preview></div>
-    </div>
-  </section>
+    </section>
+  </div>
 </section>

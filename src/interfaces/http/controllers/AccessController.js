@@ -257,6 +257,7 @@ function buildAccessController({ categoryService, accessService }) {
         portalEntry: entry,
         layout: 'layout',
         isPublicPortal: true,
+        portalPageMode: 'login',
       });
     },
 
@@ -313,6 +314,7 @@ function buildAccessController({ categoryService, accessService }) {
         },
         portalEventRoom: data.profile.event_id,
         isPublicPortal: true,
+        portalPageMode: 'manage',
       });
     },
 
