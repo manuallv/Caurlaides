@@ -7,6 +7,7 @@ function createSessionMiddleware() {
   const MySQLStore = MySQLStoreFactory(session);
   const sessionStore = new MySQLStore(
     {
+      ...dbConfig,
       clearExpired: true,
       checkExpirationInterval: 15 * 60 * 1000,
       expiration: 24 * 60 * 60 * 1000,
@@ -20,8 +21,7 @@ function createSessionMiddleware() {
           data: 'data',
         },
       },
-    },
-    dbConfig,
+    }
   );
 
   return session({
