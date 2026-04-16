@@ -14,6 +14,7 @@ function attachViewLocals(req, res, next) {
       && String(req.currentUser.email || '').trim().toLowerCase() === env.superAdminEmail,
   );
   res.locals.activeEvent = res.locals.activeEvent || null;
+  res.locals.isPublicPortal = Boolean(res.locals.isPublicPortal);
   res.locals.t = req.t;
   res.locals.flash = {
     success: req.flash('success'),

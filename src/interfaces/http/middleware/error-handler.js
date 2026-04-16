@@ -32,6 +32,7 @@ function errorHandler(error, req, res, next) {
     message,
     currentUser: req.currentUser || null,
     activeEvent: null,
+    isPublicPortal: false,
     currentPath: req.originalUrl || '',
     csrfToken: '',
     locale: req.locale || 'en',

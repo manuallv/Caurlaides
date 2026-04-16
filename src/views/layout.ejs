@@ -9,12 +9,13 @@
   </head>
   <%
     const hasEvent = Boolean(activeEvent);
+    const portalMode = typeof isPublicPortal === 'undefined' ? false : Boolean(isPublicPortal);
     const isAuthPage = !currentUser
       && (
         ['/login', '/register', '/forgot-password'].includes(currentPath)
         || currentPath.startsWith('/reset-password/')
       );
-    const useAppShell = currentUser && !isPublicPortal;
+    const useAppShell = currentUser && !portalMode;
     const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
     const userInitials = currentUser
       ? currentUser.full_name
