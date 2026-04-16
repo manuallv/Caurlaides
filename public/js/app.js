@@ -326,6 +326,11 @@ document.addEventListener('DOMContentLoaded', () => {
     typeSubmitLabel: document.querySelector('[data-access-type-submit-label]'),
     requestModal: document.querySelector('[data-access-request-modal]'),
     requestForm: document.querySelector('[data-access-request-form]'),
+    requestTitle: document.querySelector('[data-access-request-modal-title]'),
+    requestEyebrow: document.querySelector('[data-access-request-modal-eyebrow]'),
+    requestMethodHolder: document.querySelector('[data-access-request-method-holder]'),
+    requestSubmitLabel: document.querySelector('[data-access-request-submit-label]'),
+    requestProfile: document.querySelector('[data-access-request-profile]'),
     requestCategory: document.querySelector('[data-access-request-category]'),
   });
 
@@ -344,6 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
       saveSubmit: workspace.dataset.accessSaveSubmit,
       fullscreenEnter: workspace.dataset.accessFullscreenEnter,
       fullscreenExit: workspace.dataset.accessFullscreenExit,
+      requestCreateAction: workspace.dataset.accessRequestCreateAction,
+      requestCreateTitle: workspace.dataset.accessRequestCreateTitle,
+      requestEditTitle: workspace.dataset.accessRequestEditTitle,
+      requestCreateSubmit: workspace.dataset.accessRequestCreateSubmit,
+      requestSaveSubmit: workspace.dataset.accessRequestSaveSubmit,
     };
   };
 
@@ -462,7 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const closeAccessRequestModal = () => {
-    const { requestModal, requestForm } = getAccessElements();
+    const { requestModal, requestForm, requestMethodHolder, requestTitle, requestEyebrow, requestSubmitLabel } = getAccessElements();
+    const ui = getAccessUi();
 
     if (!requestModal || !requestForm) {
       return;
@@ -471,29 +482,94 @@ document.addEventListener('DOMContentLoaded', () => {
     requestModal.classList.remove('is-open');
     document.body.classList.remove('portal-modal-open');
     requestForm.reset();
-    requestForm.action = '';
+    requestForm.action = ui.requestCreateAction || '';
+
+    if (requestMethodHolder) {
+      requestMethodHolder.innerHTML = '';
+    }
+
+    if (requestTitle) {
+      requestTitle.textContent = ui.requestCreateTitle || 'Add request';
+    }
+
+    if (requestEyebrow) {
+      requestEyebrow.textContent = ui.requestCreateTitle || 'Add request';
+    }
+
+    if (requestSubmitLabel) {
+      requestSubmitLabel.textContent = ui.requestCreateSubmit || 'Save';
+    }
   };
 
-  const openAccessRequestModal = (trigger) => {
-    const { requestModal, requestForm, requestCategory } = getAccessElements();
+  const openAccessRequestModal = (trigger = null) => {
+    const {
+      requestModal,
+      requestForm,
+      requestCategory,
+      requestProfile,
+      requestMethodHolder,
+      requestTitle,
+      requestEyebrow,
+      requestSubmitLabel,
+    } = getAccessElements();
     const workspace = getAccessElements().workspace;
+    const ui = getAccessUi();
 
-    if (!requestModal || !requestForm || !workspace || !trigger) {
+    if (!requestModal || !requestForm || !workspace) {
       return;
     }
 
     const eventId = document.body.dataset.eventRoom;
     const accessType = window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass';
+    const isEdit = Boolean(trigger?.dataset.requestId);
 
-    requestForm.action = `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`;
-    requestForm.elements.fullName.value = trigger.dataset.requestFullName || '';
-    requestForm.elements.companyName.value = trigger.dataset.requestCompanyName || '';
-    requestForm.elements.phone.value = trigger.dataset.requestPhone || '';
-    requestForm.elements.email.value = trigger.dataset.requestEmail || '';
-    requestForm.elements.notes.value = trigger.dataset.requestNotes || '';
+    requestForm.reset();
+    requestForm.action = isEdit
+      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`
+      : (ui.requestCreateAction || `/events/${eventId}/${accessType}/requests`);
+
+    if (requestMethodHolder) {
+      requestMethodHolder.innerHTML = '';
+    }
+
+    if (isEdit && requestMethodHolder) {
+      const methodInput = document.createElement('input');
+      methodInput.type = 'hidden';
+      methodInput.name = '_method';
+      methodInput.value = 'PUT';
+      requestMethodHolder.appendChild(methodInput);
+    }
+
+    if (requestTitle) {
+      requestTitle.textContent = isEdit
+        ? (ui.requestEditTitle || 'Edit request')
+        : (ui.requestCreateTitle || 'Add request');
+    }
+
+    if (requestEyebrow) {
+      requestEyebrow.textContent = isEdit
+        ? (ui.requestEditTitle || 'Edit request')
+        : (ui.requestCreateTitle || 'Add request');
+    }
+
+    if (requestSubmitLabel) {
+      requestSubmitLabel.textContent = isEdit
+        ? (ui.requestSaveSubmit || 'Save')
+        : (ui.requestCreateSubmit || 'Save');
+    }
+
+    requestForm.elements.fullName.value = trigger?.dataset.requestFullName || '';
+    requestForm.elements.companyName.value = trigger?.dataset.requestCompanyName || '';
+    requestForm.elements.phone.value = trigger?.dataset.requestPhone || '';
+    requestForm.elements.email.value = trigger?.dataset.requestEmail || '';
+    requestForm.elements.notes.value = trigger?.dataset.requestNotes || '';
 
     if (requestCategory) {
-      requestCategory.value = trigger.dataset.requestCategoryId || '';
+      requestCategory.value = trigger?.dataset.requestCategoryId || '';
+    }
+
+    if (requestProfile) {
+      requestProfile.value = trigger?.dataset.requestProfileId || '';
     }
 
     requestModal.classList.add('is-open');
@@ -865,6 +941,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessEditRequestTrigger) {
       openAccessRequestModal(accessEditRequestTrigger);
+      return;
+    }
+
+    const accessCreateRequestTrigger = event.target.closest('[data-access-create-request]');
+
+    if (accessCreateRequestTrigger) {
+      openAccessRequestModal();
       return;
     }
 

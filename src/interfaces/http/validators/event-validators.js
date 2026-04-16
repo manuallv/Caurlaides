@@ -142,6 +142,10 @@ const requestStatusValidator = [
 ];
 
 const adminRequestEditorValidator = [
+  body('requestProfileId')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1 })
+    .withMessage((value, { req }) => req.t('validation.request.profile')),
   body('categoryId')
     .isInt({ min: 1 })
     .withMessage((value, { req }) => req.t('validation.portal.category')),

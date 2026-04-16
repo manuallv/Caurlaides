@@ -215,6 +215,7 @@ class RequestRepository {
       `
         UPDATE ${config.requestTable}
         SET
+          request_profile_id = ?,
           ${config.categoryIdField} = ?,
           full_name = ?,
           company_name = ?,
@@ -224,6 +225,7 @@ class RequestRepository {
         WHERE id = ?
       `,
       [
+        payload.requestProfileId,
         payload.categoryId,
         payload.fullName,
         payload.companyName,

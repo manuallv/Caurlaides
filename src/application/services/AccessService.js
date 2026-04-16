@@ -644,9 +644,89 @@ class AccessService {
     return event;
   }
 
+  async createAdminRequest(eventId, actorId, type, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.request.manage'), 403);
+    }
+
+    const category = await this.categoryRepository.findById(type, payload.categoryId);
+
+    if (!category || Number(category.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.request.typeInvalid'), 422);
+    }
+
+    let profile = null;
+
+    if (payload.requestProfileId) {
+      profile = await this.requestProfileRepository.findById(payload.requestProfileId);
+
+      if (!profile || Number(profile.event_id) !== Number(eventId)) {
+        throw new AppError(tx('service.request.profileInvalid'), 422);
+      }
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const requestId = await this.requestRepository.create(connection, type, {
+        eventId,
+        requestProfileId: payload.requestProfileId || null,
+        categoryId: payload.categoryId,
+        fullName: payload.fullName,
+        companyName: payload.companyName,
+        phone: payload.phone,
+        email: payload.email,
+        notes: payload.notes,
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: `${type}_request`,
+          entityId: requestId,
+          action: 'created',
+          message: translate(DEFAULT_LOCALE, 'audit.message.portalRequestCreated', {
+            type: translate(DEFAULT_LOCALE, `accessType.${type}`),
+            name: payload.fullName,
+          }),
+          afterState: {
+            ...payload,
+            categoryName: category.name,
+            profileName: profile?.name || null,
+          },
+          metadata: buildAuditMetadata('audit.message.portalRequestCreated', {
+            type: tx(`accessType.${type}`),
+            name: payload.fullName,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return event;
+  }
+
   async updateAdminRequest(eventId, requestId, actorId, type, payload, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.request.manage'), 403);
+    }
+
     const existingRequest = await this.requestRepository.findById(type, requestId);
 
     if (!existingRequest || Number(existingRequest.event_id) !== Number(eventId)) {
@@ -657,6 +737,16 @@ class AccessService {
 
     if (!category || Number(category.event_id) !== Number(eventId)) {
       throw new AppError(tx('service.request.typeInvalid'), 422);
+    }
+
+    let profile = null;
+
+    if (payload.requestProfileId) {
+      profile = await this.requestProfileRepository.findById(payload.requestProfileId);
+
+      if (!profile || Number(profile.event_id) !== Number(eventId)) {
+        throw new AppError(tx('service.request.profileInvalid'), 422);
+      }
     }
 
     const connection = await this.pool.getConnection();
@@ -680,6 +770,7 @@ class AccessService {
           afterState: {
             ...payload,
             categoryName: category.name,
+            profileName: profile?.name || null,
           },
           metadata: buildAuditMetadata('audit.message.portalRequestUpdated', {
             type: tx(`accessType.${type}`),

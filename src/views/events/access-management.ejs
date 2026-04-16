@@ -39,6 +39,11 @@
     data-access-save-submit="<%= t('access.saveType') %>"
     data-access-fullscreen-enter="<%= t('access.workspace.fullscreen') %>"
     data-access-fullscreen-exit="<%= t('access.workspace.exitFullscreen') %>"
+    data-access-request-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/requests"
+    data-access-request-create-title="<%= t('access.modal.createTitle', { type: typeLabel }) %>"
+    data-access-request-edit-title="<%= t('access.modal.editTitle', { type: typeLabel }) %>"
+    data-access-request-create-submit="<%= t('access.actions.addRequest', { type: typeLabel }) %>"
+    data-access-request-save-submit="<%= t('buttons.save') %>"
   >
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -63,6 +68,18 @@
 
     <div class="access-workspace-panel" data-access-view-panel="requests">
       <div class="access-workspace-toolbar">
+        <% if (canManage) { %>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="worldnic-eyebrow"><%= t('access.requestTableTitle', { type: typeTitle }) %></p>
+              <p class="mt-2 text-sm text-slate-500"><%= t('access.requestTableDescription', { type: typeLabel }) %></p>
+            </div>
+            <button type="button" class="btn-primary" data-access-create-request>
+              <%= t('access.actions.addRequest', { type: typeLabel }) %>
+            </button>
+          </div>
+        <% } %>
+
         <form method="GET" action="/events/<%= activeEvent.id %>/<%= routeBase %>" class="access-filter-grid" data-live-filter-form>
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
 
@@ -180,6 +197,7 @@
                           class="access-mini-button access-mini-button--secondary"
                           data-access-edit-request
                           data-request-id="<%= request.id %>"
+                          data-request-profile-id="<%= request.request_profile_id || '' %>"
                           data-request-category-id="<%= request.category_id %>"
                           data-request-full-name="<%= request.full_name %>"
                           data-request-company-name="<%= request.company_name || '' %>"
@@ -214,11 +232,11 @@
 
       <div class="portal-modal" data-access-request-modal>
         <button type="button" class="portal-modal__backdrop" data-access-request-close></button>
-        <div class="portal-modal__dialog shell-card">
+        <div class="portal-modal__dialog portal-modal__dialog-wide shell-card">
           <div class="portal-modal__header">
             <div class="portal-modal__title-block">
-              <p class="worldnic-eyebrow"><%= t('access.actions.editRequest') %></p>
-              <h2><%= t('access.modal.editTitle', { type: typeTitle }) %></h2>
+              <p class="worldnic-eyebrow" data-access-request-modal-eyebrow><%= t('access.actions.editRequest') %></p>
+              <h2 data-access-request-modal-title><%= t('access.modal.editTitle', { type: typeLabel }) %></h2>
             </div>
 
             <button type="button" class="table-icon-button" data-access-request-close aria-label="<%= t('buttons.cancel') %>">
@@ -230,9 +248,21 @@
 
           <form action="" method="POST" class="portal-modal__form" data-live-form data-access-request-form>
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <input type="hidden" name="_method" value="PUT" />
+            <div data-access-request-method-holder>
+              <input type="hidden" name="_method" value="PUT" />
+            </div>
 
             <div class="portal-form-grid">
+              <div>
+                <label class="field-label"><%= t('access.fields.profileOptional') %></label>
+                <select name="requestProfileId" class="field-input" data-access-request-profile>
+                  <option value=""><%= t('access.filters.allProfiles') %></option>
+                  <% profiles.forEach((profile) => { %>
+                    <option value="<%= profile.id %>"><%= profile.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
               <div>
                 <label class="field-label"><%= t('portal.selectType') %></label>
                 <select name="categoryId" class="field-input" required data-access-request-category>
@@ -270,7 +300,7 @@
 
             <div class="portal-modal__actions">
               <button type="button" class="btn-secondary" data-access-request-close><%= t('buttons.cancel') %></button>
-              <button type="submit" class="btn-primary"><%= t('buttons.save') %></button>
+              <button type="submit" class="btn-primary" data-access-request-submit-label><%= t('buttons.save') %></button>
             </div>
           </form>
         </div>

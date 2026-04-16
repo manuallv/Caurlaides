@@ -110,6 +110,14 @@ function buildEventRoutes({ eventController, accessController }) {
     validateRequest,
     asyncHandler(accessController.updateRequest),
   );
+  router.post(
+    '/events/:eventId/:type/requests',
+    requireAuth,
+    accessTypeParamValidator,
+    adminRequestEditorValidator,
+    validateRequest,
+    asyncHandler(accessController.createRequest),
+  );
   router.put(
     '/events/:eventId/:type/requests/:requestId/status',
     requireAuth,

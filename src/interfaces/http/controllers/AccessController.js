@@ -48,6 +48,7 @@ function normalizeAdminFilters(query) {
 
 function normalizeRequestPayload(body) {
   return {
+    requestProfileId: body.requestProfileId ? Number(body.requestProfileId) : null,
     categoryId: body.categoryId,
     fullName: body.fullName,
     companyName: body.companyName,
@@ -277,6 +278,25 @@ function buildAccessController({ categoryService, accessService }) {
       });
       req.flash('success', req.t('flash.requestProfileCodeRegenerated', { code: accessCode }));
       return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+    },
+
+    async createRequest(req, res) {
+      const type = resolveAccessType(req);
+      const event = await accessService.createAdminRequest(
+        req.params.eventId,
+        req.currentUser.id,
+        type,
+        normalizeRequestPayload(req.body),
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
+        eventId: event.id,
+      });
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        message: req.t('flash.portalRequestCreated'),
+      });
     },
 
     async updateRequest(req, res) {
