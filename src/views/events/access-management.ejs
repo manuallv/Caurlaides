@@ -98,6 +98,11 @@
             <option value="handed_out" <%= filters.status === 'handed_out' ? 'selected' : '' %>><%= t('statuses.handed_out') %></option>
           </select>
 
+          <select name="sort" class="field-input">
+            <option value="newest" <%= filters.sort !== 'oldest' ? 'selected' : '' %>><%= t('access.filters.sortNewest') %></option>
+            <option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>><%= t('access.filters.sortOldest') %></option>
+          </select>
+
           <input name="company" value="<%= filters.company %>" class="field-input" placeholder="<%= t('access.filters.company') %>" />
 
           <div class="access-filter-actions">

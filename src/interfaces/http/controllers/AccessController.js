@@ -43,6 +43,7 @@ function normalizeAdminFilters(query) {
     categoryId: query.categoryId ? Number(query.categoryId) : null,
     status: query.status || '',
     company: query.company || '',
+    sort: query.sort === 'oldest' ? 'oldest' : 'newest',
   };
 }
 

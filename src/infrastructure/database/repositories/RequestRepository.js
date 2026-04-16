@@ -34,6 +34,7 @@ class RequestRepository {
     const config = this.resolveConfig(type);
     const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
     const params = [eventId];
+    const orderDirection = filters.sort === 'oldest' ? 'ASC' : 'DESC';
 
     if (filters.status) {
       where.push('request.status = ?');
@@ -101,8 +102,8 @@ class RequestRepository {
         LEFT JOIN users status_updated_by ON status_updated_by.id = request.status_updated_by_user_id
         WHERE ${where.join(' AND ')}
         ORDER BY
-          request.created_at DESC,
-          request.id DESC
+          request.created_at ${orderDirection},
+          request.id ${orderDirection}
       `,
       params,
     );
