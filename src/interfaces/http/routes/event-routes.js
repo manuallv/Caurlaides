@@ -3,6 +3,7 @@ const { asyncHandler } = require('../../../shared/utils/async-handler');
 const { requireAuth } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validate');
 const {
+  accessTypeParamValidator,
   accessTypeValidator,
   eventValidator,
   memberRoleValidator,
@@ -45,22 +46,26 @@ function buildEventRoutes({ eventController, accessController }) {
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
   router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
   router.post(
-    '/events/:eventId/:type(pass|wristband)/types',
+    '/events/:eventId/:type/types',
     requireAuth,
+    accessTypeParamValidator,
     accessTypeValidator,
     validateRequest,
     asyncHandler(accessController.createType),
   );
   router.put(
-    '/events/:eventId/:type(pass|wristband)/types/:categoryId',
+    '/events/:eventId/:type/types/:categoryId',
     requireAuth,
+    accessTypeParamValidator,
     accessTypeValidator,
     validateRequest,
     asyncHandler(accessController.updateType),
   );
   router.delete(
-    '/events/:eventId/:type(pass|wristband)/types/:categoryId',
+    '/events/:eventId/:type/types/:categoryId',
     requireAuth,
+    accessTypeParamValidator,
+    validateRequest,
     asyncHandler(accessController.destroyType),
   );
 
@@ -91,8 +96,9 @@ function buildEventRoutes({ eventController, accessController }) {
   );
 
   router.put(
-    '/events/:eventId/:type(pass|wristband)/requests/:requestId/status',
+    '/events/:eventId/:type/requests/:requestId/status',
     requireAuth,
+    accessTypeParamValidator,
     requestStatusValidator,
     validateRequest,
     asyncHandler(accessController.updateRequestStatus),

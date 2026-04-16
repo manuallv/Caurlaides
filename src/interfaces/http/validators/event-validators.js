@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const { EVENT_ROLE_OPTIONS } = require('../../../shared/constants/event-roles');
 
 const EVENT_STATUSES = ['draft', 'active', 'completed', 'archived'];
@@ -106,6 +106,12 @@ const accessTypeValidator = [
     .withMessage((value, { req }) => req.t('validation.accessType.sortOrder', { min: 0, max: 9999 })),
 ];
 
+const accessTypeParamValidator = [
+  param('type')
+    .isIn(['pass', 'wristband'])
+    .withMessage((value, { req }) => req.t('validation.accessType.type')),
+];
+
 const requestProfileValidator = [
   body('name')
     .trim()
@@ -167,6 +173,7 @@ const portalRequestValidator = [
 ];
 
 module.exports = {
+  accessTypeParamValidator,
   accessTypeValidator,
   categoryValidator,
   categoryUpdateValidator,
