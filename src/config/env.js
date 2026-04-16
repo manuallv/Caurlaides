@@ -18,6 +18,12 @@ const env = {
   },
 };
 
+// Some shared-hosting environments resolve "localhost" to IPv6 (::1),
+// while the MySQL user may only be granted access from 127.0.0.1.
+if (env.db.host === 'localhost') {
+  env.db.host = '127.0.0.1';
+}
+
 env.isProduction = env.nodeEnv === 'production';
 
 module.exports = { env };
