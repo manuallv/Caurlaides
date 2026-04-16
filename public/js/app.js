@@ -275,6 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput: document.querySelector('[data-request-profile-search]'),
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
+    unlimitedToggle: document.querySelector('[data-request-profile-unlimited-toggle]'),
+    quotaPanels: [...document.querySelectorAll('[data-request-profile-quotas]')],
+    quotaInputs: [...document.querySelectorAll('[data-request-profile-quota-input]')],
+    unlimitedNotes: [...document.querySelectorAll('[data-request-profile-unlimited-note]')],
   });
 
   const updateRequestProfileEmptyState = () => {
@@ -313,6 +317,34 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const initializeRequestProfileUI = () => {
+    const {
+      unlimitedToggle,
+      quotaPanels,
+      quotaInputs,
+      unlimitedNotes,
+    } = getRequestProfileElements();
+
+    const syncUnlimitedQuotaMode = () => {
+      const isUnlimited = Boolean(unlimitedToggle?.checked);
+
+      quotaPanels.forEach((panel) => {
+        panel.classList.toggle('hidden', isUnlimited);
+      });
+
+      unlimitedNotes.forEach((note) => {
+        note.classList.toggle('hidden', !isUnlimited);
+      });
+
+      quotaInputs.forEach((input) => {
+        input.disabled = isUnlimited;
+      });
+    };
+
+    if (unlimitedToggle) {
+      unlimitedToggle.onchange = syncUnlimitedQuotaMode;
+      syncUnlimitedQuotaMode();
+    }
+
     filterRequestProfileRows();
   };
 
@@ -1129,7 +1161,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const source = type === 'pass' ? state.passQuotaUsage || [] : state.wristbandQuotaUsage || [];
     const eligible = source.filter(
-      (entry) => Number(entry.remaining_count) > 0 || Number(entry.category_id) === Number(currentCategoryId),
+      (entry) => entry.is_unlimited
+        || Number(entry.remaining_count) > 0
+        || Number(entry.category_id) === Number(currentCategoryId),
     );
 
     select.innerHTML = '';
@@ -1137,7 +1171,9 @@ document.addEventListener('DOMContentLoaded', () => {
     eligible.forEach((entry) => {
       const option = document.createElement('option');
       option.value = entry.category_id;
-      option.textContent = `${entry.category_name} (${entry.used_count}/${entry.quota})`;
+      option.textContent = entry.is_unlimited
+        ? `${entry.category_name} (${entry.used_count}/∞)`
+        : `${entry.category_name} (${entry.used_count}/${entry.quota})`;
       option.selected = Number(entry.category_id) === Number(currentCategoryId);
       select.appendChild(option);
     });

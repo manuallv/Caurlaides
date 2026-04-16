@@ -29,6 +29,7 @@ function normalizeRequestProfilePayload(body) {
     contactEmail: body.contactEmail || null,
     contactPhone: body.contactPhone || null,
     notifyContactOnCreate: body.notifyContactOnCreate === 'on',
+    unlimitedQuota: body.unlimitedQuota === 'on',
     notes: body.notes || null,
     isActive: body.isActive === 'on',
     passQuota: body.passQuota || {},

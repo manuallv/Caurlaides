@@ -72,6 +72,19 @@
           <input type="checkbox" name="notifyContactOnCreate" <%= !isEditMode || editingProfile?.notify_contact_on_create ? 'checked' : '' %> />
           <span><%= t('requestProfiles.fields.sendInvite') %></span>
         </label>
+
+        <label class="request-profile-toggle request-profile-toggle--wide">
+          <input
+            type="checkbox"
+            name="unlimitedQuota"
+            data-request-profile-unlimited-toggle
+            <%= editingProfile?.is_unlimited_quota ? 'checked' : '' %>
+          />
+          <span>
+            <strong><%= t('requestProfiles.fields.unlimitedQuota') %></strong>
+            <small><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></small>
+          </span>
+        </label>
       </div>
 
       <% if (isEditMode) { %>
@@ -108,7 +121,12 @@
         <p class="request-profile-help__body"><%= t('requestProfiles.editorFooter') %></p>
       </div>
 
-      <div class="request-profile-editor__quotas">
+      <div class="request-profile-help panel hidden" data-request-profile-unlimited-note>
+        <p class="request-profile-help__title"><%= t('requestProfiles.unlimited') %></p>
+        <p class="request-profile-help__body"><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></p>
+      </div>
+
+      <div class="request-profile-editor__quotas" data-request-profile-quotas>
         <section class="request-profile-quota-card panel">
           <div class="request-profile-quota-card__head">
             <div>
@@ -132,6 +150,7 @@
                   type="number"
                   min="0"
                   class="field-input request-profile-quota-input"
+                  data-request-profile-quota-input
                   value="<%= Number(wristbandQuotaMap[category.id] || 0) %>"
                 />
               </label>
@@ -162,6 +181,7 @@
                   type="number"
                   min="0"
                   class="field-input request-profile-quota-input"
+                  data-request-profile-quota-input
                   value="<%= Number(passQuotaMap[category.id] || 0) %>"
                 />
               </label>

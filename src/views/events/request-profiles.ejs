@@ -52,7 +52,7 @@
           <% profiles.forEach((profile) => { %>
             <tr
               data-request-profile-row
-              data-search-index="<%= [profile.name, profile.access_code, profile.notes || '', profile.invite_url, `${profile.wristbandTotals.used}/${profile.wristbandTotals.quota}`, `${profile.passTotals.used}/${profile.passTotals.quota}`, profile.is_active ? t('common.active') : t('common.inactive')].join(' ').toLowerCase() %>"
+              data-search-index="<%= [profile.name, profile.access_code, profile.notes || '', profile.invite_url, profile.is_unlimited_quota ? t('requestProfiles.unlimited') : `${profile.wristbandTotals.used}/${profile.wristbandTotals.quota}`, profile.is_unlimited_quota ? t('requestProfiles.unlimited') : `${profile.passTotals.used}/${profile.passTotals.quota}`, profile.is_active ? t('common.active') : t('common.inactive')].join(' ').toLowerCase() %>"
             >
               <td>
                 <div class="request-profile-cell">
@@ -65,14 +65,24 @@
               </td>
               <td>
                 <div class="request-profile-quota-metric">
-                  <strong><%= profile.wristbandTotals.used %>/<%= profile.wristbandTotals.quota %></strong>
-                  <span><%= t('requestProfiles.remaining', { count: profile.wristbandTotals.remaining }) %></span>
+                  <% if (profile.is_unlimited_quota) { %>
+                    <strong><%= profile.wristbandTotals.used %></strong>
+                    <span><%= t('requestProfiles.unlimited') %></span>
+                  <% } else { %>
+                    <strong><%= profile.wristbandTotals.used %>/<%= profile.wristbandTotals.quota %></strong>
+                    <span><%= t('requestProfiles.remaining', { count: profile.wristbandTotals.remaining }) %></span>
+                  <% } %>
                 </div>
               </td>
               <td>
                 <div class="request-profile-quota-metric">
-                  <strong><%= profile.passTotals.used %>/<%= profile.passTotals.quota %></strong>
-                  <span><%= t('requestProfiles.remaining', { count: profile.passTotals.remaining }) %></span>
+                  <% if (profile.is_unlimited_quota) { %>
+                    <strong><%= profile.passTotals.used %></strong>
+                    <span><%= t('requestProfiles.unlimited') %></span>
+                  <% } else { %>
+                    <strong><%= profile.passTotals.used %>/<%= profile.passTotals.quota %></strong>
+                    <span><%= t('requestProfiles.remaining', { count: profile.passTotals.remaining }) %></span>
+                  <% } %>
                 </div>
               </td>
               <td>
