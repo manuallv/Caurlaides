@@ -32,7 +32,7 @@ class RequestRepository {
 
   async listAdminRequests(eventId, type, filters = {}) {
     const config = this.resolveConfig(type);
-    const where = ['request.event_id = ?'];
+    const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
     const params = [eventId];
 
     if (filters.status) {
@@ -86,16 +86,19 @@ class RequestRepository {
           request.notes,
           request.status,
           request.handed_out_at,
+          request.status_updated_at,
           request.created_at,
           request.updated_at,
           profile.name AS profile_name,
           profile.public_slug,
           category.name AS category_name,
-          handed_out_by.full_name AS handed_out_by_name
+          handed_out_by.full_name AS handed_out_by_name,
+          status_updated_by.full_name AS status_updated_by_name
         FROM ${config.requestTable} request
         INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
-        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
         LEFT JOIN users handed_out_by ON handed_out_by.id = request.handed_out_by_user_id
+        LEFT JOIN users status_updated_by ON status_updated_by.id = request.status_updated_by_user_id
         WHERE ${where.join(' AND ')}
         ORDER BY
           FIELD(request.status, 'pending', 'handed_out', 'approved', 'rejected', 'returned', 'finalized'),
@@ -118,6 +121,7 @@ class RequestRepository {
           SUM(CASE WHEN status = 'handed_out' THEN 1 ELSE 0 END) AS handed_out_requests
         FROM ${config.requestTable}
         WHERE event_id = ?
+          AND deleted_at IS NULL
       `,
       [eventId],
     );
@@ -140,7 +144,29 @@ class RequestRepository {
           category.name AS category_name
         FROM ${config.requestTable} request
         LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
-        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        LEFT JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        WHERE request.id = ?
+          AND request.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [requestId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findAnyById(type, requestId) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.*,
+          profile.name AS profile_name,
+          profile.public_slug,
+          category.name AS category_name
+        FROM ${config.requestTable} request
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
+        LEFT JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
         WHERE request.id = ?
         LIMIT 1
       `,
@@ -163,9 +189,10 @@ class RequestRepository {
           phone,
           email,
           notes,
-          status
+          status,
+          status_updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
       `,
       [
         payload.eventId,
@@ -209,8 +236,35 @@ class RequestRepository {
   }
 
   async delete(connection, type, requestId) {
+    return this.softDelete(connection, type, requestId, null);
+  }
+
+  async softDelete(connection, type, requestId, userId = null) {
     const config = this.resolveConfig(type);
-    await connection.execute(`DELETE FROM ${config.requestTable} WHERE id = ?`, [requestId]);
+    await connection.execute(
+      `
+        UPDATE ${config.requestTable}
+        SET
+          deleted_at = NOW(),
+          deleted_by_user_id = ?
+        WHERE id = ?
+      `,
+      [userId, requestId],
+    );
+  }
+
+  async restore(type, requestId) {
+    const config = this.resolveConfig(type);
+    await this.pool.execute(
+      `
+        UPDATE ${config.requestTable}
+        SET
+          deleted_at = NULL,
+          deleted_by_user_id = NULL
+        WHERE id = ?
+      `,
+      [requestId],
+    );
   }
 
   async setStatus(type, requestId, payload) {
@@ -223,10 +277,12 @@ class RequestRepository {
           SET
             status = 'handed_out',
             handed_out_at = NOW(),
-            handed_out_by_user_id = ?
+            handed_out_by_user_id = ?,
+            status_updated_at = NOW(),
+            status_updated_by_user_id = ?
           WHERE id = ?
         `,
-        [payload.userId, requestId],
+        [payload.userId, payload.userId, requestId],
       );
       return;
     }
@@ -237,10 +293,12 @@ class RequestRepository {
         SET
           status = 'pending',
           handed_out_at = NULL,
-          handed_out_by_user_id = NULL
+          handed_out_by_user_id = NULL,
+          status_updated_at = NOW(),
+          status_updated_by_user_id = ?
         WHERE id = ?
       `,
-      [requestId],
+      [payload.userId, requestId],
     );
   }
 
@@ -259,12 +317,15 @@ class RequestRepository {
           request.notes,
           request.status,
           request.handed_out_at,
+          request.status_updated_at,
           request.created_at,
           request.updated_at,
           category.name AS category_name
         FROM ${config.requestTable} request
         INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
         WHERE request.request_profile_id = ?
+          AND request.deleted_at IS NULL
+          AND category.deleted_at IS NULL
         ORDER BY FIELD(request.status, 'pending', 'handed_out'), request.created_at DESC, request.id DESC
       `,
       [profileId],
@@ -289,6 +350,7 @@ class RequestRepository {
         FROM ${config.requestTable}
         WHERE request_profile_id = ?
           AND ${config.categoryIdField} = ?
+          AND deleted_at IS NULL
           ${exclusionClause}
       `,
       params,
@@ -311,7 +373,9 @@ class RequestRepository {
         LEFT JOIN ${config.requestTable} request
           ON request.request_profile_id = quota.request_profile_id
          AND request.${config.categoryIdField} = quota.${config.categoryIdField}
+         AND request.deleted_at IS NULL
         WHERE quota.request_profile_id = ?
+          AND category.deleted_at IS NULL
         GROUP BY quota.${config.categoryIdField}, quota.quota, category.name, category.sort_order
         ORDER BY category.sort_order ASC, category.name ASC
       `,

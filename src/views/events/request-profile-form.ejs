@@ -37,13 +37,40 @@
         </div>
 
         <div>
+          <label class="field-label" for="request-profile-contact-email"><%= t('field.email') %></label>
+          <input
+            id="request-profile-contact-email"
+            name="contactEmail"
+            type="email"
+            class="field-input"
+            value="<%= editingProfile?.contact_email || '' %>"
+          />
+        </div>
+
+        <div>
+          <label class="field-label" for="request-profile-contact-phone"><%= t('portal.fields.phone') %></label>
+          <input
+            id="request-profile-contact-phone"
+            name="contactPhone"
+            type="text"
+            class="field-input"
+            value="<%= editingProfile?.contact_phone || '' %>"
+          />
+        </div>
+
+        <div>
           <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
-          <textarea id="request-profile-notes" name="notes" rows="3" class="field-input"><%= editingProfile?.notes || '' %></textarea>
+          <textarea id="request-profile-notes" name="notes" rows="1" class="field-input"><%= editingProfile?.notes || '' %></textarea>
         </div>
 
         <label class="request-profile-toggle">
           <input type="checkbox" name="isActive" <%= !isEditMode || editingProfile.is_active ? 'checked' : '' %> />
           <span><%= t('requestProfiles.fields.active') %></span>
+        </label>
+
+        <label class="request-profile-toggle">
+          <input type="checkbox" name="notifyContactOnCreate" <%= !isEditMode || editingProfile?.notify_contact_on_create ? 'checked' : '' %> />
+          <span><%= t('requestProfiles.fields.sendInvite') %></span>
         </label>
       </div>
 
@@ -154,7 +181,7 @@
             <button type="submit" class="btn-secondary"><%= t('requestProfiles.regenerateCode') %></button>
           </form>
 
-          <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>?_method=DELETE" method="POST">
+          <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>?_method=DELETE" method="POST" data-confirm-message="<%= t('common.confirmDelete') %>">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <button type="submit" class="btn-danger"><%= t('requestProfiles.deleteButton') %></button>
           </form>

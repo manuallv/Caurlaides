@@ -60,6 +60,8 @@ class AuditLogRepository {
           audit.entity_id,
           audit.action,
           audit.message,
+          audit.before_state,
+          audit.after_state,
           audit.metadata,
           audit.created_at,
           user.full_name AS actor_name
@@ -74,8 +76,44 @@ class AuditLogRepository {
 
     return rows.map((row) => ({
       ...row,
+      before_state: parseJson(row.before_state),
+      after_state: parseJson(row.after_state),
       metadata: parseJson(row.metadata),
     }));
+  }
+
+  async findById(auditId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          audit.id,
+          audit.event_id,
+          audit.user_id,
+          audit.entity_type,
+          audit.entity_id,
+          audit.action,
+          audit.message,
+          audit.before_state,
+          audit.after_state,
+          audit.metadata,
+          audit.created_at
+        FROM audit_logs audit
+        WHERE audit.id = ?
+        LIMIT 1
+      `,
+      [auditId],
+    );
+
+    if (!rows[0]) {
+      return null;
+    }
+
+    return {
+      ...rows[0],
+      before_state: parseJson(rows[0].before_state),
+      after_state: parseJson(rows[0].after_state),
+      metadata: parseJson(rows[0].metadata),
+    };
   }
 }
 

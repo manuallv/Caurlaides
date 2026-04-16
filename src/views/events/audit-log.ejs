@@ -17,7 +17,15 @@
               <%= entry.actor_name || t('audit.actor.system') %> · <%= helpers.auditEntityLabel(entry.entity_type) %> · <%= helpers.auditActionLabel(entry.action) %>
             </p>
           </div>
-          <p class="text-sm text-slate-500"><%= helpers.formatDateTime(entry.created_at) %></p>
+          <div class="flex items-center gap-3">
+            <p class="text-sm text-slate-500"><%= helpers.formatDateTime(entry.created_at) %></p>
+            <% if (entry.action === 'deleted') { %>
+              <form action="/events/<%= activeEvent.id %>/activity/<%= entry.id %>/restore" method="POST">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn-secondary btn-secondary-sm"><%= t('audit.restore') %></button>
+              </form>
+            <% } %>
+          </div>
         </div>
       </article>
     <% }) %>

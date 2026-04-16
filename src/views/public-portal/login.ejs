@@ -1,30 +1,9 @@
 <section class="portal-login-shell">
   <div class="portal-login-card shell-card">
-    <div class="portal-login-copy">
-      <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
-      <h1 class="portal-login-title"><%= t('portal.login.title') %></h1>
-      <p class="portal-login-description"><%= t('portal.login.subtitle') %></p>
-
-      <div class="portal-login-highlights">
-        <article class="portal-login-highlight">
-          <strong><%= t('portal.manage.title') %></strong>
-          <span><%= t('portal.manage.description') %></span>
-        </article>
-        <article class="portal-login-highlight">
-          <strong><%= t('portal.importTitle') %></strong>
-          <span><%= t('portal.login.note') %></span>
-        </article>
-        <article class="portal-login-highlight">
-          <strong><%= t('portal.tableTitle') %></strong>
-          <span><%= t('portal.tableDescription') %></span>
-        </article>
-      </div>
-    </div>
-
     <div class="portal-login-panel">
       <div class="portal-login-panel__intro">
         <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
-        <h2 class="portal-login-panel__title"><%= t('portal.login.description') %></h2>
+        <h2 class="portal-login-panel__title"><%= t('portal.login.title') %></h2>
       </div>
 
       <form action="/p/access" method="POST" class="portal-login-form">
@@ -46,10 +25,6 @@
         <button type="submit" class="btn-primary portal-login-form__submit"><%= t('portal.login.submit') %></button>
       </form>
 
-      <div class="portal-login-note">
-        <p><%= t('portal.login.note') %></p>
-        <span class="portal-login-note__url"><%= portalEntry.portalUrl %></span>
-      </div>
     </div>
   </div>
 </section>

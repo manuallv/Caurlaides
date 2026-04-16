@@ -36,6 +36,10 @@ class AuthService {
       throw new AppError(tx('service.auth.invalidCredentials'), 401);
     }
 
+    if (!user.is_active || user.deleted_at) {
+      throw new AppError(tx('service.auth.invalidCredentials'), 401);
+    }
+
     const passwordMatches = await comparePassword(password, user.password_hash);
 
     if (!passwordMatches) {

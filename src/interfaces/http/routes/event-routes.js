@@ -120,6 +120,7 @@ function buildEventRoutes({ eventController, accessController }) {
   );
 
   router.get('/events/:eventId/activity', requireAuth, asyncHandler(eventController.showAuditLog));
+  router.post('/events/:eventId/activity/:auditId/restore', requireAuth, asyncHandler(accessController.restoreAuditEntry));
 
   return router;
 }

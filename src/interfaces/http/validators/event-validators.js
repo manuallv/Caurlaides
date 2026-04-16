@@ -117,6 +117,17 @@ const requestProfileValidator = [
     .trim()
     .isLength({ min: 2, max: 160 })
     .withMessage((value, { req }) => req.t('validation.requestProfile.nameLength', { min: 2, max: 160 })),
+  body('contactEmail')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage((value, { req }) => req.t('validation.portal.email'))
+    .normalizeEmail(),
+  body('contactPhone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ min: 3, max: 40 })
+    .withMessage((value, { req }) => req.t('validation.portal.phoneLength', { min: 3, max: 40 })),
   body('notes')
     .optional({ values: 'falsy' })
     .trim()

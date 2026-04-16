@@ -29,7 +29,26 @@ const loginValidator = [
     .withMessage((value, { req }) => req.t('validation.auth.passwordRequired')),
 ];
 
+const forgotPasswordValidator = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage((value, { req }) => req.t('validation.auth.email'))
+    .normalizeEmail(),
+];
+
+const resetPasswordValidator = [
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage((value, { req }) => req.t('validation.auth.passwordLength', { min: 8 })),
+  body('confirmPassword')
+    .custom((value, { req }) => value === req.body.password)
+    .withMessage((value, { req }) => req.t('validation.auth.confirmPassword')),
+];
+
 module.exports = {
+  forgotPasswordValidator,
   loginValidator,
   registerValidator,
+  resetPasswordValidator,
 };

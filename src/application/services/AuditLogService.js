@@ -10,6 +10,10 @@ class AuditLogService {
   async listByEvent(eventId, limit = 20) {
     return this.auditLogRepository.listByEvent(eventId, limit);
   }
+
+  async findById(auditId) {
+    return this.auditLogRepository.findById(auditId);
+  }
 }
 
 module.exports = { AuditLogService };

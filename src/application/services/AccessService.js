@@ -25,6 +25,10 @@ function normalizeQuotaEntries(input = {}) {
     .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);
 }
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase() || null;
+}
+
 function buildRequestPayload(body, fallbackCompanyName = null) {
   return {
     categoryId: Number(body.categoryId),
@@ -131,6 +135,7 @@ class AccessService {
     requestRepository,
     eventService,
     auditLogService,
+    systemService,
   }) {
     this.pool = pool;
     this.categoryRepository = categoryRepository;
@@ -138,6 +143,7 @@ class AccessService {
     this.requestRepository = requestRepository;
     this.eventService = eventService;
     this.auditLogService = auditLogService;
+    this.systemService = systemService;
   }
 
   getPublicProfileSession(session) {
@@ -282,14 +288,23 @@ class AccessService {
 
     const passQuotas = normalizeQuotaEntries(payload.passQuota);
     const wristbandQuotas = normalizeQuotaEntries(payload.wristbandQuota);
+    const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
+    const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
+    const validPassIds = new Set(passCategories.map((category) => Number(category.id)));
+    const validWristbandIds = new Set(wristbandCategories.map((category) => Number(category.id)));
+    const sanitizedPassQuotas = passQuotas.filter((entry) => validPassIds.has(Number(entry.categoryId)));
+    const sanitizedWristbandQuotas = wristbandQuotas.filter(
+      (entry) => validWristbandIds.has(Number(entry.categoryId)),
+    );
 
-    if (!passQuotas.length && !wristbandQuotas.length) {
+    if (!sanitizedPassQuotas.length && !sanitizedWristbandQuotas.length) {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
     const accessCode = await this.generateUniqueAccessCode();
     const accessCodeHash = await hashPassword(accessCode);
-    const maxPeople = [...passQuotas, ...wristbandQuotas].reduce((sum, entry) => sum + entry.quota, 0) || 1;
+    const maxPeople = [...sanitizedPassQuotas, ...sanitizedWristbandQuotas]
+      .reduce((sum, entry) => sum + entry.quota, 0) || 1;
 
     const connection = await this.pool.getConnection();
 
@@ -304,12 +319,20 @@ class AccessService {
         accessCode,
         accessCodeHash,
         maxPeople,
+        contactEmail: normalizeEmail(payload.contactEmail),
+        contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
+        notifyContactOnCreate: payload.notifyContactOnCreate,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
 
-      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'pass', passQuotas);
-      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'wristband', wristbandQuotas);
+      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'pass', sanitizedPassQuotas);
+      await this.requestProfileRepository.replaceQuotas(
+        connection,
+        profileId,
+        'wristband',
+        sanitizedWristbandQuotas,
+      );
 
       await this.auditLogService.record(
         {
@@ -323,8 +346,11 @@ class AccessService {
             name: payload.name,
             notes: payload.notes || null,
             isActive: payload.isActive ? 1 : 0,
-            passQuotas,
-            wristbandQuotas,
+            contactEmail: normalizeEmail(payload.contactEmail),
+            contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
+            notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
+            passQuotas: sanitizedPassQuotas,
+            wristbandQuotas: sanitizedWristbandQuotas,
           },
           metadata: buildAuditMetadata('audit.message.requestProfileCreated', {
             name: payload.name,
@@ -334,6 +360,32 @@ class AccessService {
       );
 
       await connection.commit();
+
+      if (this.systemService && payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
+        try {
+          const passQuotaUsage = withRemainingQuota(await this.requestRepository.listQuotaUsage(profileId, 'pass'));
+          const wristbandQuotaUsage = withRemainingQuota(
+            await this.requestRepository.listQuotaUsage(profileId, 'wristband'),
+          );
+
+          await this.systemService.sendProfileInvite({
+            to: normalizeEmail(payload.contactEmail),
+            eventName: event.name,
+            profileName: payload.name,
+            accessCode: accessCode,
+            inviteUrl: buildInviteUrl(accessCode),
+            wristbandSummary: wristbandQuotaUsage.length
+              ? wristbandQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
+              : '0',
+            passSummary: passQuotaUsage.length
+              ? passQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
+              : '0',
+          });
+        } catch (error) {
+          // Do not roll back a successfully saved profile because email delivery failed.
+          console.warn('Profile invite email failed:', error.message);
+        }
+      }
 
       return {
         profileId,
@@ -363,12 +415,21 @@ class AccessService {
 
     const passQuotas = normalizeQuotaEntries(payload.passQuota);
     const wristbandQuotas = normalizeQuotaEntries(payload.wristbandQuota);
+    const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
+    const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
+    const validPassIds = new Set(passCategories.map((category) => Number(category.id)));
+    const validWristbandIds = new Set(wristbandCategories.map((category) => Number(category.id)));
+    const sanitizedPassQuotas = passQuotas.filter((entry) => validPassIds.has(Number(entry.categoryId)));
+    const sanitizedWristbandQuotas = wristbandQuotas.filter(
+      (entry) => validWristbandIds.has(Number(entry.categoryId)),
+    );
 
-    if (!passQuotas.length && !wristbandQuotas.length) {
+    if (!sanitizedPassQuotas.length && !sanitizedWristbandQuotas.length) {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
-    const maxPeople = [...passQuotas, ...wristbandQuotas].reduce((sum, entry) => sum + entry.quota, 0) || 1;
+    const maxPeople = [...sanitizedPassQuotas, ...sanitizedWristbandQuotas]
+      .reduce((sum, entry) => sum + entry.quota, 0) || 1;
 
     const connection = await this.pool.getConnection();
 
@@ -379,12 +440,20 @@ class AccessService {
         userId: actorId,
         name: payload.name,
         maxPeople,
+        contactEmail: normalizeEmail(payload.contactEmail),
+        contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
+        notifyContactOnCreate: payload.notifyContactOnCreate,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
 
-      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'pass', passQuotas);
-      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'wristband', wristbandQuotas);
+      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'pass', sanitizedPassQuotas);
+      await this.requestProfileRepository.replaceQuotas(
+        connection,
+        profileId,
+        'wristband',
+        sanitizedWristbandQuotas,
+      );
 
       await this.auditLogService.record(
         {
@@ -399,8 +468,11 @@ class AccessService {
             name: payload.name,
             notes: payload.notes || null,
             isActive: payload.isActive ? 1 : 0,
-            passQuotas,
-            wristbandQuotas,
+            contactEmail: normalizeEmail(payload.contactEmail),
+            contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
+            notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
+            passQuotas: sanitizedPassQuotas,
+            wristbandQuotas: sanitizedWristbandQuotas,
           },
           metadata: buildAuditMetadata('audit.message.requestProfileUpdated', {
             name: payload.name,
@@ -410,6 +482,34 @@ class AccessService {
       );
 
       await connection.commit();
+
+      if (this.systemService && payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
+        try {
+          const refreshedProfile = await this.ensureRequestProfileAccessCode(
+            await this.requestProfileRepository.findById(profileId),
+          );
+          const passQuotaUsage = withRemainingQuota(await this.requestRepository.listQuotaUsage(profileId, 'pass'));
+          const wristbandQuotaUsage = withRemainingQuota(
+            await this.requestRepository.listQuotaUsage(profileId, 'wristband'),
+          );
+
+          await this.systemService.sendProfileInvite({
+            to: normalizeEmail(payload.contactEmail),
+            eventName: event.name,
+            profileName: payload.name,
+            accessCode: refreshedProfile.access_code,
+            inviteUrl: buildInviteUrl(refreshedProfile.access_code),
+            wristbandSummary: wristbandQuotaUsage.length
+              ? wristbandQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
+              : '0',
+            passSummary: passQuotaUsage.length
+              ? passQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
+              : '0',
+          });
+        } catch (error) {
+          console.warn('Profile invite email failed:', error.message);
+        }
+      }
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -432,7 +532,7 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.notFound'), 404);
     }
 
-    await this.requestProfileRepository.delete(profileId);
+    await this.requestProfileRepository.delete(profileId, actorId);
 
     await this.auditLogService.record({
       eventId,
@@ -529,7 +629,11 @@ class AccessService {
         status: translate(DEFAULT_LOCALE, `statuses.${status}`),
       }),
       beforeState: existingRequest,
-      afterState: { status },
+      afterState: {
+        status,
+        statusUpdatedAt: new Date().toISOString(),
+        statusUpdatedByUserId: actorId,
+      },
       metadata: buildAuditMetadata('audit.message.requestStatusUpdated', {
         type: tx(`accessType.${type}`),
         name: existingRequest.full_name,
@@ -820,7 +924,7 @@ class AccessService {
 
     try {
       await connection.beginTransaction();
-      await this.requestRepository.delete(connection, type, requestId);
+      await this.requestRepository.softDelete(connection, type, requestId, null);
 
       await this.auditLogService.record(
         {
@@ -1123,6 +1227,63 @@ class AccessService {
     if (usedCount >= Number(targetQuota.quota || 0)) {
       throw new AppError(tx('service.portal.quotaReached'), 409);
     }
+  }
+
+  async restoreAuditEntity(eventId, auditId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.requestProfile.manage'), 403);
+    }
+
+    const entry = await this.auditLogService.findById(auditId);
+
+    if (!entry || Number(entry.event_id) !== Number(eventId) || entry.action !== 'deleted') {
+      throw new AppError(tx('audit.restoreNotAvailable'), 404);
+    }
+
+    switch (entry.entity_type) {
+      case 'event':
+        await this.eventService.restoreEvent(eventId, actorId, tx);
+        break;
+      case 'pass_category':
+        await this.categoryRepository.restore('pass', entry.entity_id);
+        break;
+      case 'wristband_category':
+        await this.categoryRepository.restore('wristband', entry.entity_id);
+        break;
+      case 'request_profile':
+        await this.requestProfileRepository.restore(entry.entity_id);
+        break;
+      case 'pass_request':
+        await this.requestRepository.restore('pass', entry.entity_id);
+        break;
+      case 'wristband_request':
+        await this.requestRepository.restore('wristband', entry.entity_id);
+        break;
+      default:
+        throw new AppError(tx('audit.restoreNotAvailable'), 422);
+    }
+
+    if (entry.entity_type !== 'event') {
+      await this.auditLogService.record({
+        eventId,
+        userId: actorId,
+        entityType: entry.entity_type,
+        entityId: entry.entity_id,
+        action: 'restored',
+        message: translate(DEFAULT_LOCALE, 'audit.message.entityRestored', {
+          entity: translate(DEFAULT_LOCALE, `audit.entity.${entry.entity_type}`),
+        }),
+        afterState: entry.before_state || null,
+        metadata: buildAuditMetadata('audit.message.entityRestored', {
+          entity: tx(`audit.entity.${entry.entity_type}`),
+        }),
+      });
+    }
+
+    return event;
   }
 
   async assertPortalTypeOpenOrFail(profile, type, t) {

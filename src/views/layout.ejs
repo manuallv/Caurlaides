@@ -9,7 +9,12 @@
   </head>
   <%
     const hasEvent = Boolean(activeEvent);
-    const isAuthPage = !currentUser && ['/login', '/register'].includes(currentPath);
+    const isAuthPage = !currentUser
+      && (
+        ['/login', '/register', '/forgot-password'].includes(currentPath)
+        || currentPath.startsWith('/reset-password/')
+      );
+    const useAppShell = currentUser && !isPublicPortal;
     const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
     const userInitials = currentUser
       ? currentUser.full_name
@@ -32,20 +37,23 @@
                 ? 'settings'
                 : ''
       : '';
-    const sidebarLinks = [
-      {
-        href: '/dashboard',
-        label: t('nav.dashboard'),
-        icon: 'grid',
-        active: currentPath === '/' || currentPath.startsWith('/dashboard'),
-      },
-      {
-        href: '/events/new',
-        label: t('nav.create'),
-        icon: 'plus',
-        active: currentPath.startsWith('/events/new'),
-      },
-    ];
+    const sidebarLinks = [];
+    const systemLinks = isSuperAdmin
+      ? [
+          {
+            href: '/system/users',
+            label: t('system.users.title'),
+            icon: 'users',
+            active: currentPath.startsWith('/system/users'),
+          },
+          {
+            href: '/system/settings',
+            label: t('system.settings.title'),
+            icon: 'settings',
+            active: currentPath.startsWith('/system/settings'),
+          },
+        ]
+      : [];
     const eventSidebarLinks = hasEvent
       ? [
           {
@@ -124,7 +132,7 @@
       .join(' ');
   %>
   <body class="<%= bodyClass %>" data-event-room="<%= activeEvent ? activeEvent.id : (typeof portalEventRoom !== 'undefined' ? portalEventRoom : '') %>">
-    <% if (currentUser) { %>
+    <% if (useAppShell) { %>
       <div class="worldnic-app">
         <button type="button" class="worldnic-overlay" data-mobile-sidebar-overlay aria-label="<%= t('nav.menu') %>"></button>
 
@@ -161,16 +169,18 @@
             </section>
           <% } %>
 
-          <nav class="worldnic-nav">
-            <% sidebarLinks.forEach((link) => { %>
-              <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
-                <span class="worldnic-nav__icon">
-                  <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
-                </span>
-                <span><%= link.label %></span>
-              </a>
-            <% }) %>
-          </nav>
+          <% if (sidebarLinks.length) { %>
+            <nav class="worldnic-nav">
+              <% sidebarLinks.forEach((link) => { %>
+                <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                  <span class="worldnic-nav__icon">
+                    <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                  </span>
+                  <span><%= link.label %></span>
+                </a>
+              <% }) %>
+            </nav>
+          <% } %>
 
           <% if (eventSidebarLinks.length) { %>
             <nav class="worldnic-nav worldnic-nav--event">
@@ -195,12 +205,20 @@
             </nav>
           <% } %>
 
-          <div class="worldnic-sidebar__footer">
-            <div class="worldnic-sidebar__hint">
-              <strong><%= hasEvent ? t('event.quickActions') : t('dashboard.overview') %></strong>
-              <p><%= hasEvent ? t('event.recentActivityDescription') : t('dashboard.description') %></p>
-            </div>
+          <% if (systemLinks.length) { %>
+            <nav class="worldnic-nav worldnic-nav--system">
+              <% systemLinks.forEach((link) => { %>
+                <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                  <span class="worldnic-nav__icon">
+                    <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                  </span>
+                  <span><%= link.label %></span>
+                </a>
+              <% }) %>
+            </nav>
+          <% } %>
 
+          <div class="worldnic-sidebar__footer">
             <form action="/logout" method="POST">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
               <button type="submit" class="btn-secondary worldnic-sidebar__logout">
@@ -221,13 +239,26 @@
                   <span></span>
                 </button>
 
-                <div class="worldnic-search">
-                  <img src="/public/design-assets/icons/feather/search.svg" alt="" />
-                  <span><%= t('nav.search') %></span>
-                </div>
+                <% if (hasEvent) { %>
+                  <div class="worldnic-header__event">
+                    <strong><%= activeEvent.name %></strong>
+                    <div class="worldnic-header__event-actions">
+                      <a href="/events/new" class="worldnic-header__event-link"><%= t('nav.addOtherEvent') %></a>
+                      <a href="/events/<%= activeEvent.id %>/edit" class="worldnic-header__event-link"><%= t('event.editSettings') %></a>
+                    </div>
+                  </div>
+                <% } else { %>
+                  <div class="worldnic-header__event">
+                    <strong><%= pageTitle || t('nav.dashboard') %></strong>
+                  </div>
+                <% } %>
               </div>
 
               <div class="worldnic-header__actions">
+                <a href="/dashboard" class="btn-secondary worldnic-create-btn worldnic-create-btn--ghost">
+                  <span><%= t('nav.allEvents') %></span>
+                </a>
+
                 <div class="worldnic-locale">
                   <% supportedLocales.forEach((languageCode) => { %>
                     <a href="<%= localeHref(languageCode) %>" class="<%= locale === languageCode ? 'is-active' : '' %>">
@@ -235,11 +266,6 @@
                     </a>
                   <% }) %>
                 </div>
-
-                <a href="/events/new" class="btn-primary worldnic-create-btn">
-                  <img src="/public/design-assets/icons/feather/plus.svg" alt="" class="h-4 w-4 brightness-0 invert" />
-                  <span><%= t('nav.newEvent') %></span>
-                </a>
 
                 <div class="worldnic-user">
                   <div class="worldnic-user__avatar"><%= userInitials %></div>
@@ -262,16 +288,20 @@
       <%- body %>
     <% } else { %>
       <div class="worldnic-guest-shell <%= isPublicPortal && portalPageMode === 'manage' ? 'worldnic-guest-shell-portal' : '' %>">
-        <header class="worldnic-guest-topbar">
-          <a href="<%= isPublicPortal ? '/p' : '/login' %>" class="worldnic-brand">
-            <span class="worldnic-brand__badge">
-              <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
-            </span>
-            <span class="worldnic-brand__copy">
-              <strong><%= t('app.name') %></strong>
-              <small><%= t('app.tagline') %></small>
-            </span>
-          </a>
+        <header class="worldnic-guest-topbar <%= isPublicPortal ? 'worldnic-guest-topbar-portal' : '' %>">
+          <% if (!isPublicPortal) { %>
+            <a href="/login" class="worldnic-brand">
+              <span class="worldnic-brand__badge">
+                <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
+              </span>
+              <span class="worldnic-brand__copy">
+                <strong><%= t('app.name') %></strong>
+                <small><%= t('app.tagline') %></small>
+              </span>
+            </a>
+          <% } else { %>
+            <div></div>
+          <% } %>
 
           <div class="worldnic-guest-actions">
             <div class="worldnic-locale">

@@ -1,0 +1,47 @@
+<%
+  const isEditMode = Boolean(user);
+%>
+
+<section class="request-profile-page request-profile-page--form space-y-6">
+  <section class="shell-card request-profile-editor request-profile-editor--compact">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1 class="request-profile-editor__title"><%= isEditMode ? t('system.users.editTitle') : t('system.users.createTitle') %></h1>
+        <p class="request-profile-editor__description"><%= t('system.users.formDescription') %></p>
+      </div>
+    </div>
+
+    <form id="system-user-form" action="<%= isEditMode ? `/system/users/${user.id}?_method=PUT` : '/system/users' %>" method="POST" class="request-profile-editor__form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="request-profile-editor__fields request-profile-editor__fields--compact">
+        <div>
+          <label class="field-label" for="fullName"><%= t('field.fullName') %></label>
+          <input id="fullName" name="fullName" type="text" class="field-input" required value="<%= user?.full_name || '' %>" />
+        </div>
+        <div>
+          <label class="field-label" for="email"><%= t('field.email') %></label>
+          <input id="email" name="email" type="email" class="field-input" required value="<%= user?.email || '' %>" />
+        </div>
+        <div>
+          <label class="field-label" for="phone"><%= t('portal.fields.phone') %></label>
+          <input id="phone" name="phone" type="text" class="field-input" value="<%= user?.phone || '' %>" />
+        </div>
+        <div>
+          <label class="field-label" for="password"><%= t('field.password') %></label>
+          <input id="password" name="password" type="password" class="field-input" <%= isEditMode ? '' : 'required' %> />
+        </div>
+        <label class="request-profile-toggle">
+          <input type="checkbox" name="isActive" <%= !isEditMode || user?.is_active ? 'checked' : '' %> />
+          <span><%= t('requestProfiles.fields.active') %></span>
+        </label>
+      </div>
+    </form>
+
+    <div class="request-profile-editor__actions">
+      <a href="/system/users" class="btn-secondary"><%= t('requestProfiles.backToList') %></a>
+      <button type="submit" form="system-user-form" class="btn-primary"><%= isEditMode ? t('buttons.save') : t('system.users.add') %></button>
+    </div>
+  </section>
+</section>

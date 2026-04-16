@@ -7,19 +7,25 @@ const { AuditLogRepository } = require('../../../infrastructure/database/reposit
 const { DashboardRepository } = require('../../../infrastructure/database/repositories/DashboardRepository');
 const { RequestProfileRepository } = require('../../../infrastructure/database/repositories/RequestProfileRepository');
 const { RequestRepository } = require('../../../infrastructure/database/repositories/RequestRepository');
+const { SystemSettingsRepository } = require('../../../infrastructure/database/repositories/SystemSettingsRepository');
+const { PasswordResetTokenRepository } = require('../../../infrastructure/database/repositories/PasswordResetTokenRepository');
 const { AuthService } = require('../../../application/services/AuthService');
 const { EventService } = require('../../../application/services/EventService');
 const { CategoryService } = require('../../../application/services/CategoryService');
 const { AuditLogService } = require('../../../application/services/AuditLogService');
 const { AccessService } = require('../../../application/services/AccessService');
+const { EmailService } = require('../../../application/services/EmailService');
+const { SystemService } = require('../../../application/services/SystemService');
 const { buildAuthController } = require('../controllers/AuthController');
 const { buildDashboardController } = require('../controllers/DashboardController');
 const { buildEventController } = require('../controllers/EventController');
 const { buildAccessController } = require('../controllers/AccessController');
+const { buildSystemController } = require('../controllers/SystemController');
 const { buildAuthRoutes } = require('./auth-routes');
 const { buildDashboardRoutes } = require('./dashboard-routes');
 const { buildEventRoutes } = require('./event-routes');
 const { buildPublicAccessRoutes } = require('./public-access-routes');
+const { buildSystemRoutes } = require('./system-routes');
 const { setLocale } = require('../middleware/locale');
 
 function buildRouter() {
@@ -32,8 +38,20 @@ function buildRouter() {
   const dashboardRepository = new DashboardRepository(pool);
   const requestProfileRepository = new RequestProfileRepository(pool);
   const requestRepository = new RequestRepository(pool);
+  const systemSettingsRepository = new SystemSettingsRepository(pool);
+  const passwordResetTokenRepository = new PasswordResetTokenRepository(pool);
 
   const auditLogService = new AuditLogService(auditLogRepository);
+  const emailService = new EmailService(systemSettingsRepository);
+  const systemService = new SystemService({
+    userRepository,
+    eventRepository,
+    requestProfileRepository,
+    requestRepository,
+    systemSettingsRepository,
+    passwordResetTokenRepository,
+    emailService,
+  });
   const authService = new AuthService(userRepository);
   const eventService = new EventService({
     pool,
@@ -55,16 +73,19 @@ function buildRouter() {
     requestRepository,
     eventService,
     auditLogService,
+    systemService,
   });
 
-  const authController = buildAuthController({ authService });
+  const authController = buildAuthController({ authService, systemService });
   const dashboardController = buildDashboardController({ eventService });
   const eventController = buildEventController({ eventService, auditLogService });
   const accessController = buildAccessController({ categoryService, accessService });
+  const systemController = buildSystemController({ systemService });
 
   router.get('/language/:locale', setLocale);
   router.use(buildAuthRoutes({ authController }));
   router.use(buildDashboardRoutes({ dashboardController }));
+  router.use(buildSystemRoutes({ systemController }));
   router.use(buildPublicAccessRoutes({ accessController }));
   router.use(buildEventRoutes({ eventController, accessController }));
 

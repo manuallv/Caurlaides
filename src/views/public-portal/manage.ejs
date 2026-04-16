@@ -100,6 +100,17 @@
       <div class="portal-workspace-card__body">
         <section class="portal-workspace-view is-active" data-portal-view-panel="table" data-live-section="portal-table">
           <div class="portal-table-toolbar">
+            <div class="request-profile-search portal-table-search">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M8.5 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 1.6a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Zm5.38 8.64 3.02 3.02-1.13 1.13-3.02-3.02z" />
+              </svg>
+              <input
+                type="search"
+                class="field-input"
+                placeholder="<%= t('portal.tableSearch') %>"
+                data-portal-table-search
+              />
+            </div>
             <div class="portal-table-tabs">
               <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
               <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
@@ -136,7 +147,7 @@
                 </thead>
                 <tbody>
                   <% combinedRequests.forEach((request) => { %>
-                    <tr class="portal-request-row" data-request-row data-request-type="<%= request.request_type %>">
+                    <tr class="portal-request-row" data-request-row data-request-type="<%= request.request_type %>" data-request-search="<%= [request.full_name, request.category_name, request.company_name || '', request.phone || '', request.email || '', request.notes || ''].join(' ').toLowerCase() %>">
                       <td>
                         <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
                           <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>
@@ -180,7 +191,7 @@
                               data-notes="<%= request.notes || '' %>"
                             ><%= t('portal.editRequest') %></button>
 
-                            <form action="/p/<%= request.request_type %>/<%= request.id %>?_method=DELETE" method="POST" data-live-form>
+                            <form action="/p/<%= request.request_type %>/<%= request.id %>?_method=DELETE" method="POST" data-live-form data-confirm-message="<%= t('common.confirmDelete') %>">
                               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                               <button type="submit" class="portal-action-button portal-action-button-danger"><%= t('portal.deleteRequest') %></button>
                             </form>

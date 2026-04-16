@@ -21,10 +21,23 @@ class EventRepository {
             SELECT COUNT(*)
             FROM event_users member_count
             WHERE member_count.event_id = e.id
-          ) AS member_count
+          ) AS member_count,
+          (
+            SELECT COUNT(*)
+            FROM pass_requests pass_request_count
+            WHERE pass_request_count.event_id = e.id
+              AND pass_request_count.deleted_at IS NULL
+          ) AS total_pass_requests,
+          (
+            SELECT COUNT(*)
+            FROM wristband_requests wristband_request_count
+            WHERE wristband_request_count.event_id = e.id
+              AND wristband_request_count.deleted_at IS NULL
+          ) AS total_wristband_requests
         FROM event_users eu
         INNER JOIN events e ON e.id = eu.event_id
         WHERE eu.user_id = ?
+          AND e.deleted_at IS NULL
         ORDER BY
           FIELD(e.status, 'active', 'draft', 'completed', 'archived'),
           e.start_date ASC
@@ -109,8 +122,30 @@ class EventRepository {
     );
   }
 
-  async delete(eventId) {
-    await this.pool.execute('DELETE FROM events WHERE id = ?', [eventId]);
+  async delete(eventId, userId) {
+    await this.pool.execute(
+      `
+        UPDATE events
+        SET
+          deleted_at = NOW(),
+          deleted_by_user_id = ?
+        WHERE id = ?
+      `,
+      [userId, eventId],
+    );
+  }
+
+  async restore(eventId) {
+    await this.pool.execute(
+      `
+        UPDATE events
+        SET
+          deleted_at = NULL,
+          deleted_by_user_id = NULL
+        WHERE id = ?
+      `,
+      [eventId],
+    );
   }
 
   async findById(eventId) {
@@ -127,10 +162,12 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.deleted_at,
           e.created_at,
           e.updated_at
         FROM events e
         WHERE e.id = ?
+          AND e.deleted_at IS NULL
         LIMIT 1
       `,
       [eventId],
@@ -153,15 +190,43 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.deleted_at,
           e.created_at,
           e.updated_at,
           eu.role
         FROM events e
         INNER JOIN event_users eu ON eu.event_id = e.id
-        WHERE e.id = ? AND eu.user_id = ?
+        WHERE e.id = ? AND eu.user_id = ? AND e.deleted_at IS NULL
         LIMIT 1
       `,
       [eventId, userId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findAnyById(eventId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          e.id,
+          e.owner_id,
+          e.name,
+          e.description,
+          e.start_date,
+          e.end_date,
+          e.location,
+          e.status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline,
+          e.deleted_at,
+          e.created_at,
+          e.updated_at
+        FROM events e
+        WHERE e.id = ?
+        LIMIT 1
+      `,
+      [eventId],
     );
 
     return rows[0] || null;

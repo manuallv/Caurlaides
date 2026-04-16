@@ -8,12 +8,20 @@ CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   full_name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL,
+  phone VARCHAR(40) NULL,
   password_hash VARCHAR(255) NOT NULL,
   last_login_at DATETIME NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email)
+  UNIQUE KEY uq_users_email (email),
+  CONSTRAINT fk_users_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS events (
@@ -27,6 +35,8 @@ CREATE TABLE IF NOT EXISTS events (
   status ENUM('draft', 'active', 'completed', 'archived') NOT NULL DEFAULT 'draft',
   pass_request_deadline DATETIME NULL,
   wristband_request_deadline DATETIME NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -35,6 +45,10 @@ CREATE TABLE IF NOT EXISTS events (
   CONSTRAINT fk_events_owner
     FOREIGN KEY (owner_id) REFERENCES users (id)
     ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_events_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -73,6 +87,8 @@ CREATE TABLE IF NOT EXISTS pass_categories (
   sort_order INT NOT NULL DEFAULT 0,
   created_by_user_id BIGINT UNSIGNED NULL,
   updated_by_user_id BIGINT UNSIGNED NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -88,6 +104,10 @@ CREATE TABLE IF NOT EXISTS pass_categories (
   CONSTRAINT fk_pass_categories_updated_by
     FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pass_categories_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -101,6 +121,8 @@ CREATE TABLE IF NOT EXISTS wristband_categories (
   sort_order INT NOT NULL DEFAULT 0,
   created_by_user_id BIGINT UNSIGNED NULL,
   updated_by_user_id BIGINT UNSIGNED NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -116,6 +138,10 @@ CREATE TABLE IF NOT EXISTS wristband_categories (
   CONSTRAINT fk_wristband_categories_updated_by
     FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_wristband_categories_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -124,12 +150,17 @@ CREATE TABLE IF NOT EXISTS request_profiles (
   event_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(160) NOT NULL,
   public_slug CHAR(36) NOT NULL,
+  contact_email VARCHAR(190) NULL,
+  contact_phone VARCHAR(40) NULL,
   access_code VARCHAR(32) NULL,
   access_code_hash VARCHAR(255) NOT NULL,
   max_people INT UNSIGNED NOT NULL DEFAULT 1,
   notes TEXT NULL,
+  notify_contact_on_create TINYINT(1) NOT NULL DEFAULT 1,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   locked_at DATETIME NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
   created_by_user_id BIGINT UNSIGNED NULL,
   updated_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -148,6 +179,10 @@ CREATE TABLE IF NOT EXISTS request_profiles (
     ON UPDATE CASCADE,
   CONSTRAINT fk_request_profiles_updated_by
     FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_request_profiles_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -199,6 +234,10 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   handed_out_at DATETIME NULL,
   returned_at DATETIME NULL,
   finalized_at DATETIME NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
+  status_updated_at DATETIME NULL,
+  status_updated_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -227,6 +266,14 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   CONSTRAINT fk_pass_requests_returned_by
     FOREIGN KEY (returned_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pass_requests_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pass_requests_status_updated_by
+    FOREIGN KEY (status_updated_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -247,6 +294,10 @@ CREATE TABLE IF NOT EXISTS wristband_requests (
   handed_out_at DATETIME NULL,
   returned_at DATETIME NULL,
   finalized_at DATETIME NULL,
+  deleted_at DATETIME NULL,
+  deleted_by_user_id BIGINT UNSIGNED NULL,
+  status_updated_at DATETIME NULL,
+  status_updated_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -274,6 +325,14 @@ CREATE TABLE IF NOT EXISTS wristband_requests (
     ON UPDATE CASCADE,
   CONSTRAINT fk_wristband_requests_returned_by
     FOREIGN KEY (returned_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_wristband_requests_deleted_by
+    FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_wristband_requests_status_updated_by
+    FOREIGN KEY (status_updated_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -308,4 +367,46 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires INT UNSIGNED NOT NULL,
   data MEDIUMTEXT COLLATE utf8mb4_bin NOT NULL,
   PRIMARY KEY (session_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(120) NOT NULL,
+  setting_value LONGTEXT NULL,
+  updated_by_user_id BIGINT UNSIGNED NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (setting_key),
+  CONSTRAINT fk_system_settings_updated_by
+    FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  template_key VARCHAR(120) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  html_content LONGTEXT NOT NULL,
+  text_content LONGTEXT NULL,
+  updated_by_user_id BIGINT UNSIGNED NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (template_key),
+  CONSTRAINT fk_email_templates_updated_by
+    FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_password_reset_token_hash (token_hash),
+  KEY idx_password_reset_user_id (user_id),
+  CONSTRAINT fk_password_reset_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 ) ENGINE=InnoDB;

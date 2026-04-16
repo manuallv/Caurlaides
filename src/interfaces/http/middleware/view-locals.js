@@ -5,9 +5,14 @@ const {
   truncate,
 } = require('../../../shared/utils/formatters');
 const { formatAuditMessage } = require('../../../shared/i18n');
+const { env } = require('../../../config/env');
 
 function attachViewLocals(req, res, next) {
   res.locals.currentUser = req.currentUser;
+  res.locals.isSuperAdmin = Boolean(
+    req.currentUser
+      && String(req.currentUser.email || '').trim().toLowerCase() === env.superAdminEmail,
+  );
   res.locals.activeEvent = res.locals.activeEvent || null;
   res.locals.t = req.t;
   res.locals.flash = {

@@ -1,4 +1,4 @@
-function buildAuthController({ authService }) {
+function buildAuthController({ authService, systemService }) {
   return {
     showLogin(req, res) {
       res.render('auth/login', {
@@ -9,6 +9,19 @@ function buildAuthController({ authService }) {
     showRegister(req, res) {
       res.render('auth/register', {
         pageTitle: req.t('auth.register.title'),
+      });
+    },
+
+    showForgotPassword(req, res) {
+      res.render('auth/forgot-password', {
+        pageTitle: req.t('auth.forgot.title'),
+      });
+    },
+
+    showResetPassword(req, res) {
+      res.render('auth/reset-password', {
+        pageTitle: req.t('auth.reset.title'),
+        token: req.params.token,
       });
     },
 
@@ -42,6 +55,23 @@ function buildAuthController({ authService }) {
       } catch (error) {
         req.flash('error', error.message);
         return res.redirect('/login');
+      }
+    },
+
+    async forgotPassword(req, res) {
+      await systemService.sendForgotPassword(req.body.email, req.t);
+      req.flash('success', req.t('flash.passwordResetSent'));
+      return res.redirect('/forgot-password');
+    },
+
+    async resetPassword(req, res) {
+      try {
+        await systemService.resetPassword(req.params.token, req.body.password, req.t);
+        req.flash('success', req.t('flash.passwordResetComplete'));
+        return res.redirect('/login');
+      } catch (error) {
+        req.flash('error', error.message);
+        return res.redirect(`/reset-password/${req.params.token}`);
       }
     },
 

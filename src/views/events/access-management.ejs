@@ -156,8 +156,8 @@
                     <td>
                       <div class="access-data-stack">
                         <span class="status-<%= request.status === 'handed_out' ? 'active' : 'pending' %>"><%= t(`statuses.${request.status}`) %></span>
-                        <% if (request.handed_out_at) { %>
-                          <span class="access-status-time"><%= t('access.workspace.receivedAt') %> · <%= helpers.formatDateTime(request.handed_out_at) %></span>
+                        <% if (request.status_updated_at) { %>
+                          <span class="access-status-time"><%= helpers.formatDateTime(request.status_updated_at) %></span>
                         <% } else { %>
                           <span class="access-status-time">&nbsp;</span>
                         <% } %>
@@ -166,8 +166,8 @@
                     <td>
                       <div class="access-data-stack">
                         <strong><%= helpers.formatDateTime(request.updated_at) %></strong>
-                        <% if (request.handed_out_by_name) { %>
-                          <span><%= request.handed_out_by_name %></span>
+                        <% if (request.status_updated_by_name || request.handed_out_by_name) { %>
+                          <span><%= request.status_updated_by_name || request.handed_out_by_name %></span>
                         <% } %>
                       </div>
                     </td>
@@ -190,10 +190,10 @@
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                           <% if (request.status === 'handed_out') { %>
                             <input type="hidden" name="status" value="pending" />
-                            <button type="submit" class="access-mini-button access-mini-button--secondary"><%= t('access.actions.markPending') %></button>
+                            <button type="submit" class="access-mini-button access-mini-button--secondary"><%= t('statuses.pending') %></button>
                           <% } else { %>
                             <input type="hidden" name="status" value="handed_out" />
-                            <button type="submit" class="access-mini-button access-mini-button--primary"><%= t('access.actions.markHandedOut') %></button>
+                            <button type="submit" class="access-mini-button access-mini-button--primary"><%= t('statuses.handed_out') %></button>
                           <% } %>
                         </form>
                       </div>
@@ -374,7 +374,7 @@
                               data-type-is-active="<%= category.is_active ? '1' : '0' %>"
                             ><%= t('access.types.editButton') %></button>
 
-                            <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" method="POST" data-live-form>
+                            <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" method="POST" data-live-form data-confirm-message="<%= t('common.confirmDelete') %>">
                               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                               <button type="submit" class="access-mini-button access-mini-button--danger"><%= t('access.deleteType') %></button>
                             </form>

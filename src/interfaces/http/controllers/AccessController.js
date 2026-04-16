@@ -26,6 +26,9 @@ function resolveAccessType(req) {
 function normalizeRequestProfilePayload(body) {
   return {
     name: body.name,
+    contactEmail: body.contactEmail || null,
+    contactPhone: body.contactPhone || null,
+    notifyContactOnCreate: body.notifyContactOnCreate === 'on',
     notes: body.notes || null,
     isActive: body.isActive === 'on',
     passQuota: body.passQuota || {},
@@ -244,6 +247,21 @@ function buildAccessController({ categoryService, accessService }) {
       });
       req.flash('success', req.t('flash.requestProfileDeleted'));
       return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+    },
+
+    async restoreAuditEntry(req, res) {
+      await accessService.restoreAuditEntity(
+        req.params.eventId,
+        req.params.auditId,
+        req.currentUser.id,
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.entityRestored'));
+      return res.redirect(`/events/${req.params.eventId}/activity`);
     },
 
     async regenerateRequestProfileCode(req, res) {

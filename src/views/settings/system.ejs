@@ -1,0 +1,107 @@
+<section class="space-y-6">
+  <section class="shell-card request-profile-editor request-profile-editor--compact">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1 class="request-profile-editor__title"><%= t('system.settings.title') %></h1>
+        <p class="request-profile-editor__description"><%= t('system.settings.description') %></p>
+      </div>
+    </div>
+
+    <form action="/system/settings" method="POST" class="request-profile-editor__form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="request-profile-editor__fields request-profile-editor__fields--compact">
+        <div>
+          <label class="field-label"><%= t('system.settings.provider') %></label>
+          <select name="emailProvider" class="field-input">
+            <option value="smtp" <%= (settings.email_provider || 'smtp') === 'smtp' ? 'selected' : '' %>>SMTP</option>
+            <option value="resend" <%= settings.email_provider === 'resend' ? 'selected' : '' %>>Resend</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">SMTP host</label>
+          <input name="smtpHost" type="text" class="field-input" value="<%= settings.smtp_host || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">SMTP port</label>
+          <input name="smtpPort" type="text" class="field-input" value="<%= settings.smtp_port || '587' %>" />
+        </div>
+        <div>
+          <label class="field-label">SMTP user</label>
+          <input name="smtpUser" type="text" class="field-input" value="<%= settings.smtp_user || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">SMTP password</label>
+          <input name="smtpPass" type="password" class="field-input" value="<%= settings.smtp_pass || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">From email</label>
+          <input name="smtpFromEmail" type="email" class="field-input" value="<%= settings.smtp_from_email || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">From name</label>
+          <input name="smtpFromName" type="text" class="field-input" value="<%= settings.smtp_from_name || '' %>" />
+        </div>
+        <label class="request-profile-toggle">
+          <input type="checkbox" name="smtpSecure" <%= settings.smtp_secure === 'true' ? 'checked' : '' %> />
+          <span>SMTP secure</span>
+        </label>
+        <div>
+          <label class="field-label">Resend API key</label>
+          <input name="resendApiKey" type="text" class="field-input" value="<%= settings.resend_api_key || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">Resend from email</label>
+          <input name="resendFromEmail" type="email" class="field-input" value="<%= settings.resend_from_email || '' %>" />
+        </div>
+        <div>
+          <label class="field-label">Resend from name</label>
+          <input name="resendFromName" type="text" class="field-input" value="<%= settings.resend_from_name || '' %>" />
+        </div>
+      </div>
+
+      <div class="request-profile-editor__quotas">
+        <section class="request-profile-quota-card panel">
+          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.forgotTemplate') %></h2></div>
+          <div class="request-profile-quota-list">
+            <label>
+              <span class="field-label"><%= t('system.settings.subject') %></span>
+              <input name="forgotPasswordSubject" type="text" class="field-input" value="<%= templates.forgot_password.subject %>" />
+            </label>
+            <label>
+              <span class="field-label">HTML</span>
+              <textarea name="forgotPasswordHtml" rows="8" class="field-input"><%= templates.forgot_password.html_content %></textarea>
+            </label>
+            <label>
+              <span class="field-label">Text</span>
+              <textarea name="forgotPasswordText" rows="5" class="field-input"><%= templates.forgot_password.text_content || '' %></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="request-profile-quota-card panel">
+          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.inviteTemplate') %></h2></div>
+          <div class="request-profile-quota-list">
+            <label>
+              <span class="field-label"><%= t('system.settings.subject') %></span>
+              <input name="portalInviteSubject" type="text" class="field-input" value="<%= templates.portal_invite.subject %>" />
+            </label>
+            <label>
+              <span class="field-label">HTML</span>
+              <textarea name="portalInviteHtml" rows="8" class="field-input"><%= templates.portal_invite.html_content %></textarea>
+            </label>
+            <label>
+              <span class="field-label">Text</span>
+              <textarea name="portalInviteText" rows="5" class="field-input"><%= templates.portal_invite.text_content || '' %></textarea>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="request-profile-editor__actions">
+        <button type="submit" class="btn-primary"><%= t('buttons.save') %></button>
+      </div>
+    </form>
+  </section>
+</section>

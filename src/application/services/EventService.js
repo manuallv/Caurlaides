@@ -137,7 +137,37 @@ class EventService {
       }),
     });
 
-    await this.eventRepository.delete(eventId);
+    await this.eventRepository.delete(eventId, actorId);
+  }
+
+  async restoreEvent(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const actorEvent = await this.eventRepository.findAnyById(eventId);
+
+    if (!actorEvent) {
+      throw new AppError(tx('service.event.accessDenied'), 404);
+    }
+
+    const membership = await this.eventRepository.findMember(eventId, actorId);
+
+    if (!membership || membership.role !== EVENT_ROLES.OWNER) {
+      throw new AppError(tx('service.event.deleteRequiresOwner'), 403);
+    }
+
+    await this.eventRepository.restore(eventId);
+
+    await this.auditLogService.record({
+      eventId,
+      userId: actorId,
+      entityType: 'event',
+      entityId: eventId,
+      action: 'restored',
+      message: translate(DEFAULT_LOCALE, 'audit.message.eventRestored', { name: actorEvent.name }),
+      afterState: actorEvent,
+      metadata: buildAuditMetadata('audit.message.eventRestored', {
+        name: actorEvent.name,
+      }),
+    });
   }
 
   async getMembers(eventId, actorId, t) {
@@ -167,6 +197,10 @@ class EventService {
     const user = await this.userRepository.findForInvitation(email);
 
     if (!user) {
+      throw new AppError(tx('service.event.userNotRegistered'), 404);
+    }
+
+    if (!user.is_active || user.deleted_at) {
       throw new AppError(tx('service.event.userNotRegistered'), 404);
     }
 

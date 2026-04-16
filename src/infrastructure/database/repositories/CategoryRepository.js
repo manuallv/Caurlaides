@@ -30,10 +30,12 @@ class CategoryRepository {
           quota,
           is_active,
           sort_order,
+          deleted_at,
           created_at,
           updated_at
         FROM ${table}
         WHERE event_id = ?
+          AND deleted_at IS NULL
         ORDER BY sort_order ASC, name ASC
       `,
       [eventId],
@@ -54,6 +56,33 @@ class CategoryRepository {
           quota,
           is_active,
           sort_order,
+          deleted_at,
+          created_at,
+          updated_at
+        FROM ${table}
+        WHERE id = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [categoryId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findAnyById(type, categoryId) {
+    const table = this.resolveTable(type);
+    const [rows] = await this.pool.query(
+      `
+        SELECT
+          id,
+          event_id,
+          name,
+          description,
+          quota,
+          is_active,
+          sort_order,
+          deleted_at,
           created_at,
           updated_at
         FROM ${table}
@@ -123,9 +152,34 @@ class CategoryRepository {
     );
   }
 
-  async delete(type, categoryId) {
+  async delete(type, categoryId, userId) {
     const table = this.resolveTable(type);
-    await this.pool.query(`DELETE FROM ${table} WHERE id = ?`, [categoryId]);
+    await this.pool.query(
+      `
+        UPDATE ${table}
+        SET
+          deleted_at = NOW(),
+          deleted_by_user_id = ?,
+          is_active = 0
+        WHERE id = ?
+      `,
+      [userId, categoryId],
+    );
+  }
+
+  async restore(type, categoryId) {
+    const table = this.resolveTable(type);
+    await this.pool.query(
+      `
+        UPDATE ${table}
+        SET
+          deleted_at = NULL,
+          deleted_by_user_id = NULL,
+          is_active = 1
+        WHERE id = ?
+      `,
+      [categoryId],
+    );
   }
 }
 

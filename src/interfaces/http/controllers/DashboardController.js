@@ -6,15 +6,17 @@ function buildDashboardController({ eventService }) {
       const totals = events.reduce(
         (accumulator, event) => {
           accumulator.totalEvents += 1;
-
-          if (event.status === 'active') {
-            accumulator.activeEvents += 1;
-          }
-
-          accumulator.totalMembers += Number(event.member_count || 0);
+          accumulator.totalPassRequests += Number(event.total_pass_requests || 0);
+          accumulator.totalWristbandRequests += Number(event.total_wristband_requests || 0);
+          accumulator.totalRequests += Number(event.total_pass_requests || 0) + Number(event.total_wristband_requests || 0);
           return accumulator;
         },
-        { totalEvents: 0, activeEvents: 0, totalMembers: 0 },
+        {
+          totalEvents: 0,
+          totalPassRequests: 0,
+          totalWristbandRequests: 0,
+          totalRequests: 0,
+        },
       );
 
       res.render('dashboard/index', {

@@ -128,7 +128,7 @@ class CategoryService {
       throw new AppError(tx('service.category.notFound'), 404);
     }
 
-    await this.categoryRepository.delete(type, categoryId);
+    await this.categoryRepository.delete(type, categoryId, actorId);
 
     await this.auditLogService.record({
       eventId,
@@ -142,6 +142,40 @@ class CategoryService {
       }),
       beforeState: existingCategory,
       metadata: buildAuditMetadata('audit.message.categoryDeleted', {
+        type: tx(`categoryType.${type}`),
+        name: existingCategory.name,
+      }),
+    });
+  }
+
+  async restoreCategory(eventId, categoryId, actorId, type, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.category.manageCategories'), 403);
+    }
+
+    const existingCategory = await this.categoryRepository.findAnyById(type, categoryId);
+
+    if (!existingCategory || Number(existingCategory.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.category.notFound'), 404);
+    }
+
+    await this.categoryRepository.restore(type, categoryId);
+
+    await this.auditLogService.record({
+      eventId,
+      userId: actorId,
+      entityType: `${type}_category`,
+      entityId: categoryId,
+      action: 'restored',
+      message: translate(DEFAULT_LOCALE, 'audit.message.categoryRestored', {
+        type: translate(DEFAULT_LOCALE, `categoryType.${type}`),
+        name: existingCategory.name,
+      }),
+      afterState: existingCategory,
+      metadata: buildAuditMetadata('audit.message.categoryRestored', {
         type: tx(`categoryType.${type}`),
         name: existingCategory.name,
       }),

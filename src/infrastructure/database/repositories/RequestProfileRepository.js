@@ -36,13 +36,18 @@ class RequestProfileRepository {
           rp.public_slug,
           rp.access_code,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at
         FROM request_profiles rp
         WHERE rp.event_id = ?
+          AND rp.deleted_at IS NULL
         ORDER BY rp.created_at DESC, rp.name ASC
       `,
       [eventId],
@@ -62,9 +67,44 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
+          rp.created_at,
+          rp.updated_at
+        FROM request_profiles rp
+        WHERE rp.id = ?
+          AND rp.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [profileId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findAnyById(profileId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at
         FROM request_profiles rp
@@ -88,9 +128,13 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at,
           e.name AS event_name,
@@ -100,6 +144,7 @@ class RequestProfileRepository {
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.public_slug = ?
+          AND rp.deleted_at IS NULL
         LIMIT 1
       `,
       [publicSlug],
@@ -119,9 +164,13 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at,
           e.name AS event_name,
@@ -131,6 +180,7 @@ class RequestProfileRepository {
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.id = ?
+          AND rp.deleted_at IS NULL
         LIMIT 1
       `,
       [profileId],
@@ -150,9 +200,13 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at,
           e.name AS event_name,
@@ -162,6 +216,7 @@ class RequestProfileRepository {
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.is_active = 1
+          AND rp.deleted_at IS NULL
         ORDER BY rp.updated_at DESC, rp.id DESC
       `,
     );
@@ -179,6 +234,9 @@ class RequestProfileRepository {
           access_code,
           access_code_hash,
           max_people,
+          contact_email,
+          contact_phone,
+          notify_contact_on_create,
           notes,
           is_active,
           locked_at,
@@ -194,6 +252,9 @@ class RequestProfileRepository {
         payload.accessCode,
         payload.accessCodeHash,
         payload.maxPeople,
+        payload.contactEmail || null,
+        payload.contactPhone || null,
+        payload.notifyContactOnCreate ? 1 : 0,
         payload.notes,
         payload.isActive,
         payload.lockedAt || null,
@@ -212,6 +273,9 @@ class RequestProfileRepository {
         SET
           name = ?,
           max_people = ?,
+          contact_email = ?,
+          contact_phone = ?,
+          notify_contact_on_create = ?,
           notes = ?,
           is_active = ?,
           locked_at = ?,
@@ -221,6 +285,9 @@ class RequestProfileRepository {
       [
         payload.name,
         payload.maxPeople,
+        payload.contactEmail || null,
+        payload.contactPhone || null,
+        payload.notifyContactOnCreate ? 1 : 0,
         payload.notes,
         payload.isActive,
         payload.lockedAt || null,
@@ -255,13 +322,18 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at
         FROM request_profiles rp
         WHERE rp.access_code = ?
+          AND rp.deleted_at IS NULL
         LIMIT 1
       `,
       [accessCode],
@@ -281,9 +353,13 @@ class RequestProfileRepository {
           rp.access_code,
           rp.access_code_hash,
           rp.max_people,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
           rp.locked_at,
+          rp.deleted_at,
           rp.created_at,
           rp.updated_at,
           e.name AS event_name,
@@ -294,6 +370,7 @@ class RequestProfileRepository {
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.access_code = ?
           AND rp.is_active = 1
+          AND rp.deleted_at IS NULL
         LIMIT 1
       `,
       [accessCode],
@@ -302,8 +379,32 @@ class RequestProfileRepository {
     return rows[0] || null;
   }
 
-  async delete(profileId) {
-    await this.pool.execute('DELETE FROM request_profiles WHERE id = ?', [profileId]);
+  async delete(profileId, userId) {
+    await this.pool.execute(
+      `
+        UPDATE request_profiles
+        SET
+          deleted_at = NOW(),
+          deleted_by_user_id = ?,
+          is_active = 0
+        WHERE id = ?
+      `,
+      [userId, profileId],
+    );
+  }
+
+  async restore(profileId) {
+    await this.pool.execute(
+      `
+        UPDATE request_profiles
+        SET
+          deleted_at = NULL,
+          deleted_by_user_id = NULL,
+          is_active = 1
+        WHERE id = ?
+      `,
+      [profileId],
+    );
   }
 
   async replaceQuotas(connection, profileId, type, quotas = []) {
@@ -340,6 +441,7 @@ class RequestProfileRepository {
         FROM ${config.table} q
         INNER JOIN ${config.categoryTable} c ON c.id = q.${config.categoryIdField}
         WHERE q.request_profile_id = ?
+          AND c.deleted_at IS NULL
         ORDER BY c.sort_order ASC, c.name ASC
       `,
       [profileId],

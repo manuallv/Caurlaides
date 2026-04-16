@@ -15,6 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let refreshInProgress = false;
   let liveFilterTimer = null;
   let activeRefreshController = null;
+  let portalTableSearchQuery = '';
+  const escapeSelector = (value) => {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(value);
+    }
+
+    return String(value).replace(/["\\]/g, '\\$&');
+  };
 
   const closeSidebar = () => {
     if (!sidebar) {
@@ -87,6 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const controller = new AbortController();
     activeRefreshController = controller;
+    const activeElement = document.activeElement;
+    const focusedState = activeElement && activeElement.name
+      ? {
+          name: activeElement.name,
+          value: activeElement.value,
+          selectionStart: typeof activeElement.selectionStart === 'number' ? activeElement.selectionStart : null,
+          selectionEnd: typeof activeElement.selectionEnd === 'number' ? activeElement.selectionEnd : null,
+        }
+      : null;
 
     try {
       const response = await fetch(targetUrl, {
@@ -120,6 +137,24 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!replacedSections) {
         window.location.href = targetUrl;
         return;
+      }
+
+      if (focusedState) {
+        const replacementInput = document.querySelector(`[name="${escapeSelector(focusedState.name)}"]`);
+
+        if (replacementInput && typeof replacementInput.focus === 'function') {
+          replacementInput.focus();
+
+          if (
+            typeof replacementInput.setSelectionRange === 'function'
+            && focusedState.selectionStart !== null
+            && focusedState.selectionEnd !== null
+          ) {
+            replacementInput.setSelectionRange(focusedState.selectionStart, focusedState.selectionEnd);
+          } else if ('value' in replacementInput) {
+            replacementInput.value = focusedState.value;
+          }
+        }
       }
 
       window.dispatchEvent(new CustomEvent('codex:live-sections-refreshed'));
@@ -264,6 +299,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const initializeRequestProfileUI = () => {
     filterRequestProfileRows();
+  };
+
+  const filterPortalRows = () => {
+    const rows = [...document.querySelectorAll('[data-request-row]')];
+    const searchInput = document.querySelector('[data-portal-table-search]');
+    const query = String(searchInput?.value || portalTableSearchQuery || '').trim().toLowerCase();
+
+    rows.forEach((row) => {
+      const rowType = row.dataset.requestType;
+      const matchesTab = activePortalTab === 'all' || rowType === activePortalTab;
+      const matchesSearch = !query || String(row.dataset.requestSearch || '').includes(query);
+      row.style.display = matchesTab && matchesSearch ? '' : 'none';
+    });
   };
 
   const getAccessElements = () => ({
@@ -503,18 +551,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setPortalTab = (tab) => {
     activePortalTab = tab;
-    const { tableRows, tabButtons } = getPortalElements();
-
-    tableRows.forEach((row) => {
-      const rowType = row.dataset.requestType;
-      row.style.display = tab === 'all' || rowType === tab ? '' : 'none';
-    });
+    const { tabButtons } = getPortalElements();
 
     tabButtons.forEach((button) => {
       const isActive = button.dataset.tab === tab;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
+
+    filterPortalRows();
   };
 
   const syncPortalWorkspaceHeader = () => {
@@ -725,6 +770,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const initializePortalUI = () => {
     if (!document.querySelector('[data-portal-app]')) {
       return;
+    }
+
+    const searchInput = document.querySelector('[data-portal-table-search]');
+
+    if (searchInput) {
+      searchInput.value = portalTableSearchQuery;
     }
 
     setPortalTab(activePortalTab);
@@ -943,6 +994,11 @@ document.addEventListener('DOMContentLoaded', () => {
       filterRequestProfileRows();
     }
 
+    if (event.target.matches('[data-portal-table-search]')) {
+      portalTableSearchQuery = event.target.value;
+      filterPortalRows();
+    }
+
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
 
     if (liveFilterForm && event.target.matches('input[type="search"], input[type="text"], input:not([type])')) {
@@ -952,6 +1008,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('submit', async (event) => {
     const form = event.target;
+
+    if (form.dataset.confirmMessage && !window.confirm(form.dataset.confirmMessage)) {
+      event.preventDefault();
+      return;
+    }
 
     if (form.matches('[data-live-filter-form]')) {
       event.preventDefault();
@@ -964,11 +1025,13 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
 
       try {
+        const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
         const response = await fetch('/p/import/preview', {
           method: 'POST',
           body: new FormData(form),
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
+            'CSRF-Token': csrfValue,
           },
           credentials: 'same-origin',
         });

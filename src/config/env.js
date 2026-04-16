@@ -9,6 +9,7 @@ const env = {
   sessionSecret: process.env.SESSION_SECRET || 'development-session-secret',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   designAssetsSource: process.env.DESIGN_ASSETS_SOURCE || '',
+  superAdminEmail: String(process.env.SUPER_ADMIN_EMAIL || 'artis@untitled.lv').trim().toLowerCase(),
   db: {
     host: process.env.DB_HOST || '127.0.0.1',
     port: Number(process.env.DB_PORT || 3306),
