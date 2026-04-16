@@ -1,0 +1,55 @@
+<section class="mx-auto max-w-5xl">
+  <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+    <div class="shell-card overflow-hidden">
+      <div class="border-b border-slate-200/80 px-6 py-6 sm:px-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Operations portal</p>
+        <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+          Manage event passes and wristbands with one shared system
+        </h1>
+        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+          Coordinate teams, configure categories, and keep a clear audit trail for every event. The layout is ready to inherit your external design assets from <code>/public/design-assets/</code>.
+        </p>
+      </div>
+      <div class="grid gap-4 px-6 py-6 sm:grid-cols-3 sm:px-8">
+        <div class="panel">
+          <p class="text-sm font-semibold text-slate-900">Multi-user events</p>
+          <p class="mt-2 text-sm text-slate-500">Owners, admins, and staff can work together on the same event.</p>
+        </div>
+        <div class="panel">
+          <p class="text-sm font-semibold text-slate-900">Clear history</p>
+          <p class="mt-2 text-sm text-slate-500">Track changes, approvals, handouts, and returns with timestamps.</p>
+        </div>
+        <div class="panel">
+          <p class="text-sm font-semibold text-slate-900">Mobile ready</p>
+          <p class="mt-2 text-sm text-slate-500">Built for tablets and phones so staff can work onsite without friction.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="shell-card p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-slate-900">Log in</h2>
+      <p class="mt-2 text-sm text-slate-500">Use your account to access your events and team workspace.</p>
+
+      <form action="/login" method="POST" class="mt-6 space-y-4">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+        <div>
+          <label for="email" class="field-label">Email</label>
+          <input id="email" name="email" type="email" class="field-input" required />
+        </div>
+
+        <div>
+          <label for="password" class="field-label">Password</label>
+          <input id="password" name="password" type="password" class="field-input" required />
+        </div>
+
+        <button type="submit" class="btn-primary w-full">Log in</button>
+      </form>
+
+      <p class="mt-6 text-sm text-slate-500">
+        Need an account?
+        <a href="/register" class="font-semibold text-brand-700 hover:text-brand-800">Create one here</a>
+      </p>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,71 @@
+<section class="space-y-6">
+  <% if (canManageMembers) { %>
+    <div class="shell-card overflow-hidden">
+      <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+        <h1 class="text-2xl font-bold text-slate-900">Add collaborator</h1>
+        <p class="mt-1 text-sm text-slate-500">Add an existing registered user to this event by email.</p>
+      </div>
+      <form action="/events/<%= activeEvent.id %>/members" method="POST" class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-[1fr_180px_auto]">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <div>
+          <label for="email" class="field-label">User email</label>
+          <input id="email" name="email" type="email" class="field-input" required />
+        </div>
+        <div>
+          <label for="role" class="field-label">Role</label>
+          <select id="role" name="role" class="field-input">
+            <option value="admin">admin</option>
+            <option value="staff">staff</option>
+          </select>
+        </div>
+        <div class="self-end">
+          <button type="submit" class="btn-primary w-full">Add user</button>
+        </div>
+      </form>
+    </div>
+  <% } %>
+
+  <div class="shell-card overflow-hidden">
+    <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+      <h2 class="text-2xl font-bold text-slate-900">Current team</h2>
+      <p class="mt-1 text-sm text-slate-500">Role-based access is enforced per event.</p>
+    </div>
+    <div class="space-y-4 px-5 py-5 sm:px-6">
+      <% members.forEach((member) => { %>
+        <article class="rounded-2xl border border-slate-200 p-4">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-bold text-slate-900"><%= member.full_name %></p>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><%= member.role %></span>
+              </div>
+              <p class="mt-1 text-sm text-slate-500"><%= member.email %></p>
+              <p class="mt-1 text-xs uppercase tracking-wide text-slate-400">
+                Added <%= helpers.formatDateTime(member.created_at) %>
+                <% if (member.invited_by_name) { %>· by <%= member.invited_by_name %><% } %>
+              </p>
+            </div>
+
+            <% if (canChangeRoles && member.role !== 'owner') { %>
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=PUT" method="POST" class="flex gap-2">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <select name="role" class="field-input min-w-[140px]">
+                    <option value="admin" <%= member.role === 'admin' ? 'selected' : '' %>>admin</option>
+                    <option value="staff" <%= member.role === 'staff' ? 'selected' : '' %>>staff</option>
+                  </select>
+                  <button type="submit" class="btn-secondary">Save</button>
+                </form>
+
+                <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=DELETE" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-danger">Remove</button>
+                </form>
+              </div>
+            <% } %>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  </div>
+</section>

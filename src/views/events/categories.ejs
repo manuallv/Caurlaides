@@ -1,0 +1,171 @@
+<section class="space-y-6">
+  <% if (canManage) { %>
+    <div class="grid gap-6 xl:grid-cols-2">
+      <div class="shell-card overflow-hidden">
+        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+          <h1 class="text-xl font-bold text-slate-900">Create pass category</h1>
+        </div>
+        <form action="/events/<%= activeEvent.id %>/categories" method="POST" class="space-y-4 px-5 py-5 sm:px-6">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="type" value="pass" />
+          <div>
+            <label class="field-label" for="pass-name">Name</label>
+            <input id="pass-name" name="name" type="text" class="field-input" required />
+          </div>
+          <div>
+            <label class="field-label" for="pass-description">Description</label>
+            <textarea id="pass-description" name="description" rows="3" class="field-input"></textarea>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="field-label" for="pass-quota">Quota</label>
+              <input id="pass-quota" name="quota" type="number" min="1" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="pass-sort-order">Sort order</label>
+              <input id="pass-sort-order" name="sortOrder" type="number" min="0" class="field-input" value="0" />
+            </div>
+          </div>
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            <input type="checkbox" name="isActive" checked />
+            Active category
+          </label>
+          <button type="submit" class="btn-primary w-full">Add pass category</button>
+        </form>
+      </div>
+
+      <div class="shell-card overflow-hidden">
+        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+          <h2 class="text-xl font-bold text-slate-900">Create wristband category</h2>
+        </div>
+        <form action="/events/<%= activeEvent.id %>/categories" method="POST" class="space-y-4 px-5 py-5 sm:px-6">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="type" value="wristband" />
+          <div>
+            <label class="field-label" for="wristband-name">Name</label>
+            <input id="wristband-name" name="name" type="text" class="field-input" required />
+          </div>
+          <div>
+            <label class="field-label" for="wristband-description">Description</label>
+            <textarea id="wristband-description" name="description" rows="3" class="field-input"></textarea>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="field-label" for="wristband-quota">Quota</label>
+              <input id="wristband-quota" name="quota" type="number" min="1" class="field-input" />
+            </div>
+            <div>
+              <label class="field-label" for="wristband-sort-order">Sort order</label>
+              <input id="wristband-sort-order" name="sortOrder" type="number" min="0" class="field-input" value="0" />
+            </div>
+          </div>
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            <input type="checkbox" name="isActive" checked />
+            Active category
+          </label>
+          <button type="submit" class="btn-primary w-full">Add wristband category</button>
+        </form>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="grid gap-6 xl:grid-cols-2">
+    <div class="shell-card overflow-hidden">
+      <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+        <h2 class="text-xl font-bold text-slate-900">Pass categories</h2>
+      </div>
+      <div class="space-y-4 px-5 py-5 sm:px-6">
+        <% if (!passCategories.length) { %>
+          <p class="text-sm text-slate-500">No pass categories created yet.</p>
+        <% } %>
+        <% passCategories.forEach((category) => { %>
+          <form action="/events/<%= activeEvent.id %>/categories/pass/<%= category.id %>?_method=PUT" method="POST" class="rounded-2xl border border-slate-200 p-4">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <input type="hidden" name="type" value="pass" />
+            <div class="grid gap-4">
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="field-label">Name</label>
+                  <input name="name" type="text" class="field-input" value="<%= category.name %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+                <div>
+                  <label class="field-label">Quota</label>
+                  <input name="quota" type="number" min="1" class="field-input" value="<%= category.quota || '' %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Description</label>
+                <textarea name="description" rows="3" class="field-input" <%= canManage ? '' : 'disabled' %>><%= category.description || '' %></textarea>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="field-label">Sort order</label>
+                  <input name="sortOrder" type="number" min="0" class="field-input" value="<%= category.sort_order %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+                  <input type="checkbox" name="isActive" <%= category.is_active ? 'checked' : '' %> <%= canManage ? '' : 'disabled' %> />
+                  Active category
+                </label>
+              </div>
+              <% if (canManage) { %>
+                <div class="flex flex-wrap gap-3">
+                  <button type="submit" class="btn-secondary">Save changes</button>
+                  <button formaction="/events/<%= activeEvent.id %>/categories/pass/<%= category.id %>?_method=DELETE" formmethod="POST" class="btn-danger">Delete</button>
+                </div>
+              <% } %>
+            </div>
+          </form>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="shell-card overflow-hidden">
+      <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+        <h2 class="text-xl font-bold text-slate-900">Wristband categories</h2>
+      </div>
+      <div class="space-y-4 px-5 py-5 sm:px-6">
+        <% if (!wristbandCategories.length) { %>
+          <p class="text-sm text-slate-500">No wristband categories created yet.</p>
+        <% } %>
+        <% wristbandCategories.forEach((category) => { %>
+          <form action="/events/<%= activeEvent.id %>/categories/wristband/<%= category.id %>?_method=PUT" method="POST" class="rounded-2xl border border-slate-200 p-4">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <input type="hidden" name="type" value="wristband" />
+            <div class="grid gap-4">
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="field-label">Name</label>
+                  <input name="name" type="text" class="field-input" value="<%= category.name %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+                <div>
+                  <label class="field-label">Quota</label>
+                  <input name="quota" type="number" min="1" class="field-input" value="<%= category.quota || '' %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Description</label>
+                <textarea name="description" rows="3" class="field-input" <%= canManage ? '' : 'disabled' %>><%= category.description || '' %></textarea>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="field-label">Sort order</label>
+                  <input name="sortOrder" type="number" min="0" class="field-input" value="<%= category.sort_order %>" <%= canManage ? '' : 'disabled' %> />
+                </div>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+                  <input type="checkbox" name="isActive" <%= category.is_active ? 'checked' : '' %> <%= canManage ? '' : 'disabled' %> />
+                  Active category
+                </label>
+              </div>
+              <% if (canManage) { %>
+                <div class="flex flex-wrap gap-3">
+                  <button type="submit" class="btn-secondary">Save changes</button>
+                  <button formaction="/events/<%= activeEvent.id %>/categories/wristband/<%= category.id %>?_method=DELETE" formmethod="POST" class="btn-danger">Delete</button>
+                </div>
+              <% } %>
+            </div>
+          </form>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</section>

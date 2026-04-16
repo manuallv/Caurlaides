@@ -1,0 +1,49 @@
+{
+  "name": "caurlaides",
+  "version": "1.0.0",
+  "description": "Professional event pass and wristband management system",
+  "private": true,
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:server dev:css",
+    "dev:server": "nodemon src/server.js",
+    "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/app.css --watch",
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/app.css --minify",
+    "start": "node server.js",
+    "db:seed": "node scripts/seed-demo.js",
+    "design:sync": "node scripts/sync-design-assets.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
+    "connect-flash": "^0.1.1",
+    "csurf": "^1.11.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^17.2.2",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-ejs-layouts": "^2.5.1",
+    "express-mysql-session": "^3.0.3",
+    "express-session": "^1.18.2",
+    "express-validator": "^7.3.0",
+    "helmet": "^8.1.0",
+    "http-errors": "^2.0.0",
+    "method-override": "^3.0.0",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.15.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "nodemon": "^3.1.10",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  }
+}
