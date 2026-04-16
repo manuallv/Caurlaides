@@ -1192,6 +1192,9 @@ body.is-access-fullscreen {
 }
 
 .authincation.worldnic-auth-shell {
+  display: grid;
+  grid-template-columns: minmax(340px, 35rem) minmax(0, 1fr);
+  width: 100%;
   min-height: 100vh;
   align-items: stretch;
 }
@@ -1320,6 +1323,7 @@ body.is-access-fullscreen {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  min-height: 100vh;
 }
 
 .worldnic-auth-card.authincation-content.style-2 {
@@ -2684,7 +2688,7 @@ body.portal-modal-open {
   }
 
   .worldnic-auth-shell {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .worldnic-auth-aside.login-aside {
@@ -2703,6 +2707,7 @@ body.portal-modal-open {
   }
 
   .worldnic-auth-main {
+    min-height: 0;
     padding: 1.2rem 1rem 1.8rem;
   }
 
