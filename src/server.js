@@ -6,8 +6,6 @@ const { initializeSocket } = require('./infrastructure/realtime/socket');
 const { pool } = require('./infrastructure/database/pool');
 
 async function startServer() {
-  await pool.query('SELECT 1');
-
   const app = createApp();
   const server = http.createServer(app);
   const io = new Server(server, {
@@ -18,7 +16,18 @@ async function startServer() {
   });
 
   app.locals.io = io;
+  app.locals.databaseReady = false;
   initializeSocket(io);
+
+  try {
+    await pool.query('SELECT 1');
+    app.locals.databaseReady = true;
+  } catch (error) {
+    // Allow the app to boot so deployment can complete even before
+    // production database credentials are configured. Database-backed
+    // routes will still require valid connection settings later.
+    console.warn('Database connection check failed during startup:', error.message);
+  }
 
   server.listen(env.port, () => {
     console.log(`Server listening on ${env.appUrl}`);
