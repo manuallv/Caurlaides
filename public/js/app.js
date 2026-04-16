@@ -201,10 +201,16 @@ document.addEventListener('DOMContentLoaded', () => {
       showLiveNotice(payload.message, 'success');
     }
 
-    if (payload?.liveStatusUpdate && form.matches('[data-request-status-form]')) {
-      applyAccessStatusUpdate(payload.liveStatusUpdate);
+    if (
+      payload?.liveRequestUpsert
+      && form.matches('[data-request-status-form], [data-access-request-form]')
+    ) {
+      const handled = applyAccessRequestUpsert(payload.liveRequestUpsert);
       suppressSocketRefreshUntil = Date.now() + 1800;
-      return;
+
+      if (handled) {
+        return;
+      }
     }
 
     await refreshLiveSections();
@@ -379,7 +385,13 @@ document.addEventListener('DOMContentLoaded', () => {
     viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
     fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
     fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
+    filterForm: document.querySelector('[data-live-filter-form]'),
     exportModal: document.querySelector('[data-access-export-modal]'),
+    table: document.querySelector('[data-access-requests-table]'),
+    tableBody: document.querySelector('[data-access-requests-body]'),
+    tableScroll: document.querySelector('[data-access-table-scroll]'),
+    emptyState: document.querySelector('[data-access-empty-state]'),
+    filteredCountNodes: [...document.querySelectorAll('[data-access-filtered-count-label]')],
     typeForm: document.querySelector('[data-access-type-form]'),
     typeFormTitle: document.querySelector('[data-access-type-form-title]'),
     typeFormMethodHolder: document.querySelector('[data-access-type-method-holder]'),
@@ -414,6 +426,14 @@ document.addEventListener('DOMContentLoaded', () => {
       requestEditTitle: workspace.dataset.accessRequestEditTitle,
       requestCreateSubmit: workspace.dataset.accessRequestCreateSubmit,
       requestSaveSubmit: workspace.dataset.accessRequestSaveSubmit,
+      eventId: workspace.dataset.accessEventId,
+      pageType: workspace.dataset.accessPageType,
+      singularLabel: workspace.dataset.accessSingularLabel,
+      editLabel: workspace.dataset.accessEditLabel,
+      notSet: workspace.dataset.accessNotSet,
+      statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
+      statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
+      filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
     };
   };
 
@@ -529,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+    updateAccessFilteredCount();
   };
 
   const updateAccessSummary = (summary = {}) => {
@@ -549,55 +570,295 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const applyAccessStatusUpdate = (payload = {}) => {
-    const row = document.querySelector(`[data-request-row-id="${escapeSelector(payload.requestId)}"]`);
+  const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
-    if (!row) {
+  const formatAccessFilteredCount = (count) => {
+    const ui = getAccessUi();
+    const template = ui.filteredCountTemplate || '__COUNT__ records';
+    return template.replace('__COUNT__', count);
+  };
+
+  const updateAccessFilteredCount = () => {
+    const { tableBody, filteredCountNodes } = getAccessElements();
+
+    if (!filteredCountNodes.length) {
       return;
     }
 
-    row.dataset.requestStatus = payload.status || '';
+    const visibleCount = tableBody
+      ? [...tableBody.querySelectorAll('[data-request-row-id]')].filter((row) => row.style.display !== 'none').length
+      : 0;
 
-    const statusBadge = row.querySelector('[data-request-status-badge]');
-    const statusTime = row.querySelector('[data-request-status-time]');
-    const updatedBy = row.querySelector('[data-request-updated-by]');
-    const statusForm = row.querySelector('[data-request-status-form]');
-    const statusInput = row.querySelector('[data-request-status-input]');
-    const statusButton = row.querySelector('[data-request-status-button]');
+    filteredCountNodes.forEach((node) => {
+      node.textContent = formatAccessFilteredCount(visibleCount);
+    });
+  };
 
-    if (statusBadge) {
-      statusBadge.textContent = payload.statusLabel || '';
-      statusBadge.classList.remove('status-active', 'status-pending');
-      statusBadge.classList.add(payload.statusTone === 'active' ? 'status-active' : 'status-pending');
+  const getAccessFilterState = () => {
+    const { filterForm } = getAccessElements();
+
+    if (!filterForm) {
+      return {
+        query: '',
+        profileId: '',
+        categoryId: '',
+        status: '',
+        company: '',
+        sort: 'newest',
+      };
     }
 
-    if (statusTime) {
-      statusTime.textContent = payload.statusUpdatedAtLabel || '';
+    return {
+      query: String(filterForm.elements.q?.value || '').trim().toLowerCase(),
+      profileId: String(filterForm.elements.profileId?.value || ''),
+      categoryId: String(filterForm.elements.categoryId?.value || ''),
+      status: String(filterForm.elements.status?.value || ''),
+      company: String(filterForm.elements.company?.value || '').trim().toLowerCase(),
+      sort: String(filterForm.elements.sort?.value || 'newest'),
+    };
+  };
+
+  const matchesAccessRequestFilters = (request = {}) => {
+    const ui = getAccessUi();
+    const filters = getAccessFilterState();
+
+    if (!request || request.type !== ui.pageType) {
+      return false;
     }
 
-    if (updatedBy) {
-      updatedBy.textContent = payload.updatedByName || '';
+    if (filters.profileId && String(request.requestProfileId || '') !== filters.profileId) {
+      return false;
     }
 
-    if (statusInput) {
-      statusInput.value = payload.nextStatus || 'pending';
+    if (filters.categoryId && String(request.categoryId || '') !== filters.categoryId) {
+      return false;
     }
 
-    if (statusButton) {
-      statusButton.textContent = payload.nextStatusLabel || '';
-      statusButton.classList.remove('access-mini-button--primary', 'access-mini-button--secondary');
-      statusButton.classList.add(
-        payload.nextStatusTone === 'primary'
-          ? 'access-mini-button--primary'
-          : 'access-mini-button--secondary',
-      );
+    if (filters.status && String(request.status || '') !== filters.status) {
+      return false;
     }
 
-    if (statusForm) {
-      statusForm.dataset.currentStatus = payload.status || '';
+    if (filters.company && !String(request.companyName || '').toLowerCase().includes(filters.company)) {
+      return false;
     }
 
-    updateAccessSummary(payload.summary || {});
+    if (filters.query) {
+      const haystack = [
+        request.fullName,
+        request.companyName,
+        request.phone,
+        request.email,
+        request.notes,
+        request.profileName,
+        request.categoryName,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      if (!haystack.includes(filters.query)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const buildAccessRequestRow = (request = {}) => {
+    const ui = getAccessUi();
+    const row = document.createElement('tr');
+    const notSet = ui.notSet || '-';
+    const buttonToneClass = request.nextStatusTone === 'primary'
+      ? 'access-mini-button--primary'
+      : 'access-mini-button--secondary';
+    const statusToneClass = request.statusTone === 'active' ? 'status-active' : 'status-pending';
+
+    row.dataset.requestRowId = request.id;
+    row.dataset.requestStatus = request.status || '';
+    row.dataset.requestCreatedTs = request.createdAtTs || 0;
+
+    row.innerHTML = `
+      <td>
+        <div class="access-person-cell">
+          <div class="access-person-cell__title">
+            <img src="/public/design-assets/icons/feather/users.svg" alt="" />
+            <span>${escapeHtml(request.fullName || '')}</span>
+          </div>
+          <p class="access-person-cell__meta">${escapeHtml(request.notes || request.email || '')}</p>
+        </div>
+      </td>
+      <td>
+        <div class="access-data-stack">
+          <strong>${escapeHtml(request.categoryName || '')}</strong>
+          <span>${escapeHtml(ui.singularLabel || '')}</span>
+        </div>
+      </td>
+      <td>
+        <div class="access-data-stack">
+          <strong>${escapeHtml(request.companyName || notSet)}</strong>
+          <span>${escapeHtml(request.profileName || notSet)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="access-data-stack">
+          <strong>${escapeHtml(request.phone || notSet)}</strong>
+          <span>${escapeHtml(request.email || notSet)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="access-data-stack">
+          <span class="${statusToneClass}" data-request-status-badge>${escapeHtml(request.statusLabel || '')}</span>
+          <span class="access-status-time" data-request-status-time>${escapeHtml(request.statusUpdatedAtLabel || '\u00A0')}</span>
+        </div>
+      </td>
+      <td>
+        <div class="access-data-stack">
+          <strong data-request-updated-primary>${escapeHtml(request.updatedAtLabel || '')}</strong>
+          <span data-request-updated-by>${escapeHtml(request.updatedByName || '')}</span>
+        </div>
+      </td>
+      <td>
+        <div class="access-row-actions">
+          <button
+            type="button"
+            class="access-mini-button access-mini-button--secondary"
+            data-access-edit-request
+            data-request-id="${escapeHtml(request.id)}"
+            data-request-profile-id="${escapeHtml(request.requestProfileId || '')}"
+            data-request-category-id="${escapeHtml(request.categoryId || '')}"
+            data-request-full-name="${escapeHtml(request.fullName || '')}"
+            data-request-company-name="${escapeHtml(request.companyName || '')}"
+            data-request-phone="${escapeHtml(request.phone || '')}"
+            data-request-email="${escapeHtml(request.email || '')}"
+            data-request-notes="${escapeHtml(request.notes || '')}"
+          >${escapeHtml(ui.editLabel || 'Edit')}</button>
+
+          <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+            <input type="hidden" name="_csrf" value="${escapeHtml(document.querySelector('[data-access-request-form] input[name=\"_csrf\"]')?.value || '')}" />
+            <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
+            <button type="submit" class="access-mini-button ${buttonToneClass}" data-request-status-button>${escapeHtml(request.nextStatusLabel || '')}</button>
+          </form>
+        </div>
+      </td>
+    `;
+
+    return row;
+  };
+
+  const insertAccessRowSorted = (row) => {
+    const { tableBody } = getAccessElements();
+
+    if (!tableBody) {
+      return false;
+    }
+
+    const rowCreatedTs = Number(row.dataset.requestCreatedTs || 0);
+    const sortDirection = getAccessFilterState().sort;
+    const rows = [...tableBody.querySelectorAll('[data-request-row-id]')];
+
+    if (!rows.length) {
+      tableBody.appendChild(row);
+      return true;
+    }
+
+    const targetIndex = rows.findIndex((currentRow) => {
+      const currentCreatedTs = Number(currentRow.dataset.requestCreatedTs || 0);
+      return sortDirection === 'oldest'
+        ? rowCreatedTs < currentCreatedTs
+        : rowCreatedTs > currentCreatedTs;
+    });
+
+    if (targetIndex === -1) {
+      tableBody.appendChild(row);
+      return true;
+    }
+
+    tableBody.insertBefore(row, rows[targetIndex]);
+    return true;
+  };
+
+  const applyAccessRequestUpsert = (payload = {}) => {
+    const { request, summary, requestType } = payload;
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!elements.workspace || requestType !== ui.pageType || !request) {
+      return false;
+    }
+
+    updateAccessSummary(summary || {});
+
+    const normalizedRequest = {
+      ...request,
+      type: requestType,
+    };
+    const existingRow = document.querySelector(`[data-request-row-id="${escapeSelector(request.id)}"]`);
+    const matchesFilters = matchesAccessRequestFilters(normalizedRequest);
+
+    if (!elements.tableBody) {
+      return false;
+    }
+
+    if (!matchesFilters) {
+      if (existingRow) {
+        existingRow.remove();
+        if (!elements.tableBody.querySelector('[data-request-row-id]')) {
+          return false;
+        }
+        updateAccessFilteredCount();
+        return true;
+      }
+
+      updateAccessFilteredCount();
+      return true;
+    }
+
+    const nextRow = buildAccessRequestRow(normalizedRequest);
+
+    if (existingRow) {
+      existingRow.replaceWith(nextRow);
+      updateAccessFilteredCount();
+      return true;
+    }
+
+    if (!elements.table) {
+      return false;
+    }
+
+    insertAccessRowSorted(nextRow);
+    updateAccessFilteredCount();
+    return true;
+  };
+
+  const applyAccessRequestDelete = (payload = {}) => {
+    const { requestId, requestType, summary } = payload;
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!elements.workspace || requestType !== ui.pageType) {
+      return false;
+    }
+
+    updateAccessSummary(summary || {});
+
+    const row = document.querySelector(`[data-request-row-id="${escapeSelector(requestId)}"]`);
+
+    if (!row) {
+      return false;
+    }
+
+    row.remove();
+
+    if (!elements.tableBody?.querySelector('[data-request-row-id]')) {
+      return false;
+    }
+
+    updateAccessFilteredCount();
+    return true;
   };
 
   const closeAccessRequestModal = () => {
@@ -1356,6 +1617,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const socket = window.io();
 
     socket.emit('event:join', eventRoom);
+
+    socket.on('access:request-upsert', (payload) => {
+      const handled = applyAccessRequestUpsert(payload);
+
+      if (handled) {
+        suppressSocketRefreshUntil = Date.now() + 1800;
+      }
+    });
+
+    socket.on('access:request-delete', (payload) => {
+      const handled = applyAccessRequestDelete(payload);
+
+      if (handled) {
+        suppressSocketRefreshUntil = Date.now() + 1800;
+      }
+    });
 
     socket.on('dashboard:refresh', async () => {
       if (Date.now() < suppressSocketRefreshUntil) {

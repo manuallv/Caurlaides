@@ -92,6 +92,54 @@ function saveSession(req) {
   });
 }
 
+function buildAccessRequestLivePayload(req, res, type, request, summary = null) {
+  if (!request) {
+    return null;
+  }
+
+  const status = request.status || 'pending';
+
+  return {
+    requestType: type,
+    request: {
+      id: Number(request.id),
+      eventId: Number(request.event_id),
+      requestProfileId: request.request_profile_id ? Number(request.request_profile_id) : null,
+      categoryId: request.category_id ? Number(request.category_id) : null,
+      fullName: request.full_name || '',
+      companyName: request.company_name || '',
+      phone: request.phone || '',
+      email: request.email || '',
+      notes: request.notes || '',
+      profileName: request.profile_name || '',
+      categoryName: request.category_name || '',
+      status,
+      statusLabel: req.t(`statuses.${status}`),
+      statusTone: status === 'handed_out' ? 'active' : 'pending',
+      statusUpdatedAtLabel: request.status_updated_at
+        ? res.locals.helpers.formatDateTime(request.status_updated_at)
+        : '',
+      statusUpdatedAtTs: request.status_updated_at ? new Date(request.status_updated_at).getTime() : 0,
+      updatedAtLabel: request.updated_at ? res.locals.helpers.formatDateTime(request.updated_at) : '',
+      updatedAtTs: request.updated_at ? new Date(request.updated_at).getTime() : 0,
+      createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
+      updatedByName: request.status_updated_by_name || request.handed_out_by_name || '',
+      nextStatus: status === 'handed_out' ? 'pending' : 'handed_out',
+      nextStatusLabel: req.t(`statuses.${status === 'handed_out' ? 'pending' : 'handed_out'}`),
+      nextStatusTone: status === 'handed_out' ? 'secondary' : 'primary',
+    },
+    summary,
+  };
+}
+
+function buildAccessRequestDeletePayload(type, requestId, summary = null) {
+  return {
+    requestType: type,
+    requestId: Number(requestId),
+    summary,
+  };
+}
+
 function buildAccessController({ categoryService, accessService }) {
   return {
     async showTypePage(req, res) {
@@ -283,26 +331,37 @@ function buildAccessController({ categoryService, accessService }) {
 
     async createRequest(req, res) {
       const type = resolveAccessType(req);
-      const event = await accessService.createAdminRequest(
+      const result = await accessService.createAdminRequest(
         req.params.eventId,
         req.currentUser.id,
         type,
         normalizeRequestPayload(req.body),
         req.t,
       );
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        type,
+        result.request,
+        result.summary,
+      );
 
-      emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
-        eventId: event.id,
+      emitEventUpdate(req.app.locals.io, result.event.id, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
+        eventId: result.event.id,
       });
       return sendMutationResponse(req, res, {
-        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        redirectTo: `/events/${result.event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
         message: req.t('flash.portalRequestCreated'),
+        payload: {
+          liveRequestUpsert,
+        },
       });
     },
 
     async updateRequest(req, res) {
       const type = resolveAccessType(req);
-      const event = await accessService.updateAdminRequest(
+      const result = await accessService.updateAdminRequest(
         req.params.eventId,
         req.params.requestId,
         req.currentUser.id,
@@ -310,13 +369,24 @@ function buildAccessController({ categoryService, accessService }) {
         normalizeRequestPayload(req.body),
         req.t,
       );
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        type,
+        result.request,
+        result.summary,
+      );
 
-      emitEventUpdate(req.app.locals.io, event.id, 'dashboard:refresh', {
-        eventId: event.id,
+      emitEventUpdate(req.app.locals.io, result.event.id, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
+        eventId: result.event.id,
       });
       return sendMutationResponse(req, res, {
-        redirectTo: `/events/${event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
+        redirectTo: `/events/${result.event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
         message: req.t('flash.portalRequestUpdated'),
+        payload: {
+          liveRequestUpsert,
+        },
       });
     },
 
@@ -331,6 +401,15 @@ function buildAccessController({ categoryService, accessService }) {
         req.t,
       );
 
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        type,
+        result.request,
+        result.summary,
+      );
+
+      emitEventUpdate(req.app.locals.io, result.event.id, 'access:request-upsert', liveRequestUpsert);
       emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
         eventId: result.event.id,
       });
@@ -338,18 +417,7 @@ function buildAccessController({ categoryService, accessService }) {
         redirectTo: `/events/${result.event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
         message: req.t('flash.requestStatusUpdated'),
         payload: {
-          liveStatusUpdate: {
-            requestId: Number(req.params.requestId),
-            status: result.request.status,
-            statusLabel: req.t(`statuses.${result.request.status}`),
-            statusTone: result.request.status === 'handed_out' ? 'active' : 'pending',
-            statusUpdatedAtLabel: res.locals.helpers.formatDateTime(result.request.status_updated_at),
-            updatedByName: req.currentUser.full_name || '',
-            nextStatus: result.request.status === 'handed_out' ? 'pending' : 'handed_out',
-            nextStatusLabel: req.t(`statuses.${result.request.status === 'handed_out' ? 'pending' : 'handed_out'}`),
-            nextStatusTone: result.request.status === 'handed_out' ? 'secondary' : 'primary',
-            summary: result.summary,
-          },
+          liveRequestUpsert,
         },
       });
     },
@@ -460,14 +528,22 @@ function buildAccessController({ categoryService, accessService }) {
     },
 
     async createPortalRequest(req, res) {
-      const eventId = await accessService.createPortalRequest(
+      const result = await accessService.createPortalRequest(
         req.session,
         req.params.type,
         normalizeRequestPayload(req.body),
         req.t,
       );
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        req.params.type,
+        result.request,
+        result.summary,
+      );
 
-      emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       return sendMutationResponse(req, res, {
         redirectTo: '/p/manage',
         message: req.t('flash.portalRequestCreated'),
@@ -475,15 +551,23 @@ function buildAccessController({ categoryService, accessService }) {
     },
 
     async updatePortalRequest(req, res) {
-      const eventId = await accessService.updatePortalRequest(
+      const result = await accessService.updatePortalRequest(
         req.session,
         req.params.type,
         req.params.requestId,
         normalizeRequestPayload(req.body),
         req.t,
       );
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        req.params.type,
+        result.request,
+        result.summary,
+      );
 
-      emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       return sendMutationResponse(req, res, {
         redirectTo: '/p/manage',
         message: req.t('flash.portalRequestUpdated'),
@@ -491,14 +575,20 @@ function buildAccessController({ categoryService, accessService }) {
     },
 
     async destroyPortalRequest(req, res) {
-      const eventId = await accessService.deletePortalRequest(
+      const result = await accessService.deletePortalRequest(
         req.session,
         req.params.type,
         req.params.requestId,
         req.t,
       );
+      const liveRequestDelete = buildAccessRequestDeletePayload(
+        result.type,
+        result.requestId,
+        result.summary,
+      );
 
-      emitEventUpdate(req.app.locals.io, eventId, 'dashboard:refresh', { eventId });
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-delete', liveRequestDelete);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       return sendMutationResponse(req, res, {
         redirectTo: '/p/manage',
         message: req.t('flash.portalRequestDeleted'),

@@ -32,6 +32,14 @@
     class="shell-card overflow-hidden access-admin-shell"
     data-live-section="access-workspace"
     data-access-workspace
+    data-access-event-id="<%= activeEvent.id %>"
+    data-access-page-type="<%= accessType %>"
+    data-access-singular-label="<%= typeLabel %>"
+    data-access-edit-label="<%= t('access.actions.editRequest') %>"
+    data-access-not-set="<%= t('common.notSet') %>"
+    data-access-status-pending-label="<%= t('statuses.pending') %>"
+    data-access-status-handed-out-label="<%= t('statuses.handed_out') %>"
+    data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -122,16 +130,16 @@
 
       <div class="access-table-frame">
         <div class="access-table-frame__meta">
-          <span class="toolbar-chip toolbar-chip-active"><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+          <span class="toolbar-chip toolbar-chip-active" data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
           <span class="access-table-frame__hint"><%= t('access.workspace.dynamicHint') %></span>
         </div>
         <% if (!requests.length) { %>
-          <div class="px-5 py-12 text-center sm:px-6">
+          <div class="px-5 py-12 text-center sm:px-6" data-access-empty-state>
             <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
           </div>
         <% } else { %>
-          <div class="access-table-scroll">
-            <table class="access-admin-table">
+          <div class="access-table-scroll" data-access-table-scroll>
+            <table class="access-admin-table" data-access-requests-table>
               <thead>
                 <tr>
                   <th><%= t('access.workspace.person') %></th>
@@ -143,9 +151,13 @@
                   <th><%= t('access.workspace.actions') %></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody data-access-requests-body>
                 <% requests.forEach((request) => { %>
-                  <tr data-request-row-id="<%= request.id %>" data-request-status="<%= request.status %>">
+                  <tr
+                    data-request-row-id="<%= request.id %>"
+                    data-request-status="<%= request.status %>"
+                    data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
+                  >
                     <td>
                       <div class="access-person-cell">
                         <div class="access-person-cell__title">
@@ -232,7 +244,7 @@
         <% } %>
 
         <div class="access-table-footer">
-          <span><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+          <span data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
         </div>
       </div>
 

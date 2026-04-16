@@ -839,12 +839,13 @@ class AccessService {
       }
     }
 
+    let requestId = null;
     const connection = await this.pool.getConnection();
 
     try {
       await connection.beginTransaction();
 
-      const requestId = await this.requestRepository.create(connection, type, {
+      requestId = await this.requestRepository.create(connection, type, {
         eventId,
         requestProfileId: payload.requestProfileId || null,
         categoryId: payload.categoryId,
@@ -887,7 +888,16 @@ class AccessService {
       connection.release();
     }
 
-    return event;
+    const [request, summary] = await Promise.all([
+      this.requestRepository.findById(type, requestId),
+      this.requestRepository.getAdminSummary(eventId, type),
+    ]);
+
+    return {
+      event,
+      request,
+      summary,
+    };
   }
 
   async updateAdminRequest(eventId, requestId, actorId, type, payload, t) {
@@ -959,7 +969,16 @@ class AccessService {
       connection.release();
     }
 
-    return event;
+    const [request, summary] = await Promise.all([
+      this.requestRepository.findById(type, requestId),
+      this.requestRepository.getAdminSummary(eventId, type),
+    ]);
+
+    return {
+      event,
+      request,
+      summary,
+    };
   }
 
   async getPortalLoginPage() {
@@ -1073,12 +1092,13 @@ class AccessService {
 
     await this.assertPortalRequestAllowed(portal.profile, type, payload.categoryId, null, tx);
 
+    let requestId = null;
     const connection = await this.pool.getConnection();
 
     try {
       await connection.beginTransaction();
 
-      const requestId = await this.requestRepository.create(connection, type, {
+      requestId = await this.requestRepository.create(connection, type, {
         eventId: portal.profile.event_id,
         requestProfileId: portal.profile.id,
         ...payload,
@@ -1112,7 +1132,16 @@ class AccessService {
       connection.release();
     }
 
-    return portal.profile.event_id;
+    const [request, summary] = await Promise.all([
+      this.requestRepository.findById(type, requestId),
+      this.requestRepository.getAdminSummary(portal.profile.event_id, type),
+    ]);
+
+    return {
+      eventId: portal.profile.event_id,
+      request,
+      summary,
+    };
   }
 
   async updatePortalRequest(session, type, requestId, body, t) {
@@ -1166,7 +1195,16 @@ class AccessService {
       connection.release();
     }
 
-    return portal.profile.event_id;
+    const [request, summary] = await Promise.all([
+      this.requestRepository.findById(type, requestId),
+      this.requestRepository.getAdminSummary(portal.profile.event_id, type),
+    ]);
+
+    return {
+      eventId: portal.profile.event_id,
+      request,
+      summary,
+    };
   }
 
   async deletePortalRequest(session, type, requestId, t) {
@@ -1216,7 +1254,14 @@ class AccessService {
       connection.release();
     }
 
-    return portal.profile.event_id;
+    const summary = await this.requestRepository.getAdminSummary(portal.profile.event_id, type);
+
+    return {
+      eventId: portal.profile.event_id,
+      requestId: Number(requestId),
+      type,
+      summary,
+    };
   }
 
   async buildImportTemplate(session, type, categoryId, t) {
