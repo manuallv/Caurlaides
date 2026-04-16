@@ -114,9 +114,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const submitLiveForm = async (form) => {
+    const formData = new FormData(form);
+    const body = new URLSearchParams();
+
+    formData.forEach((value, key) => {
+      body.append(key, value);
+    });
+
     const response = await fetch(form.action, {
       method: (form.method || 'POST').toUpperCase(),
-      body: new FormData(form),
+      body,
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
       },
