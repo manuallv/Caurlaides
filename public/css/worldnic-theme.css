@@ -1509,13 +1509,6 @@ body.portal-modal-open {
   align-items: center;
 }
 
-.request-profile-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
-  gap: 1.25rem;
-  align-items: start;
-}
-
 .request-profile-editor,
 .request-profile-table-card {
   display: grid;
@@ -1523,6 +1516,11 @@ body.portal-modal-open {
 
 .request-profile-editor {
   padding: 1.4rem;
+}
+
+.request-profile-page {
+  display: grid;
+  gap: 1.25rem;
 }
 
 .request-profile-editor__head,
@@ -1726,6 +1724,7 @@ body.portal-modal-open {
 
 .request-profile-table-card {
   overflow: hidden;
+  width: 100%;
 }
 
 .request-profile-table-card__head {
@@ -2518,7 +2517,6 @@ body.portal-modal-open {
 }
 
 @media (max-width: 1023px) {
-  .request-profile-layout,
   .request-profile-editor__quotas {
     grid-template-columns: 1fr;
   }

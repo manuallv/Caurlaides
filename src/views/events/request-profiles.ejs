@@ -2,8 +2,7 @@
   class="request-profile-page space-y-6"
   data-request-profile-app
 >
-  <div class="request-profile-layout">
-    <section class="shell-card request-profile-editor">
+  <section id="profile-create" class="shell-card request-profile-editor">
       <div class="request-profile-editor__head">
         <div>
           <p class="request-profile-editor__eyebrow"><%= t('requestProfiles.nav.create') %></p>
@@ -152,9 +151,9 @@
           <button type="submit" form="request-profile-form" class="btn-primary" data-request-profile-submit-label><%= t('requestProfiles.createButton') %></button>
         </div>
       </div>
-    </section>
+  </section>
 
-    <section class="shell-card request-profile-table-card">
+  <section id="profile-list" class="shell-card request-profile-table-card">
       <div class="request-profile-table-card__head">
         <div>
           <p class="request-profile-table-card__eyebrow"><%= t('requestProfiles.nav.list') %></p>
@@ -281,8 +280,7 @@
           </tbody>
         </table>
       </div>
-    </section>
-  </div>
+  </section>
 </section>
 
 <script id="request-profile-state" type="application/json">
