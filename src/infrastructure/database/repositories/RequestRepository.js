@@ -1,0 +1,329 @@
+const REQUEST_CONFIG = {
+  pass: {
+    requestTable: 'pass_requests',
+    categoryTable: 'pass_categories',
+    quotaTable: 'request_profile_pass_categories',
+    categoryIdField: 'pass_category_id',
+    label: 'pass',
+  },
+  wristband: {
+    requestTable: 'wristband_requests',
+    categoryTable: 'wristband_categories',
+    quotaTable: 'request_profile_wristband_categories',
+    categoryIdField: 'wristband_category_id',
+    label: 'wristband',
+  },
+};
+
+class RequestRepository {
+  constructor(pool) {
+    this.pool = pool;
+  }
+
+  resolveConfig(type) {
+    const config = REQUEST_CONFIG[type];
+
+    if (!config) {
+      throw new Error(`Unsupported request type: ${type}`);
+    }
+
+    return config;
+  }
+
+  async listAdminRequests(eventId, type, filters = {}) {
+    const config = this.resolveConfig(type);
+    const where = ['request.event_id = ?'];
+    const params = [eventId];
+
+    if (filters.status) {
+      where.push('request.status = ?');
+      params.push(filters.status);
+    }
+
+    if (filters.categoryId) {
+      where.push(`request.${config.categoryIdField} = ?`);
+      params.push(filters.categoryId);
+    }
+
+    if (filters.profileId) {
+      where.push('request.request_profile_id = ?');
+      params.push(filters.profileId);
+    }
+
+    if (filters.company) {
+      where.push('request.company_name LIKE ?');
+      params.push(`%${filters.company}%`);
+    }
+
+    if (filters.query) {
+      where.push(
+        `(
+          request.full_name LIKE ?
+          OR request.phone LIKE ?
+          OR request.email LIKE ?
+          OR request.company_name LIKE ?
+          OR request.notes LIKE ?
+          OR profile.name LIKE ?
+          OR category.name LIKE ?
+        )`,
+      );
+
+      const like = `%${filters.query}%`;
+      params.push(like, like, like, like, like, like, like);
+    }
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.id,
+          request.event_id,
+          request.request_profile_id,
+          request.${config.categoryIdField} AS category_id,
+          request.full_name,
+          request.company_name,
+          request.phone,
+          request.email,
+          request.notes,
+          request.status,
+          request.handed_out_at,
+          request.created_at,
+          request.updated_at,
+          profile.name AS profile_name,
+          profile.public_slug,
+          category.name AS category_name,
+          handed_out_by.full_name AS handed_out_by_name
+        FROM ${config.requestTable} request
+        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
+        LEFT JOIN users handed_out_by ON handed_out_by.id = request.handed_out_by_user_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY
+          FIELD(request.status, 'pending', 'handed_out', 'approved', 'rejected', 'returned', 'finalized'),
+          request.updated_at DESC,
+          request.id DESC
+      `,
+      params,
+    );
+
+    return rows;
+  }
+
+  async getAdminSummary(eventId, type) {
+    const config = this.resolveConfig(type);
+    const [[totals]] = await this.pool.execute(
+      `
+        SELECT
+          COUNT(*) AS total_requests,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_requests,
+          SUM(CASE WHEN status = 'handed_out' THEN 1 ELSE 0 END) AS handed_out_requests
+        FROM ${config.requestTable}
+        WHERE event_id = ?
+      `,
+      [eventId],
+    );
+
+    return {
+      totalRequests: Number(totals.total_requests || 0),
+      pendingRequests: Number(totals.pending_requests || 0),
+      handedOutRequests: Number(totals.handed_out_requests || 0),
+    };
+  }
+
+  async findById(type, requestId) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.*,
+          profile.name AS profile_name,
+          profile.public_slug,
+          category.name AS category_name
+        FROM ${config.requestTable} request
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
+        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        WHERE request.id = ?
+        LIMIT 1
+      `,
+      [requestId],
+    );
+
+    return rows[0] || null;
+  }
+
+  async create(connection, type, payload) {
+    const config = this.resolveConfig(type);
+    const [result] = await connection.execute(
+      `
+        INSERT INTO ${config.requestTable} (
+          event_id,
+          request_profile_id,
+          ${config.categoryIdField},
+          full_name,
+          company_name,
+          phone,
+          email,
+          notes,
+          status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      `,
+      [
+        payload.eventId,
+        payload.requestProfileId,
+        payload.categoryId,
+        payload.fullName,
+        payload.companyName,
+        payload.phone,
+        payload.email,
+        payload.notes,
+      ],
+    );
+
+    return result.insertId;
+  }
+
+  async update(connection, type, requestId, payload) {
+    const config = this.resolveConfig(type);
+    await connection.execute(
+      `
+        UPDATE ${config.requestTable}
+        SET
+          ${config.categoryIdField} = ?,
+          full_name = ?,
+          company_name = ?,
+          phone = ?,
+          email = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        payload.categoryId,
+        payload.fullName,
+        payload.companyName,
+        payload.phone,
+        payload.email,
+        payload.notes,
+        requestId,
+      ],
+    );
+  }
+
+  async delete(connection, type, requestId) {
+    const config = this.resolveConfig(type);
+    await connection.execute(`DELETE FROM ${config.requestTable} WHERE id = ?`, [requestId]);
+  }
+
+  async setStatus(type, requestId, payload) {
+    const config = this.resolveConfig(type);
+
+    if (payload.status === 'handed_out') {
+      await this.pool.execute(
+        `
+          UPDATE ${config.requestTable}
+          SET
+            status = 'handed_out',
+            handed_out_at = NOW(),
+            handed_out_by_user_id = ?
+          WHERE id = ?
+        `,
+        [payload.userId, requestId],
+      );
+      return;
+    }
+
+    await this.pool.execute(
+      `
+        UPDATE ${config.requestTable}
+        SET
+          status = 'pending',
+          handed_out_at = NULL,
+          handed_out_by_user_id = NULL
+        WHERE id = ?
+      `,
+      [requestId],
+    );
+  }
+
+  async listProfileRequests(profileId, type) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.id,
+          request.request_profile_id,
+          request.${config.categoryIdField} AS category_id,
+          request.full_name,
+          request.company_name,
+          request.phone,
+          request.email,
+          request.notes,
+          request.status,
+          request.handed_out_at,
+          request.created_at,
+          request.updated_at,
+          category.name AS category_name
+        FROM ${config.requestTable} request
+        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        WHERE request.request_profile_id = ?
+        ORDER BY FIELD(request.status, 'pending', 'handed_out'), request.created_at DESC, request.id DESC
+      `,
+      [profileId],
+    );
+
+    return rows;
+  }
+
+  async countUsedQuota(profileId, type, categoryId, excludeRequestId = null) {
+    const config = this.resolveConfig(type);
+    const params = [profileId, categoryId];
+    let exclusionClause = '';
+
+    if (excludeRequestId) {
+      exclusionClause = 'AND id != ?';
+      params.push(excludeRequestId);
+    }
+
+    const [[row]] = await this.pool.execute(
+      `
+        SELECT COUNT(*) AS used_count
+        FROM ${config.requestTable}
+        WHERE request_profile_id = ?
+          AND ${config.categoryIdField} = ?
+          ${exclusionClause}
+      `,
+      params,
+    );
+
+    return Number(row.used_count || 0);
+  }
+
+  async listQuotaUsage(profileId, type) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          quota.${config.categoryIdField} AS category_id,
+          quota.quota,
+          category.name AS category_name,
+          COUNT(request.id) AS used_count
+        FROM ${config.quotaTable} quota
+        INNER JOIN ${config.categoryTable} category ON category.id = quota.${config.categoryIdField}
+        LEFT JOIN ${config.requestTable} request
+          ON request.request_profile_id = quota.request_profile_id
+         AND request.${config.categoryIdField} = quota.${config.categoryIdField}
+        WHERE quota.request_profile_id = ?
+        GROUP BY quota.${config.categoryIdField}, quota.quota, category.name, category.sort_order
+        ORDER BY category.sort_order ASC, category.name ASC
+      `,
+      [profileId],
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      quota: Number(row.quota || 0),
+      used_count: Number(row.used_count || 0),
+    }));
+  }
+}
+
+module.exports = { RequestRepository };

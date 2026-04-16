@@ -1,47 +1,100 @@
-<section class="mx-auto max-w-5xl">
-  <div class="grid gap-6 lg:grid-cols-[1fr_1fr]">
-    <div class="shell-card p-6 sm:p-8">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700"><%= t('auth.register.startHere') %></p>
-      <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900"><%= t('auth.register.heroTitle') %></h1>
-      <p class="mt-3 text-sm leading-6 text-slate-600">
-        <%= t('auth.register.heroDescription') %>
-      </p>
+<%
+  const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
+%>
+
+<section class="authincation worldnic-auth-shell">
+  <aside class="login-aside worldnic-auth-aside">
+    <a href="/login" class="worldnic-auth-brand">
+      <span class="worldnic-brand__badge">
+        <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
+      </span>
+      <span class="worldnic-brand__copy">
+        <strong><%= t('app.name') %></strong>
+        <small><%= t('app.tagline') %></small>
+      </span>
+    </a>
+
+    <div class="worldnic-auth-copy">
+      <p class="worldnic-eyebrow"><%= t('auth.register.startHere') %></p>
+      <h1><%= t('auth.register.heroTitle') %></h1>
+      <p><%= t('auth.register.heroDescription') %></p>
+
+      <div class="worldnic-auth-kpis">
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.multiUser.title') %></strong>
+          <span><%= t('auth.login.panel.multiUser.body') %></span>
+        </article>
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.history.title') %></strong>
+          <span><%= t('auth.login.panel.history.body') %></span>
+        </article>
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.mobile.title') %></strong>
+          <span><%= t('auth.login.panel.mobile.body') %></span>
+        </article>
+      </div>
     </div>
 
-    <div class="shell-card p-6 sm:p-8">
-      <h2 class="text-2xl font-bold text-slate-900"><%= t('auth.register.title') %></h2>
+    <div class="worldnic-auth-illustration aside-image" style="background-image: url('/public/design-assets/worldnic/pic1.svg')"></div>
+  </aside>
 
-      <form action="/register" method="POST" class="mt-6 space-y-4">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-
+  <div class="worldnic-auth-main">
+    <div class="authincation-content style-2 worldnic-auth-card">
+      <div class="worldnic-auth-topbar">
         <div>
-          <label for="fullName" class="field-label"><%= t('field.fullName') %></label>
-          <input id="fullName" name="fullName" type="text" class="field-input" required />
+          <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
+          <h2 class="worldnic-auth-heading"><%= t('auth.register.title') %></h2>
         </div>
 
-        <div>
-          <label for="email" class="field-label"><%= t('field.email') %></label>
-          <input id="email" name="email" type="email" class="field-input" required />
+        <div class="worldnic-locale">
+          <% supportedLocales.forEach((languageCode) => { %>
+            <a href="<%= localeHref(languageCode) %>" class="<%= locale === languageCode ? 'is-active' : '' %>">
+              <%= languageCode.toUpperCase() %>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="auth-form worldnic-auth-form">
+        <%- include('../partials/flash') %>
+        <p class="worldnic-auth-subcopy"><%= t('auth.register.heroDescription') %></p>
+
+        <form action="/register" method="POST" class="space-y-4">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+          <div>
+            <label for="fullName" class="field-label"><%= t('field.fullName') %></label>
+            <input id="fullName" name="fullName" type="text" class="field-input" autocomplete="name" required />
+          </div>
+
+          <div>
+            <label for="email" class="field-label"><%= t('field.email') %></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required />
+          </div>
+
+          <div>
+            <label for="password" class="field-label"><%= t('field.password') %></label>
+            <input id="password" name="password" type="password" class="field-input" autocomplete="new-password" required />
+            <p class="field-help"><%= t('validation.auth.passwordLength', { min: 8 }) %></p>
+          </div>
+
+          <div>
+            <label for="confirmPassword" class="field-label"><%= t('field.confirmPassword') %></label>
+            <input id="confirmPassword" name="confirmPassword" type="password" class="field-input" autocomplete="new-password" required />
+          </div>
+
+          <button type="submit" class="btn-primary"><%= t('auth.register.title') %></button>
+        </form>
+
+        <div class="worldnic-auth-note">
+          <%= t('auth.login.panel.history.body') %>
         </div>
 
-        <div>
-          <label for="password" class="field-label"><%= t('field.password') %></label>
-          <input id="password" name="password" type="password" class="field-input" required />
-          <p class="field-help"><%= t('validation.auth.passwordLength', { min: 8 }) %></p>
-        </div>
-
-        <div>
-          <label for="confirmPassword" class="field-label"><%= t('field.confirmPassword') %></label>
-          <input id="confirmPassword" name="confirmPassword" type="password" class="field-input" required />
-        </div>
-
-        <button type="submit" class="btn-primary w-full"><%= t('auth.register.title') %></button>
-      </form>
-
-      <p class="mt-6 text-sm text-slate-500">
-        <%= t('auth.register.haveAccount') %>
-        <a href="/login" class="font-semibold text-brand-700 hover:text-brand-800"><%= t('auth.register.loginHere') %></a>
-      </p>
+        <p class="worldnic-auth-footer">
+          <%= t('auth.register.haveAccount') %>
+          <a href="/login"><%= t('auth.register.loginHere') %></a>
+        </p>
+      </div>
     </div>
   </div>
 </section>

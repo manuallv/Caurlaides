@@ -1,55 +1,89 @@
-<section class="mx-auto max-w-5xl">
-  <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-    <div class="shell-card overflow-hidden">
-      <div class="border-b border-slate-200/80 px-6 py-6 sm:px-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700"><%= t('auth.portal') %></p>
-        <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
-          <%= t('auth.login.heroTitle') %>
-        </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-          <%= t('auth.login.heroDescription') %>
-        </p>
-      </div>
-      <div class="grid gap-4 px-6 py-6 sm:grid-cols-3 sm:px-8">
-        <div class="panel">
-          <p class="text-sm font-semibold text-slate-900"><%= t('auth.login.panel.multiUser.title') %></p>
-          <p class="mt-2 text-sm text-slate-500"><%= t('auth.login.panel.multiUser.body') %></p>
-        </div>
-        <div class="panel">
-          <p class="text-sm font-semibold text-slate-900"><%= t('auth.login.panel.history.title') %></p>
-          <p class="mt-2 text-sm text-slate-500"><%= t('auth.login.panel.history.body') %></p>
-        </div>
-        <div class="panel">
-          <p class="text-sm font-semibold text-slate-900"><%= t('auth.login.panel.mobile.title') %></p>
-          <p class="mt-2 text-sm text-slate-500"><%= t('auth.login.panel.mobile.body') %></p>
-        </div>
+<%
+  const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
+%>
+
+<section class="authincation worldnic-auth-shell">
+  <aside class="login-aside worldnic-auth-aside">
+    <a href="/login" class="worldnic-auth-brand">
+      <span class="worldnic-brand__badge">
+        <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
+      </span>
+      <span class="worldnic-brand__copy">
+        <strong><%= t('app.name') %></strong>
+        <small><%= t('app.tagline') %></small>
+      </span>
+    </a>
+
+    <div class="worldnic-auth-copy">
+      <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
+      <h1><%= t('auth.login.heroTitle') %></h1>
+      <p><%= t('auth.login.heroDescription') %></p>
+
+      <div class="worldnic-auth-kpis">
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.multiUser.title') %></strong>
+          <span><%= t('auth.login.panel.multiUser.body') %></span>
+        </article>
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.history.title') %></strong>
+          <span><%= t('auth.login.panel.history.body') %></span>
+        </article>
+        <article class="worldnic-auth-kpi">
+          <strong><%= t('auth.login.panel.mobile.title') %></strong>
+          <span><%= t('auth.login.panel.mobile.body') %></span>
+        </article>
       </div>
     </div>
 
-    <div class="shell-card p-6 sm:p-8">
-      <h2 class="text-2xl font-bold text-slate-900"><%= t('auth.login.title') %></h2>
-      <p class="mt-2 text-sm text-slate-500"><%= t('auth.login.description') %></p>
+    <div class="worldnic-auth-illustration aside-image" style="background-image: url('/public/design-assets/worldnic/pic1.svg')"></div>
+  </aside>
 
-      <form action="/login" method="POST" class="mt-6 space-y-4">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-
+  <div class="worldnic-auth-main">
+    <div class="authincation-content style-2 worldnic-auth-card">
+      <div class="worldnic-auth-topbar">
         <div>
-          <label for="email" class="field-label"><%= t('field.email') %></label>
-          <input id="email" name="email" type="email" class="field-input" required />
+          <p class="worldnic-eyebrow"><%= t('auth.portal') %></p>
+          <h2 class="worldnic-auth-heading"><%= t('auth.login.title') %></h2>
         </div>
 
-        <div>
-          <label for="password" class="field-label"><%= t('field.password') %></label>
-          <input id="password" name="password" type="password" class="field-input" required />
+        <div class="worldnic-locale">
+          <% supportedLocales.forEach((languageCode) => { %>
+            <a href="<%= localeHref(languageCode) %>" class="<%= locale === languageCode ? 'is-active' : '' %>">
+              <%= languageCode.toUpperCase() %>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="auth-form worldnic-auth-form">
+        <%- include('../partials/flash') %>
+        <p class="worldnic-auth-subcopy"><%= t('auth.login.description') %></p>
+
+        <form action="/login" method="POST" class="space-y-4">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+          <div>
+            <label for="email" class="field-label"><%= t('field.email') %></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required />
+          </div>
+
+          <div>
+            <label for="password" class="field-label"><%= t('field.password') %></label>
+            <input id="password" name="password" type="password" class="field-input" autocomplete="current-password" required />
+          </div>
+
+          <button type="submit" class="btn-primary"><%= t('auth.login.title') %></button>
+        </form>
+
+        <div class="worldnic-auth-note">
+          <%= t('auth.login.panel.mobile.body') %>
         </div>
 
-        <button type="submit" class="btn-primary w-full"><%= t('auth.login.title') %></button>
-      </form>
-
-      <p class="mt-6 text-sm text-slate-500">
-        <%= t('auth.login.needAccount') %>
-        <a href="/register" class="font-semibold text-brand-700 hover:text-brand-800"><%= t('auth.login.createHere') %></a>
-      </p>
+        <p class="worldnic-auth-footer">
+          <%= t('auth.login.needAccount') %>
+          <a href="/register"><%= t('auth.login.createHere') %></a>
+        </p>
+      </div>
     </div>
   </div>
 </section>

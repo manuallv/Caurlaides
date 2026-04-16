@@ -3,20 +3,24 @@ const { asyncHandler } = require('../../../shared/utils/async-handler');
 const { requireAuth } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validate');
 const {
-  categoryValidator,
-  categoryUpdateValidator,
+  accessTypeValidator,
   eventValidator,
   memberRoleValidator,
   memberValidator,
+  requestProfileValidator,
+  requestStatusValidator,
 } = require('../validators/event-validators');
 
-function buildEventRoutes({ eventController, categoryController }) {
+function buildEventRoutes({ eventController, accessController }) {
   const router = express.Router();
 
   router.get('/events/new', requireAuth, eventController.showCreateForm);
   router.post('/events', requireAuth, eventValidator, validateRequest, asyncHandler(eventController.create));
 
   router.get('/events/:eventId', requireAuth, asyncHandler(eventController.showDashboard));
+  router.get('/events/:eventId/categories', requireAuth, (req, res) =>
+    res.redirect(`/events/${req.params.eventId}/wristbands`),
+  );
   router.get('/events/:eventId/edit', requireAuth, asyncHandler(eventController.showEditForm));
   router.put('/events/:eventId', requireAuth, eventValidator, validateRequest, asyncHandler(eventController.update));
   router.delete('/events/:eventId', requireAuth, asyncHandler(eventController.destroy));
@@ -38,25 +42,60 @@ function buildEventRoutes({ eventController, categoryController }) {
   );
   router.delete('/events/:eventId/members/:userId', requireAuth, asyncHandler(eventController.removeMember));
 
-  router.get('/events/:eventId/categories', requireAuth, asyncHandler(categoryController.showIndex));
+  router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
+  router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
   router.post(
-    '/events/:eventId/categories',
+    '/events/:eventId/:type(pass|wristband)/types',
     requireAuth,
-    categoryValidator,
+    accessTypeValidator,
     validateRequest,
-    asyncHandler(categoryController.create),
+    asyncHandler(accessController.createType),
   );
   router.put(
-    '/events/:eventId/categories/:type/:categoryId',
+    '/events/:eventId/:type(pass|wristband)/types/:categoryId',
     requireAuth,
-    categoryUpdateValidator,
+    accessTypeValidator,
     validateRequest,
-    asyncHandler(categoryController.update),
+    asyncHandler(accessController.updateType),
   );
   router.delete(
-    '/events/:eventId/categories/:type/:categoryId',
+    '/events/:eventId/:type(pass|wristband)/types/:categoryId',
     requireAuth,
-    asyncHandler(categoryController.destroy),
+    asyncHandler(accessController.destroyType),
+  );
+
+  router.get('/events/:eventId/request-profiles', requireAuth, asyncHandler(accessController.showRequestProfiles));
+  router.post(
+    '/events/:eventId/request-profiles',
+    requireAuth,
+    requestProfileValidator,
+    validateRequest,
+    asyncHandler(accessController.createRequestProfile),
+  );
+  router.put(
+    '/events/:eventId/request-profiles/:profileId',
+    requireAuth,
+    requestProfileValidator,
+    validateRequest,
+    asyncHandler(accessController.updateRequestProfile),
+  );
+  router.delete(
+    '/events/:eventId/request-profiles/:profileId',
+    requireAuth,
+    asyncHandler(accessController.destroyRequestProfile),
+  );
+  router.post(
+    '/events/:eventId/request-profiles/:profileId/regenerate-code',
+    requireAuth,
+    asyncHandler(accessController.regenerateRequestProfileCode),
+  );
+
+  router.put(
+    '/events/:eventId/:type(pass|wristband)/requests/:requestId/status',
+    requireAuth,
+    requestStatusValidator,
+    validateRequest,
+    asyncHandler(accessController.updateRequestStatus),
   );
 
   router.get('/events/:eventId/activity', requireAuth, asyncHandler(eventController.showAuditLog));

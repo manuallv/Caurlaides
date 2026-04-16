@@ -5,197 +5,205 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= pageTitle ? `${pageTitle} | ${t('app.titleSuffix')}` : t('app.titleSuffix') %></title>
     <link rel="stylesheet" href="/public/css/app.css" />
+    <link rel="stylesheet" href="/public/css/worldnic-theme.css" />
   </head>
-  <body data-event-room="<%= activeEvent ? activeEvent.id : '' %>">
-    <% 
-      const hasEvent = Boolean(activeEvent);
-      const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
-      const userInitials = currentUser
-        ? currentUser.full_name
-            .split(' ')
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part[0].toUpperCase())
-            .join('')
-        : '';
+  <%
+    const hasEvent = Boolean(activeEvent);
+    const isAuthPage = !currentUser && ['/login', '/register'].includes(currentPath);
+    const localeHref = (code) => `/language/${code}?redirect=${encodeURIComponent(currentPath || '/')}`;
+    const userInitials = currentUser
+      ? currentUser.full_name
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0].toUpperCase())
+          .join('')
+      : '';
+    const sidebarLinks = [
+      {
+        href: '/dashboard',
+        label: t('nav.dashboard'),
+        icon: 'grid',
+        active: currentPath === '/' || currentPath.startsWith('/dashboard'),
+      },
+      {
+        href: '/events/new',
+        label: t('nav.create'),
+        icon: 'plus',
+        active: currentPath.startsWith('/events/new'),
+      },
+    ];
 
-      const sidebarLinks = [
+    if (hasEvent) {
+      sidebarLinks.push(
         {
-          href: '/dashboard',
-          label: t('nav.dashboard'),
-          icon: 'grid',
-          active: currentPath === '/' || currentPath.startsWith('/dashboard'),
+          href: `/events/${activeEvent.id}`,
+          label: t('nav.event'),
+          icon: 'layers',
+          active: currentPath === `/events/${activeEvent.id}`,
         },
-        {
-          href: '/events/new',
-          label: t('nav.create'),
-          icon: 'plus',
-          active: currentPath.startsWith('/events/new'),
-        },
-      ];
-
-      if (hasEvent) {
-        sidebarLinks.push(
           {
-            href: `/events/${activeEvent.id}`,
-            label: t('nav.event'),
-            icon: 'layers',
-            active: currentPath === `/events/${activeEvent.id}`,
-          },
-          {
-            href: `/events/${activeEvent.id}/categories`,
-            label: t('nav.categories'),
+            href: `/events/${activeEvent.id}/wristbands`,
+            label: t('nav.wristbands'),
             icon: 'tag',
-            active: currentPath.includes('/categories'),
+            active: currentPath.includes('/wristbands'),
           },
           {
-            href: `/events/${activeEvent.id}/members`,
-            label: t('nav.team'),
-            icon: 'users',
-            active: currentPath.includes('/members'),
+            href: `/events/${activeEvent.id}/passes`,
+            label: t('nav.passes'),
+            icon: 'layers',
+            active: currentPath.includes('/passes'),
           },
-          {
-            href: `/events/${activeEvent.id}/activity`,
-            label: t('nav.activity'),
-            icon: 'activity',
-            active: currentPath.includes('/activity'),
-          },
-        );
-      }
-    %>
+        {
+          href: `/events/${activeEvent.id}/members`,
+          label: t('nav.team'),
+          icon: 'users',
+          active: currentPath.includes('/members'),
+        },
+        {
+          href: `/events/${activeEvent.id}/activity`,
+          label: t('nav.activity'),
+          icon: 'activity',
+          active: currentPath.includes('/activity'),
+        },
+      );
+    }
 
+    const bodyClass = [
+      'worldnic-body',
+      currentUser ? 'worldnic-body-app' : 'worldnic-body-guest',
+      isAuthPage ? 'worldnic-auth-body' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  %>
+  <body class="<%= bodyClass %>" data-event-room="<%= activeEvent ? activeEvent.id : '' %>">
     <% if (currentUser) { %>
-      <div class="min-h-screen lg:flex">
-        <aside class="hidden w-[96px] flex-col items-center justify-between border-r border-slate-200/80 bg-white px-3 py-4 lg:flex">
-          <div class="flex w-full flex-col items-center gap-6">
-            <a
-              href="/dashboard"
-              class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-b from-cyan-400 to-blue-600 text-lg font-extrabold text-white shadow-lg shadow-blue-500/20"
-            >
-              C
+      <div class="worldnic-app">
+        <button type="button" class="worldnic-overlay" data-mobile-sidebar-overlay aria-label="<%= t('nav.menu') %>"></button>
+
+        <aside class="worldnic-sidebar" data-mobile-sidebar>
+          <div class="worldnic-sidebar__brand">
+            <a href="/dashboard" class="worldnic-brand">
+              <span class="worldnic-brand__badge">
+                <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
+              </span>
+              <span class="worldnic-brand__copy">
+                <strong><%= t('app.name') %></strong>
+                <small><%= t('app.tagline') %></small>
+              </span>
             </a>
 
-            <nav class="flex w-full flex-col gap-2">
-              <% sidebarLinks.forEach((link) => { %>
-                <a href="<%= link.href %>" class="rail-link <%= link.active ? 'rail-link-active' : '' %>">
-                  <span class="rail-icon">
-                    <img
-                      src="/public/design-assets/icons/feather/<%= link.icon %>.svg"
-                      alt=""
-                      class="h-4 w-4 opacity-70"
-                    />
-                  </span>
-                  <span><%= link.label %></span>
-                </a>
-              <% }) %>
-            </nav>
+            <button type="button" class="worldnic-close" data-mobile-sidebar-close aria-label="<%= t('nav.menu') %>">&times;</button>
           </div>
 
-          <form action="/logout" method="POST" class="w-full">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <button type="submit" class="rail-link w-full">
-              <span class="rail-icon">
+          <% if (hasEvent) { %>
+            <section class="worldnic-sidebar__workspace">
+              <p class="worldnic-workspace__eyebrow"><%= t('nav.eventWorkspace') %></p>
+              <h2 class="worldnic-workspace__title"><%= activeEvent.name %></h2>
+              <div class="worldnic-workspace__meta">
+                <span>
+                  <img src="/public/design-assets/icons/feather/calendar.svg" alt="" />
+                  <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
+                </span>
+                <span>
+                  <img src="/public/design-assets/icons/feather/layers.svg" alt="" />
+                  <%= activeEvent.location %>
+                </span>
+              </div>
+              <span class="status-<%= activeEvent.status %>"><%= helpers.statusLabel(activeEvent.status) %></span>
+            </section>
+          <% } %>
+
+          <nav class="worldnic-nav">
+            <% sidebarLinks.forEach((link) => { %>
+              <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                <span class="worldnic-nav__icon">
+                  <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                </span>
+                <span><%= link.label %></span>
+              </a>
+            <% }) %>
+          </nav>
+
+          <div class="worldnic-sidebar__footer">
+            <div class="worldnic-sidebar__hint">
+              <strong><%= hasEvent ? t('event.quickActions') : t('dashboard.overview') %></strong>
+              <p><%= hasEvent ? t('event.recentActivityDescription') : t('dashboard.description') %></p>
+            </div>
+
+            <form action="/logout" method="POST">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <button type="submit" class="btn-secondary worldnic-sidebar__logout">
                 <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
-              </span>
-              <span><%= t('nav.logout') %></span>
-            </button>
-          </form>
+                <span><%= t('nav.logout') %></span>
+              </button>
+            </form>
+          </div>
         </aside>
 
-        <div class="flex min-h-screen flex-1 flex-col">
-          <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-            <div class="px-4 py-3 sm:px-6 lg:px-8">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <button type="button" class="btn-secondary lg:hidden" data-mobile-menu-toggle>
-                    <%= t('nav.menu') %>
-                  </button>
+        <div class="worldnic-main">
+          <header class="worldnic-header">
+            <div class="worldnic-header__inner">
+              <div class="worldnic-header__left">
+                <button type="button" class="worldnic-menu-btn" data-mobile-sidebar-toggle aria-label="<%= t('nav.menu') %>">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </button>
 
-                  <div class="top-search hidden min-w-[280px] sm:flex">
-                    <img src="/public/design-assets/icons/feather/search.svg" alt="" class="h-4 w-4 opacity-60" />
-                    <span><%= t('nav.search') %></span>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  <div class="hidden items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 sm:flex">
-                    <% supportedLocales.forEach((languageCode) => { %>
-                      <a
-                        href="<%= localeHref(languageCode) %>"
-                        class="toolbar-chip <%= locale === languageCode ? 'toolbar-chip-active' : '' %>"
-                      >
-                        <%= languageCode.toUpperCase() %>
-                      </a>
-                    <% }) %>
-                  </div>
-
-                  <div class="hidden items-center rounded-xl border border-slate-200 bg-white p-1 sm:flex">
-                    <span class="toolbar-chip toolbar-chip-active"><%= t('nav.light') %></span>
-                    <span class="toolbar-chip"><%= t('nav.dark') %></span>
-                  </div>
-
-                  <a href="/events/new" class="btn-primary hidden sm:inline-flex">
-                    <img src="/public/design-assets/icons/feather/plus.svg" alt="" class="h-4 w-4 brightness-0 invert" />
-                    <span><%= t('nav.newEvent') %></span>
-                  </a>
-
-                  <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-2.5 py-2">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-cyan-400 to-blue-600 text-sm font-bold text-white">
-                      <%= userInitials %>
-                    </div>
-                    <div class="hidden sm:block">
-                      <p class="text-sm font-semibold text-slate-900"><%= currentUser.full_name %></p>
-                      <p class="text-xs text-slate-500"><%= currentUser.email %></p>
-                    </div>
-                  </div>
+                <div class="worldnic-search">
+                  <img src="/public/design-assets/icons/feather/search.svg" alt="" />
+                  <span><%= t('nav.search') %></span>
                 </div>
               </div>
 
-              <div data-mobile-menu class="mt-3 hidden rounded-2xl border border-slate-200 bg-white p-3 lg:hidden">
-                <div class="flex flex-col gap-2">
-                  <% sidebarLinks.forEach((link) => { %>
-                    <a href="<%= link.href %>" class="btn-secondary justify-start">
-                      <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" class="h-4 w-4 opacity-70" />
-                      <span><%= link.label %></span>
+              <div class="worldnic-header__actions">
+                <div class="worldnic-locale">
+                  <% supportedLocales.forEach((languageCode) => { %>
+                    <a href="<%= localeHref(languageCode) %>" class="<%= locale === languageCode ? 'is-active' : '' %>">
+                      <%= languageCode.toUpperCase() %>
                     </a>
                   <% }) %>
+                </div>
 
-                  <div class="flex items-center gap-2 pt-1">
-                    <% supportedLocales.forEach((languageCode) => { %>
-                      <a
-                        href="<%= localeHref(languageCode) %>"
-                        class="btn-secondary <%= locale === languageCode ? 'border-brand-300 text-brand-700' : '' %>"
-                      >
-                        <%= languageCode.toUpperCase() %>
-                      </a>
-                    <% }) %>
+                <a href="/events/new" class="btn-primary worldnic-create-btn">
+                  <img src="/public/design-assets/icons/feather/plus.svg" alt="" class="h-4 w-4 brightness-0 invert" />
+                  <span><%= t('nav.newEvent') %></span>
+                </a>
+
+                <div class="worldnic-user">
+                  <div class="worldnic-user__avatar"><%= userInitials %></div>
+                  <div class="worldnic-user__meta">
+                    <strong><%= currentUser.full_name %></strong>
+                    <small><%= currentUser.email %></small>
                   </div>
-
-                  <form action="/logout" method="POST">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                    <button type="submit" class="btn-secondary w-full justify-start">
-                      <img src="/public/design-assets/icons/feather/log-out.svg" alt="" class="h-4 w-4 opacity-70" />
-                      <span><%= t('nav.logout') %></span>
-                    </button>
-                  </form>
                 </div>
               </div>
             </div>
           </header>
 
-          <main class="flex-1 px-4 py-4 sm:px-6 lg:px-8">
+          <main class="worldnic-content">
             <% if (hasEvent) { %>
-              <section class="shell-card mb-4 overflow-hidden">
-                <div class="flex flex-col gap-4 border-b border-slate-200/80 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+              <section class="worldnic-event-banner">
+                <div class="worldnic-event-banner__header">
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"><%= t('nav.eventWorkspace') %></p>
-                    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900"><%= activeEvent.name %></h1>
-                    <p class="mt-2 text-sm text-slate-500">
-                      <%= activeEvent.location %> · <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
-                    </p>
+                    <p class="worldnic-eyebrow"><%= t('nav.eventWorkspace') %></p>
+                    <h1 class="worldnic-event-banner__title"><%= activeEvent.name %></h1>
+
+                    <div class="worldnic-meta">
+                      <span class="worldnic-meta__item">
+                        <img src="/public/design-assets/icons/feather/calendar.svg" alt="" />
+                        <%= helpers.formatDate(activeEvent.start_date) %> - <%= helpers.formatDate(activeEvent.end_date) %>
+                      </span>
+                      <span class="worldnic-meta__item">
+                        <img src="/public/design-assets/icons/feather/layers.svg" alt="" />
+                        <%= activeEvent.location %>
+                      </span>
+                    </div>
                   </div>
 
-                  <div class="flex flex-wrap items-center gap-2">
+                  <div class="worldnic-event-banner__actions">
                     <span class="status-<%= activeEvent.status %>"><%= helpers.statusLabel(activeEvent.status) %></span>
                     <a href="/events/<%= activeEvent.id %>/edit" class="btn-primary">
                       <img src="/public/design-assets/icons/feather/edit-3.svg" alt="" class="h-4 w-4 brightness-0 invert" />
@@ -204,14 +212,18 @@
                   </div>
                 </div>
 
-                <div class="flex flex-wrap gap-2 px-5 py-4 sm:px-6">
+                <div class="worldnic-event-banner__tabs">
                   <a href="/events/<%= activeEvent.id %>" class="event-tab <%= currentPath === `/events/${activeEvent.id}` ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
                     <span><%= t('dashboard.overview') %></span>
                   </a>
-                  <a href="/events/<%= activeEvent.id %>/categories" class="event-tab <%= currentPath.includes('/categories') ? 'event-tab-active' : '' %>">
+                  <a href="/events/<%= activeEvent.id %>/wristbands" class="event-tab <%= currentPath.includes('/wristbands') ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/tag.svg" alt="" class="h-4 w-4 opacity-70" />
-                    <span><%= t('nav.categories') %></span>
+                    <span><%= t('nav.wristbands') %></span>
+                  </a>
+                  <a href="/events/<%= activeEvent.id %>/passes" class="event-tab <%= currentPath.includes('/passes') ? 'event-tab-active' : '' %>">
+                    <img src="/public/design-assets/icons/feather/layers.svg" alt="" class="h-4 w-4 opacity-70" />
+                    <span><%= t('nav.passes') %></span>
                   </a>
                   <a href="/events/<%= activeEvent.id %>/members" class="event-tab <%= currentPath.includes('/members') ? 'event-tab-active' : '' %>">
                     <img src="/public/design-assets/icons/feather/users.svg" alt="" class="h-4 w-4 opacity-70" />
@@ -230,39 +242,36 @@
           </main>
         </div>
       </div>
+    <% } else if (isAuthPage) { %>
+      <%- body %>
     <% } else { %>
-      <div class="mx-auto min-h-screen max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <header class="shell-card mb-4 overflow-hidden">
-          <div class="flex items-center justify-between gap-4 px-5 py-4 sm:px-6">
-            <div class="flex items-center gap-3">
-              <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-b from-cyan-400 to-blue-600 text-lg font-extrabold text-white shadow-lg shadow-blue-500/20">
-                C
-              </div>
-              <div>
-                <p class="text-lg font-extrabold tracking-tight text-slate-900">Caurlaides</p>
-                <p class="text-sm text-slate-500"><%= t('app.tagline') %></p>
-              </div>
-            </div>
+      <div class="worldnic-guest-shell">
+        <header class="worldnic-guest-topbar">
+          <a href="/login" class="worldnic-brand">
+            <span class="worldnic-brand__badge">
+              <img src="/public/design-assets/brand/logo.png" alt="<%= t('app.name') %>" />
+            </span>
+            <span class="worldnic-brand__copy">
+              <strong><%= t('app.name') %></strong>
+              <small><%= t('app.tagline') %></small>
+            </span>
+          </a>
 
-            <div class="flex items-center gap-3">
-              <div class="hidden items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 sm:flex">
-                <% supportedLocales.forEach((languageCode) => { %>
-                  <a
-                    href="<%= localeHref(languageCode) %>"
-                    class="toolbar-chip <%= locale === languageCode ? 'toolbar-chip-active' : '' %>"
-                  >
-                    <%= languageCode.toUpperCase() %>
-                  </a>
-                <% }) %>
-              </div>
-              <a href="/login" class="btn-secondary"><%= t('buttons.login') %></a>
-              <a href="/register" class="btn-primary"><%= t('buttons.createAccount') %></a>
+          <div class="worldnic-guest-actions">
+            <div class="worldnic-locale">
+              <% supportedLocales.forEach((languageCode) => { %>
+                <a href="<%= localeHref(languageCode) %>" class="<%= locale === languageCode ? 'is-active' : '' %>">
+                  <%= languageCode.toUpperCase() %>
+                </a>
+              <% }) %>
             </div>
+            <a href="/login" class="btn-secondary"><%= t('buttons.login') %></a>
+            <a href="/register" class="btn-primary"><%= t('buttons.createAccount') %></a>
           </div>
         </header>
 
-        <%- include('partials/flash') %>
-        <main>
+        <main class="worldnic-guest-main">
+          <%- include('partials/flash') %>
           <%- body %>
         </main>
       </div>

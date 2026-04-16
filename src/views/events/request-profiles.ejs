@@ -1,0 +1,161 @@
+<section class="space-y-6">
+  <div class="shell-card overflow-hidden">
+    <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+      <h1 class="text-2xl font-bold text-slate-900"><%= t('requestProfiles.title') %></h1>
+      <p class="mt-1 text-sm text-slate-500"><%= t('requestProfiles.description') %></p>
+    </div>
+
+    <form action="/events/<%= activeEvent.id %>/request-profiles" method="POST" class="grid gap-6 px-5 py-5 sm:px-6 lg:grid-cols-2">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="space-y-4">
+        <div>
+          <label class="field-label" for="profile-name"><%= t('requestProfiles.fields.name') %></label>
+          <input id="profile-name" name="name" type="text" class="field-input" required />
+        </div>
+
+        <div>
+          <label class="field-label" for="profile-notes"><%= t('requestProfiles.fields.notes') %></label>
+          <textarea id="profile-notes" name="notes" rows="5" class="field-input"></textarea>
+        </div>
+
+        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+          <input type="checkbox" name="isActive" checked />
+          <%= t('requestProfiles.fields.active') %>
+        </label>
+
+        <div class="panel bg-slate-50">
+          <p class="text-sm font-semibold text-slate-900"><%= t('requestProfiles.helpTitle') %></p>
+          <p class="mt-2 text-sm leading-6 text-slate-600"><%= t('requestProfiles.helpBody') %></p>
+        </div>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="space-y-3">
+          <h2 class="text-lg font-bold text-slate-900"><%= t('nav.passes') %></h2>
+          <% if (!passCategories.length) { %>
+            <p class="text-sm text-slate-500"><%= t('requestProfiles.noPassTypes') %></p>
+          <% } %>
+          <% passCategories.forEach((category) => { %>
+            <label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <span>
+                <span class="block text-sm font-semibold text-slate-900"><%= category.name %></span>
+                <span class="mt-1 block text-xs text-slate-500"><%= category.description || t('common.noDescription') %></span>
+              </span>
+              <input name="passQuota[<%= category.id %>]" type="number" min="0" class="field-input min-w-[140px]" value="0" />
+            </label>
+          <% }) %>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-lg font-bold text-slate-900"><%= t('nav.wristbands') %></h2>
+          <% if (!wristbandCategories.length) { %>
+            <p class="text-sm text-slate-500"><%= t('requestProfiles.noWristbandTypes') %></p>
+          <% } %>
+          <% wristbandCategories.forEach((category) => { %>
+            <label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <span>
+                <span class="block text-sm font-semibold text-slate-900"><%= category.name %></span>
+                <span class="mt-1 block text-xs text-slate-500"><%= category.description || t('common.noDescription') %></span>
+              </span>
+              <input name="wristbandQuota[<%= category.id %>]" type="number" min="0" class="field-input min-w-[140px]" value="0" />
+            </label>
+          <% }) %>
+        </div>
+
+        <div class="md:col-span-2">
+          <button type="submit" class="btn-primary"><%= t('requestProfiles.createButton') %></button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="space-y-6">
+    <% if (!profiles.length) { %>
+      <div class="shell-card p-6">
+        <p class="text-sm text-slate-500"><%= t('requestProfiles.none') %></p>
+      </div>
+    <% } %>
+
+    <% profiles.forEach((profile) => { %>
+      <section class="shell-card overflow-hidden">
+        <div class="flex flex-col gap-4 border-b border-slate-200/80 px-5 py-5 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-xl font-bold text-slate-900"><%= profile.name %></h2>
+              <span class="status-<%= profile.is_active ? 'active' : 'archived' %>"><%= profile.is_active ? t('common.active') : t('common.inactive') %></span>
+            </div>
+            <p class="mt-2 text-sm text-slate-500">
+              <strong><%= t('requestProfiles.fields.publicLink') %>:</strong>
+              <a href="/portal/<%= profile.public_slug %>" target="_blank" rel="noreferrer" class="font-semibold text-brand-700">/portal/<%= profile.public_slug %></a>
+            </p>
+            <% if (profile.notes) { %>
+              <p class="mt-2 text-sm text-slate-500"><%= profile.notes %></p>
+            <% } %>
+          </div>
+
+          <form action="/events/<%= activeEvent.id %>/request-profiles/<%= profile.id %>/regenerate-code" method="POST" class="flex gap-2">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button type="submit" class="btn-secondary"><%= t('requestProfiles.regenerateCode') %></button>
+          </form>
+        </div>
+
+        <form action="/events/<%= activeEvent.id %>/request-profiles/<%= profile.id %>?_method=PUT" method="POST" class="grid gap-6 px-5 py-5 sm:px-6 lg:grid-cols-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+          <div class="space-y-4">
+            <div>
+              <label class="field-label"><%= t('requestProfiles.fields.name') %></label>
+              <input name="name" type="text" class="field-input" value="<%= profile.name %>" required />
+            </div>
+            <div>
+              <label class="field-label"><%= t('requestProfiles.fields.notes') %></label>
+              <textarea name="notes" rows="5" class="field-input"><%= profile.notes || '' %></textarea>
+            </div>
+            <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+              <input type="checkbox" name="isActive" <%= profile.is_active ? 'checked' : '' %> />
+              <%= t('requestProfiles.fields.active') %>
+            </label>
+          </div>
+
+          <div class="grid gap-6 md:grid-cols-2">
+            <div class="space-y-3">
+              <h3 class="text-lg font-bold text-slate-900"><%= t('nav.passes') %></h3>
+              <% passCategories.forEach((category) => { 
+                const quota = (profile.passQuotaUsage || []).find((entry) => Number(entry.category_id) === Number(category.id));
+              %>
+                <label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                  <span>
+                    <span class="block text-sm font-semibold text-slate-900"><%= category.name %></span>
+                    <span class="mt-1 block text-xs text-slate-500"><%= quota ? `${quota.used_count}/${quota.quota} · ${t('requestProfiles.remaining', { count: quota.remaining_count })}` : t('requestProfiles.noQuotaAssigned') %></span>
+                  </span>
+                  <input name="passQuota[<%= category.id %>]" type="number" min="0" class="field-input min-w-[140px]" value="<%= quota ? quota.quota : 0 %>" />
+                </label>
+              <% }) %>
+            </div>
+
+            <div class="space-y-3">
+              <h3 class="text-lg font-bold text-slate-900"><%= t('nav.wristbands') %></h3>
+              <% wristbandCategories.forEach((category) => { 
+                const quota = (profile.wristbandQuotaUsage || []).find((entry) => Number(entry.category_id) === Number(category.id));
+              %>
+                <label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                  <span>
+                    <span class="block text-sm font-semibold text-slate-900"><%= category.name %></span>
+                    <span class="mt-1 block text-xs text-slate-500"><%= quota ? `${quota.used_count}/${quota.quota} · ${t('requestProfiles.remaining', { count: quota.remaining_count })}` : t('requestProfiles.noQuotaAssigned') %></span>
+                  </span>
+                  <input name="wristbandQuota[<%= category.id %>]" type="number" min="0" class="field-input min-w-[140px]" value="<%= quota ? quota.quota : 0 %>" />
+                </label>
+              <% }) %>
+            </div>
+
+            <div class="flex flex-wrap gap-3 md:col-span-2">
+              <button type="submit" class="btn-primary"><%= t('requestProfiles.saveButton') %></button>
+              <button formaction="/events/<%= activeEvent.id %>/request-profiles/<%= profile.id %>?_method=DELETE" formmethod="POST" class="btn-danger"><%= t('requestProfiles.deleteButton') %></button>
+            </div>
+          </div>
+        </form>
+      </section>
+    <% }) %>
+  </div>
+</section>

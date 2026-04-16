@@ -86,10 +86,95 @@ const categoryUpdateValidator = categoryValidator.filter(
   (validator) => !validator.builder.fields.includes('type'),
 );
 
+const accessTypeValidator = [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 120 })
+    .withMessage((value, { req }) => req.t('validation.accessType.nameLength', { min: 2, max: 120 })),
+  body('description')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 3000 })
+    .withMessage((value, { req }) => req.t('validation.accessType.descriptionLength', { max: 3000 })),
+  body('quota')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1 })
+    .withMessage((value, { req }) => req.t('validation.accessType.quota')),
+  body('sortOrder')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 0, max: 9999 })
+    .withMessage((value, { req }) => req.t('validation.accessType.sortOrder', { min: 0, max: 9999 })),
+];
+
+const requestProfileValidator = [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.requestProfile.nameLength', { min: 2, max: 160 })),
+  body('notes')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 3000 })
+    .withMessage((value, { req }) => req.t('validation.requestProfile.notesLength', { max: 3000 })),
+];
+
+const requestStatusValidator = [
+  body('status')
+    .isIn(['pending', 'handed_out'])
+    .withMessage((value, { req }) => req.t('validation.request.status')),
+];
+
+const portalCodeValidator = [
+  body('accessCode')
+    .trim()
+    .isLength({ min: 4, max: 32 })
+    .withMessage((value, { req }) => req.t('validation.portal.code')),
+];
+
+const portalRequestValidator = [
+  body('categoryId')
+    .isInt({ min: 1 })
+    .withMessage((value, { req }) => req.t('validation.portal.category')),
+  body('fullName')
+    .trim()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.portal.fullName', { min: 2, max: 160 })),
+  body('companyName')
+    .trim()
+    .notEmpty()
+    .withMessage((value, { req }) => req.t('validation.portal.companyNameRequired'))
+    .bail()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.portal.companyNameLength', { min: 2, max: 160 })),
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage((value, { req }) => req.t('validation.portal.phoneRequired'))
+    .bail()
+    .isLength({ min: 3, max: 40 })
+    .withMessage((value, { req }) => req.t('validation.portal.phoneLength', { min: 3, max: 40 })),
+  body('email')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage((value, { req }) => req.t('validation.portal.email'))
+    .normalizeEmail(),
+  body('notes')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 3000 })
+    .withMessage((value, { req }) => req.t('validation.portal.notes', { max: 3000 })),
+];
+
 module.exports = {
+  accessTypeValidator,
   categoryValidator,
   categoryUpdateValidator,
   eventValidator,
   memberRoleValidator,
   memberValidator,
+  portalCodeValidator,
+  portalRequestValidator,
+  requestProfileValidator,
+  requestStatusValidator,
 };

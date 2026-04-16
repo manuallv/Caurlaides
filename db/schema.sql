@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS request_profiles (
 CREATE TABLE IF NOT EXISTS request_profile_pass_categories (
   request_profile_id BIGINT UNSIGNED NOT NULL,
   pass_category_id BIGINT UNSIGNED NOT NULL,
+  quota INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (request_profile_id, pass_category_id),
   CONSTRAINT fk_profile_pass_categories_profile
     FOREIGN KEY (request_profile_id) REFERENCES request_profiles (id)
@@ -167,6 +168,7 @@ CREATE TABLE IF NOT EXISTS request_profile_pass_categories (
 CREATE TABLE IF NOT EXISTS request_profile_wristband_categories (
   request_profile_id BIGINT UNSIGNED NOT NULL,
   wristband_category_id BIGINT UNSIGNED NOT NULL,
+  quota INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (request_profile_id, wristband_category_id),
   CONSTRAINT fk_profile_wristband_categories_profile
     FOREIGN KEY (request_profile_id) REFERENCES request_profiles (id)
@@ -185,6 +187,7 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   pass_category_id BIGINT UNSIGNED NOT NULL,
   full_name VARCHAR(160) NOT NULL,
   company_name VARCHAR(160) NULL,
+  phone VARCHAR(40) NULL,
   email VARCHAR(190) NULL,
   notes TEXT NULL,
   status ENUM('pending', 'approved', 'rejected', 'handed_out', 'returned', 'finalized') NOT NULL DEFAULT 'pending',
@@ -232,6 +235,7 @@ CREATE TABLE IF NOT EXISTS wristband_requests (
   wristband_category_id BIGINT UNSIGNED NOT NULL,
   full_name VARCHAR(160) NOT NULL,
   company_name VARCHAR(160) NULL,
+  phone VARCHAR(40) NULL,
   email VARCHAR(190) NULL,
   notes TEXT NULL,
   status ENUM('pending', 'approved', 'rejected', 'handed_out', 'returned', 'finalized') NOT NULL DEFAULT 'pending',
