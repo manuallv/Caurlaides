@@ -310,6 +310,26 @@ document.addEventListener('DOMContentLoaded', () => {
     filterRequestProfileRows();
   };
 
+  const initializeSystemEmailSettings = () => {
+    const providerSelect = document.querySelector('[data-system-email-provider-select]');
+    const panels = [...document.querySelectorAll('[data-system-email-provider-panel]')];
+
+    if (!providerSelect || !panels.length) {
+      return;
+    }
+
+    const syncPanels = () => {
+      const activeProvider = providerSelect.value || 'smtp';
+
+      panels.forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.systemEmailProviderPanel !== activeProvider);
+      });
+    };
+
+    syncPanels();
+    providerSelect.onchange = syncPanels;
+  };
+
   const filterPortalRows = () => {
     const table = document.querySelector('[data-portal-table]');
     const tbody = table?.querySelector('tbody');
@@ -1326,9 +1346,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAccessUI();
     initializePortalUI();
     initializeRequestProfileUI();
+    initializeSystemEmailSettings();
   });
 
   initializeAccessUI();
   initializePortalUI();
   initializeRequestProfileUI();
+  initializeSystemEmailSettings();
 });

@@ -8,7 +8,7 @@ function normalizeSystemUserPayload(body) {
   };
 }
 
-function normalizeSystemSettingsPayload(body) {
+function normalizeEmailSettingsPayload(body) {
   return {
     emailProvider: body.emailProvider,
     smtpHost: body.smtpHost || '',
@@ -21,6 +21,11 @@ function normalizeSystemSettingsPayload(body) {
     resendApiKey: body.resendApiKey || '',
     resendFromEmail: body.resendFromEmail || '',
     resendFromName: body.resendFromName || '',
+  };
+}
+
+function normalizeEmailTemplatesPayload(body) {
+  return {
     forgotPasswordSubject: body.forgotPasswordSubject || '',
     forgotPasswordHtml: body.forgotPasswordHtml || '',
     forgotPasswordText: body.forgotPasswordText || '',
@@ -73,26 +78,78 @@ function buildSystemController({ systemService }) {
       return res.redirect('/system/users');
     },
 
-    async showSettings(req, res) {
+    async redirectSettings(req, res) {
+      return res.redirect('/system/settings/email');
+    },
+
+    async showEmailSettings(req, res) {
       const data = await systemService.getSystemSettings(req.currentUser, req.t);
 
-      return res.render('settings/system', {
-        pageTitle: req.t('system.settings.title'),
+      return res.render('settings/system-email', {
+        pageTitle: req.t('system.settings.emailTitle'),
         settings: data.settings,
-        templates: data.templates,
         activeEvent: null,
       });
     },
 
-    async updateSettings(req, res) {
-      await systemService.saveSystemSettings(
-        normalizeSystemSettingsPayload(req.body),
+    async updateEmailSettings(req, res) {
+      await systemService.saveEmailSettings(
+        normalizeEmailSettingsPayload(req.body),
         req.currentUser,
         req.t,
       );
 
       req.flash('success', req.t('system.settings.saved'));
-      return res.redirect('/system/settings');
+      return res.redirect('/system/settings/email');
+    },
+
+    async showEmailTest(req, res) {
+      const data = await systemService.getSystemSettings(req.currentUser, req.t);
+
+      return res.render('settings/system-email-test', {
+        pageTitle: req.t('system.settings.testTitle'),
+        settings: data.settings,
+        activeEvent: null,
+      });
+    },
+
+    async sendTestEmail(req, res) {
+      try {
+        const result = await systemService.sendTestEmail({
+          recipientEmail: req.body.testRecipientEmail,
+        }, req.currentUser, req.t);
+
+        req.flash('success', req.t('system.settings.testSent', {
+          provider: result.provider === 'resend'
+            ? req.t('system.settings.provider.resend')
+            : req.t('system.settings.provider.smtp'),
+        }));
+      } catch (error) {
+        req.flash('error', error.message || req.t('errors.generic'));
+      }
+
+      return res.redirect('/system/settings/test');
+    },
+
+    async showEmailTemplates(req, res) {
+      const data = await systemService.getSystemSettings(req.currentUser, req.t);
+
+      return res.render('settings/system-email-templates', {
+        pageTitle: req.t('system.settings.templatesTitle'),
+        templates: data.templates,
+        activeEvent: null,
+      });
+    },
+
+    async updateEmailTemplates(req, res) {
+      await systemService.saveEmailTemplates(
+        normalizeEmailTemplatesPayload(req.body),
+        req.currentUser,
+        req.t,
+      );
+
+      req.flash('success', req.t('system.settings.saved'));
+      return res.redirect('/system/settings/templates');
     },
   };
 }

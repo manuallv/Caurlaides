@@ -42,19 +42,45 @@
                 : ''
       : '';
     const sidebarLinks = [];
+    const systemSection = currentPath.startsWith('/system/settings/templates')
+      ? 'templates'
+      : currentPath.startsWith('/system/settings/test')
+        ? 'test'
+        : currentPath.startsWith('/system/settings')
+          ? 'email'
+          : currentPath.startsWith('/system/users')
+            ? 'users'
+            : '';
     const systemLinks = isSuperAdmin
       ? [
           {
             href: '/system/users',
             label: t('system.users.title'),
             icon: 'users',
-            active: currentPath.startsWith('/system/users'),
+            active: systemSection === 'users',
           },
           {
-            href: '/system/settings',
+            href: '/system/settings/email',
             label: t('system.settings.title'),
             icon: 'activity',
-            active: currentPath.startsWith('/system/settings'),
+            active: ['email', 'test', 'templates'].includes(systemSection),
+            children: [
+              {
+                href: '/system/settings/email',
+                label: t('system.settings.nav.email'),
+                active: systemSection === 'email',
+              },
+              {
+                href: '/system/settings/test',
+                label: t('system.settings.nav.test'),
+                active: systemSection === 'test',
+              },
+              {
+                href: '/system/settings/templates',
+                label: t('system.settings.nav.templates'),
+                active: systemSection === 'templates',
+              },
+            ],
           },
         ]
       : [];
@@ -204,12 +230,22 @@
 
                 <nav class="worldnic-nav worldnic-nav--system">
                   <% systemLinks.forEach((link) => { %>
-                    <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
-                      <span class="worldnic-nav__icon">
-                        <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
-                      </span>
-                      <span><%= link.label %></span>
-                    </a>
+                    <div class="worldnic-nav__item">
+                      <a href="<%= link.href %>" class="worldnic-nav__link <%= link.active ? 'is-active' : '' %>">
+                        <span class="worldnic-nav__icon">
+                          <img src="/public/design-assets/icons/feather/<%= link.icon %>.svg" alt="" />
+                        </span>
+                        <span><%= link.label %></span>
+                      </a>
+
+                      <% if (link.children && link.active) { %>
+                        <div class="worldnic-nav__sublinks">
+                          <% link.children.forEach((child) => { %>
+                            <a href="<%= child.href %>" class="worldnic-nav__sublink <%= child.active ? 'is-active' : '' %>"><%= child.label %></a>
+                          <% }) %>
+                        </div>
+                      <% } %>
+                    </div>
                   <% }) %>
                 </nav>
               </section>

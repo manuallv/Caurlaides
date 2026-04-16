@@ -1,0 +1,86 @@
+<section class="space-y-6">
+  <section class="shell-card request-profile-editor request-profile-editor--compact">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1 class="request-profile-editor__title"><%= t('system.settings.emailTitle') %></h1>
+        <p class="request-profile-editor__description"><%= t('system.settings.emailDescription') %></p>
+      </div>
+    </div>
+
+    <form action="/system/settings/email" method="POST" class="request-profile-editor__form" data-system-email-settings-form>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="system-settings-provider-row">
+        <label>
+          <span class="field-label"><%= t('system.settings.provider') %></span>
+          <select name="emailProvider" class="field-input" data-system-email-provider-select>
+            <option value="smtp" <%= (settings.email_provider || 'smtp') === 'smtp' ? 'selected' : '' %>><%= t('system.settings.provider.smtp') %></option>
+            <option value="resend" <%= settings.email_provider === 'resend' ? 'selected' : '' %>><%= t('system.settings.provider.resend') %></option>
+          </select>
+        </label>
+
+        <a href="/system/settings/test" class="btn-secondary"><%= t('system.settings.openTestPage') %></a>
+      </div>
+
+      <div class="system-settings-provider-panels">
+        <section class="request-profile-quota-card panel <%= (settings.email_provider || 'smtp') === 'smtp' ? '' : 'hidden' %>" data-system-email-provider-panel="smtp">
+          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.smtpTitle') %></h2></div>
+          <div class="system-settings-fields">
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpHost') %></span>
+              <input name="smtpHost" type="text" class="field-input" value="<%= settings.smtp_host || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpPort') %></span>
+              <input name="smtpPort" type="text" class="field-input" value="<%= settings.smtp_port || '587' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpUser') %></span>
+              <input name="smtpUser" type="text" class="field-input" value="<%= settings.smtp_user || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpPass') %></span>
+              <input name="smtpPass" type="password" class="field-input" value="<%= settings.smtp_pass || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpFromEmail') %></span>
+              <input name="smtpFromEmail" type="email" class="field-input" value="<%= settings.smtp_from_email || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.smtpFromName') %></span>
+              <input name="smtpFromName" type="text" class="field-input" value="<%= settings.smtp_from_name || '' %>" />
+            </label>
+            <label class="request-profile-toggle system-settings-toggle">
+              <input type="checkbox" name="smtpSecure" <%= settings.smtp_secure === 'true' ? 'checked' : '' %> />
+              <span><%= t('system.settings.smtpSecure') %></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="request-profile-quota-card panel <%= settings.email_provider === 'resend' ? '' : 'hidden' %>" data-system-email-provider-panel="resend">
+          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.resendTitle') %></h2></div>
+          <div class="system-settings-fields">
+            <label class="system-settings-fields__full">
+              <span class="field-label"><%= t('system.settings.resendApiKey') %></span>
+              <input name="resendApiKey" type="text" class="field-input" value="<%= settings.resend_api_key || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.resendFromEmail') %></span>
+              <input name="resendFromEmail" type="email" class="field-input" value="<%= settings.resend_from_email || '' %>" />
+            </label>
+            <label>
+              <span class="field-label"><%= t('system.settings.resendFromName') %></span>
+              <input name="resendFromName" type="text" class="field-input" value="<%= settings.resend_from_name || '' %>" />
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="request-profile-editor__actions">
+        <span class="system-settings-help"><%= t('system.settings.testUsesSaved') %></span>
+        <button type="submit" class="btn-primary"><%= t('buttons.save') %></button>
+      </div>
+    </form>
+  </section>
+</section>

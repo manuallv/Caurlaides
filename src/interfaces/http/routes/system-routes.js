@@ -12,8 +12,13 @@ function buildSystemRoutes({ systemController }) {
   router.put('/system/users/:userId', requireSuperAdmin, asyncHandler(systemController.updateUser));
   router.delete('/system/users/:userId', requireSuperAdmin, asyncHandler(systemController.deleteUser));
 
-  router.get('/system/settings', requireSuperAdmin, asyncHandler(systemController.showSettings));
-  router.post('/system/settings', requireSuperAdmin, asyncHandler(systemController.updateSettings));
+  router.get('/system/settings', requireSuperAdmin, asyncHandler(systemController.redirectSettings));
+  router.get('/system/settings/email', requireSuperAdmin, asyncHandler(systemController.showEmailSettings));
+  router.post('/system/settings/email', requireSuperAdmin, asyncHandler(systemController.updateEmailSettings));
+  router.get('/system/settings/test', requireSuperAdmin, asyncHandler(systemController.showEmailTest));
+  router.post('/system/settings/test', requireSuperAdmin, asyncHandler(systemController.sendTestEmail));
+  router.get('/system/settings/templates', requireSuperAdmin, asyncHandler(systemController.showEmailTemplates));
+  router.post('/system/settings/templates', requireSuperAdmin, asyncHandler(systemController.updateEmailTemplates));
 
   return router;
 }

@@ -1,0 +1,40 @@
+<section class="space-y-6">
+  <section class="shell-card request-profile-editor request-profile-editor--compact">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1 class="request-profile-editor__title"><%= t('system.settings.testTitle') %></h1>
+        <p class="request-profile-editor__description"><%= t('system.settings.testDescription') %></p>
+      </div>
+      <div class="request-profile-editor__status">
+        <span class="status-active"><%= settings.email_provider === 'resend' ? t('system.settings.provider.resend') : t('system.settings.provider.smtp') %></span>
+      </div>
+    </div>
+
+    <form action="/system/settings/test" method="POST" class="request-profile-editor__form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <section class="request-profile-quota-card panel">
+        <div class="request-profile-quota-card__head"><h2><%= t('system.settings.testTitle') %></h2></div>
+        <div class="request-profile-quota-list">
+          <label>
+            <span class="field-label"><%= t('system.settings.testRecipient') %></span>
+            <input
+              name="testRecipientEmail"
+              type="email"
+              class="field-input"
+              value="<%= currentUser?.email || '' %>"
+              placeholder="name@example.com"
+            />
+            <span class="field-help"><%= t('system.settings.testRecipientHelp') %></span>
+          </label>
+        </div>
+      </section>
+
+      <div class="request-profile-editor__actions">
+        <span class="system-settings-help"><%= t('system.settings.testUsesSaved') %></span>
+        <button type="submit" class="btn-primary"><%= t('system.settings.sendTest') %></button>
+      </div>
+    </form>
+  </section>
+</section>

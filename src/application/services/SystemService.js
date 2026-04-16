@@ -112,7 +112,7 @@ class SystemService {
     };
   }
 
-  async saveSystemSettings(payload, actor, t) {
+  async saveEmailSettings(payload, actor, t) {
     this.assertSuperAdmin(actor, t);
 
     await this.systemSettingsRepository.upsertSettings({
@@ -128,6 +128,10 @@ class SystemService {
       resend_from_email: payload.resendFromEmail || '',
       resend_from_name: payload.resendFromName || '',
     }, actor.id);
+  }
+
+  async saveEmailTemplates(payload, actor, t) {
+    this.assertSuperAdmin(actor, t);
 
     await this.systemSettingsRepository.upsertTemplate('forgot_password', {
       subject: payload.forgotPasswordSubject,
@@ -140,6 +144,29 @@ class SystemService {
       html_content: payload.portalInviteHtml,
       text_content: payload.portalInviteText,
     }, actor.id);
+  }
+
+  async sendTestEmail({ recipientEmail }, actor, t) {
+    this.assertSuperAdmin(actor, t);
+
+    if (!recipientEmail) {
+      throw new AppError(t('validation.auth.email'), 422);
+    }
+
+    const config = await this.emailService.getConfig();
+
+    if (config.provider === 'resend' && (!config.resend.apiKey || !config.resend.fromEmail)) {
+      throw new AppError(t('system.settings.error.resendIncomplete'), 422);
+    }
+
+    if (config.provider !== 'resend' && (!config.smtp.host || !config.smtp.fromEmail)) {
+      throw new AppError(t('system.settings.error.smtpIncomplete'), 422);
+    }
+
+    return this.emailService.sendTestMessage({
+      to: recipientEmail,
+      actorName: actor.full_name,
+    });
   }
 
   createResetToken() {
