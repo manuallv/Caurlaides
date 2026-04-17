@@ -70,6 +70,7 @@ function buildRouter() {
   const accessService = new AccessService({
     pool,
     categoryRepository,
+    eventRepository,
     requestProfileRepository,
     requestRepository,
     eventService,

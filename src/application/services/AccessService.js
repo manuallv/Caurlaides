@@ -649,6 +649,7 @@ class AccessService {
   constructor({
     pool,
     categoryRepository,
+    eventRepository,
     requestProfileRepository,
     requestRepository,
     eventService,
@@ -657,6 +658,7 @@ class AccessService {
   }) {
     this.pool = pool;
     this.categoryRepository = categoryRepository;
+    this.eventRepository = eventRepository;
     this.requestProfileRepository = requestProfileRepository;
     this.requestRepository = requestRepository;
     this.eventService = eventService;
