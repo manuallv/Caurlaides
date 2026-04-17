@@ -26,6 +26,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           eu.role,
@@ -184,6 +185,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           e.deleted_at,
@@ -224,6 +226,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           e.deleted_at,
@@ -265,6 +268,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           e.deleted_at,
@@ -361,6 +365,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           e.deleted_at,
@@ -414,6 +419,7 @@ class EventRepository {
           e.vehicle_gate_api_dedupe_seconds,
           e.pass_print_template_name,
           e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
           e.pass_print_template_fields_json,
           e.pass_print_template_updated_at,
           e.deleted_at,
@@ -465,6 +471,7 @@ class EventRepository {
         SET
           pass_print_template_name = ?,
           pass_print_template_background_path = ?,
+          pass_print_template_background_rotation = ?,
           pass_print_template_fields_json = ?,
           pass_print_template_updated_at = NOW()
         WHERE id = ?
@@ -472,6 +479,7 @@ class EventRepository {
       [
         payload.name,
         payload.backgroundPath,
+        payload.backgroundRotation,
         payload.fieldsJson,
         eventId,
       ],

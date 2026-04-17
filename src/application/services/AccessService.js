@@ -135,9 +135,7 @@ function normalizePassPrintTemplateFields(rawFields) {
         return null;
       }
 
-      const normalizedRotation = Number.isFinite(rotation)
-        ? ((((Math.round(rotation / 90) * 90) % 360) + 360) % 360)
-        : 0;
+      const normalizedRotation = normalizePassPrintRotation(rotation);
 
       return {
         id: rawField?.id ? String(rawField.id).trim().slice(0, 80) : `field-${index + 1}`,
@@ -150,6 +148,16 @@ function normalizePassPrintTemplateFields(rawFields) {
       };
     })
     .filter(Boolean);
+}
+
+function normalizePassPrintRotation(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return ((((Math.round(numericValue / 90) * 90) % 360) + 360) % 360);
 }
 
 function sanitizePassPrintTemplateFields(rawFields, t) {
@@ -170,9 +178,57 @@ function buildPassPrintTemplateFromEvent(event, t) {
     name: String(event.pass_print_template_name || '').trim() || tx('passPrint.defaultTemplateName'),
     backgroundPath: event.pass_print_template_background_path || '',
     backgroundUrl: buildPassPrintTemplatePublicUrl(event.pass_print_template_background_path),
+    backgroundRotation: normalizePassPrintRotation(event.pass_print_template_background_rotation),
     fields: normalizePassPrintTemplateFields(event.pass_print_template_fields_json || '[]'),
     updatedAt: event.pass_print_template_updated_at || null,
   };
+}
+
+function renderPassPrintBackground(document, backgroundPath, rotation = 0) {
+  const normalizedRotation = normalizePassPrintRotation(rotation);
+
+  try {
+    document.save();
+
+    if (normalizedRotation === 90) {
+      document.translate(document.page.width, 0);
+      document.rotate(90, { origin: [0, 0] });
+      document.image(backgroundPath, 0, 0, {
+        width: document.page.height,
+        height: document.page.width,
+      });
+    } else if (normalizedRotation === 180) {
+      document.translate(document.page.width, document.page.height);
+      document.rotate(180, { origin: [0, 0] });
+      document.image(backgroundPath, 0, 0, {
+        width: document.page.width,
+        height: document.page.height,
+      });
+    } else if (normalizedRotation === 270) {
+      document.translate(0, document.page.height);
+      document.rotate(-90, { origin: [0, 0] });
+      document.image(backgroundPath, 0, 0, {
+        width: document.page.height,
+        height: document.page.width,
+      });
+    } else {
+      document.image(backgroundPath, 0, 0, {
+        width: document.page.width,
+        height: document.page.height,
+      });
+    }
+
+    document.restore();
+    return true;
+  } catch (error) {
+    try {
+      document.restore();
+    } catch (restoreError) {
+      // Ignore restore failures after an image render error.
+    }
+
+    return false;
+  }
 }
 
 function resolvePassPrintFieldValue(type, request, event) {
@@ -238,12 +294,9 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
       });
 
       if (backgroundPath) {
-        try {
-          document.image(backgroundPath, 0, 0, {
-            width: document.page.width,
-            height: document.page.height,
-          });
-        } catch (error) {
+        const rendered = renderPassPrintBackground(document, backgroundPath, template.backgroundRotation);
+
+        if (!rendered) {
           backgroundPath = '';
         }
       }
@@ -856,6 +909,7 @@ class AccessService {
 
     const templateFields = sanitizePassPrintTemplateFields(payload.templateFields, tx);
     const templateName = String(payload.templateName || '').trim().slice(0, 160) || tx('passPrint.defaultTemplateName');
+    const backgroundRotation = normalizePassPrintRotation(payload.backgroundRotation);
     const removeBackground = Boolean(payload.removeBackground);
     let backgroundPath = removeBackground ? '' : (event.pass_print_template_background_path || '');
     let replacedBackgroundPath = '';
@@ -891,6 +945,7 @@ class AccessService {
       await this.eventRepository.updatePassPrintTemplate(connection, eventId, {
         name: templateName,
         backgroundPath: backgroundPath || null,
+        backgroundRotation,
         fieldsJson: JSON.stringify(templateFields),
       });
 
@@ -944,6 +999,7 @@ class AccessService {
         name: templateName,
         backgroundPath,
         backgroundUrl: buildPassPrintTemplatePublicUrl(backgroundPath),
+        backgroundRotation,
         fields: templateFields,
       },
     };

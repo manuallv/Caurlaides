@@ -539,7 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
       panels: [...document.querySelectorAll('[data-pass-print-panel]')],
       form: document.querySelector('[data-pass-print-form]'),
       fieldsInput: document.querySelector('[data-pass-print-fields-input]'),
+      backgroundRotationInput: document.querySelector('[data-pass-print-background-rotation-input]'),
       page: document.querySelector('[data-pass-print-page]'),
+      backgroundLayer: document.querySelector('[data-pass-print-background-layer]'),
       fieldLayer: document.querySelector('[data-pass-print-field-layer]'),
       emptyState: document.querySelector('[data-pass-print-empty-state]'),
       addButtons: [...document.querySelectorAll('[data-pass-print-add-field]')],
@@ -554,6 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
       rotateFieldButton: document.querySelector('[data-pass-print-rotate-field]'),
       backgroundInput: document.querySelector('[data-pass-print-background-input]'),
       removeBackgroundInput: document.querySelector('[data-pass-print-remove-background]'),
+      rotateBackgroundButton: document.querySelector('[data-pass-print-rotate-background]'),
+      backgroundRotationValue: document.querySelector('[data-pass-print-background-rotation-value]'),
     };
   };
 
@@ -564,9 +568,24 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedId: '',
     activeTab: 'editor',
     currentBackgroundUrl: '',
+    backgroundRotation: 0,
     uploadedBackgroundUrl: '',
     drag: null,
   };
+
+  const normalizePassPrintQuarterTurn = (value) => {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return 0;
+    }
+
+    return ((((Math.round(numericValue / 90) * 90) % 360) + 360) % 360);
+  };
+
+  const getPassPrintBackgroundScale = (rotation) => (
+    normalizePassPrintQuarterTurn(rotation) % 180 === 0 ? 1 : (297 / 210)
+  );
 
   const parsePassPrintState = () => {
     const { app, stateScript } = getPassPrintElements();
@@ -583,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fields: Array.isArray(parsed.template?.fields) ? parsed.template.fields : [],
         variables: Array.isArray(parsed.variables) ? parsed.variables : [],
         currentBackgroundUrl: parsed.template?.backgroundUrl || '',
+        backgroundRotation: normalizePassPrintQuarterTurn(parsed.template?.backgroundRotation),
         activeTab: 'editor',
       };
     } catch (error) {
@@ -595,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   const syncPassPrintFieldsInput = () => {
-    const { fieldsInput } = getPassPrintElements();
+    const { fieldsInput, backgroundRotationInput } = getPassPrintElements();
 
     if (!fieldsInput) {
       return;
@@ -612,6 +632,10 @@ document.addEventListener('DOMContentLoaded', () => {
         rotation: Number(field.rotation || 0),
       })),
     );
+
+    if (backgroundRotationInput) {
+      backgroundRotationInput.value = String(normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation));
+    }
   };
 
   const setPassPrintTab = (tabName = 'editor') => {
@@ -631,18 +655,38 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const syncPassPrintBackgroundPreview = () => {
-    const { page, removeBackgroundInput } = getPassPrintElements();
+    const {
+      page,
+      backgroundLayer,
+      removeBackgroundInput,
+      rotateBackgroundButton,
+      backgroundRotationValue,
+    } = getPassPrintElements();
 
-    if (!page) {
+    if (!page || !backgroundLayer) {
       return;
     }
 
     const backgroundUrl = removeBackgroundInput?.checked
       ? ''
       : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
+    const rotation = normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation);
 
     page.classList.toggle('has-background', Boolean(backgroundUrl));
-    page.style.backgroundImage = backgroundUrl ? `url("${backgroundUrl.replace(/"/g, '\\"')}")` : '';
+    backgroundLayer.classList.toggle('is-active', Boolean(backgroundUrl));
+    backgroundLayer.style.backgroundImage = backgroundUrl ? `url("${backgroundUrl.replace(/"/g, '\\"')}")` : '';
+    backgroundLayer.style.setProperty('--pass-print-background-rotation', `${rotation}deg`);
+    backgroundLayer.style.setProperty('--pass-print-background-scale', String(getPassPrintBackgroundScale(rotation)));
+
+    if (backgroundRotationValue) {
+      backgroundRotationValue.textContent = `${rotation}°`;
+    }
+
+    if (rotateBackgroundButton) {
+      rotateBackgroundButton.disabled = !passPrintEditorState.canManage || !backgroundUrl;
+    }
+
+    syncPassPrintFieldsInput();
   };
 
   const renderPassPrintFields = () => {
@@ -908,6 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
         variables: [],
         selectedId: '',
         currentBackgroundUrl: '',
+        backgroundRotation: 0,
         uploadedBackgroundUrl: '',
         drag: null,
       };
@@ -929,6 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedId: nextState.fields[0]?.id || '',
       activeTab: nextState.activeTab || 'editor',
       currentBackgroundUrl: nextState.currentBackgroundUrl || '',
+      backgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
       uploadedBackgroundUrl: '',
       drag: null,
     };
@@ -2726,6 +2772,14 @@ document.addEventListener('DOMContentLoaded', () => {
           rotation: (Number(selectedField.rotation || 0) + 90) % 360,
         });
       }
+      return;
+    }
+
+    const passPrintRotateBackgroundTrigger = event.target.closest('[data-pass-print-rotate-background]');
+
+    if (passPrintRotateBackgroundTrigger) {
+      passPrintEditorState.backgroundRotation = (normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation) + 90) % 360;
+      syncPassPrintBackgroundPreview();
       return;
     }
 

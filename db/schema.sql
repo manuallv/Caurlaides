@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS events (
   vehicle_gate_api_dedupe_seconds INT UNSIGNED NOT NULL DEFAULT 180,
   pass_print_template_name VARCHAR(160) NULL,
   pass_print_template_background_path VARCHAR(255) NULL,
+  pass_print_template_background_rotation SMALLINT NOT NULL DEFAULT 0,
   pass_print_template_fields_json LONGTEXT NULL,
   pass_print_template_updated_at DATETIME NULL,
   deleted_at DATETIME NULL,

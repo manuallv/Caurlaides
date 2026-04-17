@@ -1,9 +1,11 @@
 <%
+  const backgroundRotation = Number(template.backgroundRotation || 0);
   const passPrintState = JSON.stringify({
     canManage,
     template: {
       name: template.name || '',
       backgroundUrl: template.backgroundUrl || '',
+      backgroundRotation,
       fields: template.fields || [],
     },
     variables: variableDefinitions || [],
@@ -53,6 +55,7 @@
         >
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <input type="hidden" name="templateFields" value="" data-pass-print-fields-input />
+          <input type="hidden" name="backgroundRotation" value="<%= backgroundRotation %>" data-pass-print-background-rotation-input />
 
           <div class="pass-print-toolbar">
             <div>
@@ -86,6 +89,13 @@
               <span><%= t('passPrint.editor.removeBackground') %></span>
             </label>
 
+            <div class="pass-print-toolbar__background-controls">
+              <button type="button" class="btn-secondary w-full" data-pass-print-rotate-background <%= canManage ? '' : 'disabled' %>>
+                <%= t('passPrint.editor.rotateBackground90') %>
+              </button>
+              <span class="pass-print-toolbar__rotation-chip" data-pass-print-background-rotation-value><%= backgroundRotation %>°</span>
+            </div>
+
             <% if (canManage) { %>
               <div class="pass-print-toolbar__save">
                 <button type="submit" class="btn-primary w-full"><%= t('passPrint.editor.saveTemplate') %></button>
@@ -108,8 +118,12 @@
                   <div
                     class="pass-print-page<%= template.backgroundUrl ? ' has-background' : '' %>"
                     data-pass-print-page
-                    style="<%= template.backgroundUrl ? `background-image: url('${template.backgroundUrl}')` : '' %>"
                   >
+                    <div
+                      class="pass-print-page__background<%= template.backgroundUrl ? ' is-active' : '' %>"
+                      data-pass-print-background-layer
+                      style="<%= template.backgroundUrl ? `background-image: url('${template.backgroundUrl}'); --pass-print-background-rotation:${backgroundRotation}deg; --pass-print-background-scale:${backgroundRotation % 180 === 0 ? 1 : (297 / 210)};` : '' %>"
+                    ></div>
                     <div class="pass-print-page__grid"></div>
                     <div class="pass-print-page__fields" data-pass-print-field-layer></div>
                     <div class="pass-print-page__empty<%= template.fields.length ? ' hidden' : '' %>" data-pass-print-empty-state>
