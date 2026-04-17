@@ -37,6 +37,7 @@ function errorHandler(error, req, res, next) {
     statusCode,
     message,
     currentUser: req.currentUser || null,
+    isSuperAdmin: false,
     activeEvent: null,
     isPublicPortal: false,
     currentPath: req.originalUrl || '',

@@ -940,6 +940,37 @@ document.addEventListener('DOMContentLoaded', () => {
     syncPassPrintFieldsInput();
   };
 
+  const submitPassPrintForm = async (form) => {
+    const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch(form.action, {
+        method: (form.method || 'POST').toUpperCase(),
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-Token': csrfValue,
+        },
+        credentials: 'same-origin',
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed');
+      }
+
+      if (payload?.message) {
+        showLiveNotice(payload.message, 'success');
+      }
+
+      window.location.href = payload?.redirectTo || response.url || window.location.href;
+    } catch (error) {
+      showLiveNotice(error.message || 'Request failed', 'error');
+    }
+  };
+
   const copyTextToClipboard = async (value) => {
     const text = String(value || '').trim();
 
@@ -3063,6 +3094,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (form.matches('[data-check-form]')) {
       event.preventDefault();
       await submitCheckForm(form, event.submitter);
+      return;
+    }
+
+    if (form.matches('[data-pass-print-form]')) {
+      event.preventDefault();
+      await submitPassPrintForm(form);
       return;
     }
 

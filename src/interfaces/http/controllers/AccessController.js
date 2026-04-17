@@ -496,9 +496,24 @@ function buildAccessController({ categoryService, accessService }) {
           req.t,
         );
 
+        if (isAsyncRequest(req)) {
+          return res.json({
+            success: true,
+            message: req.t('flash.passPrintTemplateSaved'),
+            redirectTo: `/events/${req.params.eventId}/passes/print`,
+          });
+        }
+
         req.flash('success', req.t('flash.passPrintTemplateSaved'));
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
+          if (isAsyncRequest(req)) {
+            return res.status(error.statusCode || 422).json({
+              success: false,
+              error: error.message,
+            });
+          }
+
           req.flash('error', error.message);
           return res.redirect(`/events/${req.params.eventId}/passes/print`);
         }
