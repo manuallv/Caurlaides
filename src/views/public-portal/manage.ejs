@@ -104,25 +104,30 @@
                 data-portal-table-search
               />
             </div>
-            <div class="portal-table-sort">
-              <label class="sr-only" for="portal-table-sort"><%= t('portal.sort.label') %></label>
-              <select id="portal-table-sort" class="field-input" data-portal-table-sort>
-                <option value="updated"><%= t('portal.sort.updated') %></option>
-                <option value="name"><%= t('portal.sort.name') %></option>
-                <option value="email"><%= t('portal.sort.email') %></option>
-                <option value="phone"><%= t('portal.sort.phone') %></option>
-                <option value="company"><%= t('portal.sort.company') %></option>
-                <option value="category"><%= t('portal.sort.category') %></option>
-                <option value="status"><%= t('portal.sort.status') %></option>
-              </select>
-              <button type="button" class="btn-secondary portal-sort-direction" data-portal-sort-direction>
-                <span data-portal-sort-direction-label><%= t('portal.sort.directionDesc') %></span>
-              </button>
-            </div>
-            <div class="portal-table-tabs">
-              <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
-              <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
-              <button type="button" class="portal-tab-button" data-portal-tab data-tab="pass"><%= t('portal.tabs.passes') %></button>
+            <div class="portal-table-controls">
+              <div class="portal-table-sort-card">
+                <p class="portal-table-toolbar-label"><%= t('portal.sort.label') %></p>
+                <div class="portal-table-sort">
+                  <label class="sr-only" for="portal-table-sort"><%= t('portal.sort.label') %></label>
+                  <select id="portal-table-sort" class="field-input" data-portal-table-sort>
+                    <option value="updated"><%= t('portal.sort.updated') %></option>
+                    <option value="name"><%= t('portal.sort.name') %></option>
+                    <option value="email"><%= t('portal.sort.email') %></option>
+                    <option value="phone"><%= t('portal.sort.phone') %></option>
+                    <option value="company"><%= t('portal.sort.company') %></option>
+                    <option value="category"><%= t('portal.sort.category') %></option>
+                    <option value="status"><%= t('portal.sort.status') %></option>
+                  </select>
+                  <button type="button" class="btn-secondary portal-sort-direction" data-portal-sort-direction>
+                    <span data-portal-sort-direction-label><%= t('portal.sort.directionDesc') %></span>
+                  </button>
+                </div>
+              </div>
+              <div class="portal-table-tabs">
+                <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
+                <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
+                <button type="button" class="portal-tab-button" data-portal-tab data-tab="pass"><%= t('portal.tabs.passes') %></button>
+              </div>
             </div>
           </div>
 
