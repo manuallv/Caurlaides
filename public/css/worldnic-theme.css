@@ -3370,17 +3370,21 @@ body.portal-modal-open {
 
 .pass-print-tabs {
   display: inline-flex;
-  gap: 0.65rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
+  padding: 0.25rem;
+  border-radius: 0.95rem;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .pass-print-tab {
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: #f8fafc;
+  border: 1px solid transparent;
+  background: transparent;
   color: #475569;
-  border-radius: 999px;
-  padding: 0.8rem 1.15rem;
-  font-size: 0.95rem;
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   transition: all 0.18s ease;
 }
@@ -3390,7 +3394,7 @@ body.portal-modal-open {
   background: linear-gradient(135deg, #38bdf8, #2563eb);
   color: #ffffff;
   border-color: transparent;
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.16);
 }
 
 .pass-print-toolbar {
