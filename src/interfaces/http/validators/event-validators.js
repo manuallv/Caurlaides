@@ -76,6 +76,16 @@ const memberRoleValidator = [
     .withMessage((value, { req }) => req.t('validation.member.role')),
 ];
 
+const vehicleGateApiSettingsValidator = [
+  body('mode')
+    .isIn(['decision', 'entry', 'exit'])
+    .withMessage((value, { req }) => req.t('validation.vehicleGateApi.mode')),
+  body('dedupeSeconds')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 0, max: 3600 })
+    .withMessage((value, { req }) => req.t('validation.vehicleGateApi.dedupeSeconds', { min: 0, max: 3600 })),
+];
+
 const categoryValidator = [
   body('type')
     .isIn(['pass', 'wristband'])
@@ -257,6 +267,45 @@ const externalVehicleEntryValidator = [
     .withMessage((value, { req }) => req.t('validation.vehicleEntry.source', { max: 80 })),
 ];
 
+const externalVehicleDecisionValidator = [
+  body('vehiclePlate')
+    .custom((value, { req }) => {
+      const candidate = String(
+        req.body.vehiclePlate
+        || req.body.vehicle_plate
+        || req.body.plate
+        || req.body.normalizedPlate
+        || req.body.normalized_plate
+        || '',
+      ).trim();
+
+      if (candidate.length < 2 || candidate.length > 20) {
+        throw new Error(req.t('validation.portal.vehiclePlateLength', { min: 2, max: 20 }));
+      }
+
+      return true;
+    }),
+  body('direction')
+    .optional({ values: 'falsy' })
+    .isIn(['entry', 'exit'])
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.direction')),
+  body('gateName')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.gateName', { max: 120 })),
+  body('camera_name')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.gateName', { max: 120 })),
+  body('source')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 80 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.source', { max: 80 })),
+];
+
 const publicVehicleCheckValidator = [
   body('vehiclePlate')
     .trim()
@@ -280,6 +329,7 @@ module.exports = {
   categoryValidator,
   categoryUpdateValidator,
   eventValidator,
+  externalVehicleDecisionValidator,
   externalVehicleEntryValidator,
   memberRoleValidator,
   memberValidator,
@@ -288,4 +338,5 @@ module.exports = {
   portalRequestValidator,
   requestProfileValidator,
   requestStatusValidator,
+  vehicleGateApiSettingsValidator,
 };

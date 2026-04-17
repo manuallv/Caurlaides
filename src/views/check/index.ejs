@@ -11,39 +11,6 @@
   data-check-recent-empty-label="<%= t('check.recentEmpty') %>"
   data-check-not-set="<%= t('common.notSet') %>"
 >
-  <div class="shell-card p-6 sm:p-8">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="worldnic-eyebrow"><%= t('nav.vehicleCheck') %></p>
-        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900"><%= t('check.title') %></h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">
-          <%= t(publicVehicleCheckMode ? 'check.publicDescription' : 'check.description') %>
-        </p>
-      </div>
-    </div>
-
-    <% if (eventPickerVisible && !events.length) { %>
-      <div class="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500">
-        <%= t('check.noEvents') %>
-      </div>
-    <% } else if (eventPickerVisible) { %>
-      <form action="/check" method="GET" class="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <div>
-          <label class="field-label"><%= t('check.event') %></label>
-          <select name="eventId" class="field-input">
-            <% events.forEach((event) => { %>
-              <option value="<%= event.id %>" <%= Number(selectedEvent?.id || 0) === Number(event.id) ? 'selected' : '' %>><%= event.name %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="flex items-end">
-          <button type="submit" class="btn-secondary"><%= t('check.openEvent') %></button>
-        </div>
-      </form>
-    <% } %>
-  </div>
-
   <% if (selectedEvent) { %>
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
       <div class="shell-card p-6 sm:p-8 check-form-card">

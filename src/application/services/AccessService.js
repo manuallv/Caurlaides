@@ -2032,6 +2032,143 @@ class AccessService {
     );
   }
 
+  async checkVehicleAccess(payload, t, options = {}) {
+    const tx = resolveTranslate(t);
+    const eventId = Number(payload.eventId);
+    const vehiclePlate = formatVehiclePlate(payload.vehiclePlate);
+    const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
+
+    if (!vehiclePlateNormalized) {
+      throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    if (options.actorId) {
+      await this.eventService.getEventAccessOrFail(eventId, options.actorId, tx);
+    }
+
+    const matches = await this.requestRepository.listPassesByVehiclePlate(eventId, vehiclePlateNormalized);
+
+    if (!matches.length) {
+      return {
+        eventId,
+        allowed: false,
+        decision: 'denied',
+        reason: 'not_found',
+        checkedPlate: vehiclePlate,
+        message: tx('service.vehicleEntry.notFound'),
+        request: null,
+        currentPresence: 'unknown',
+      };
+    }
+
+    if (matches.length > 1) {
+      return {
+        eventId,
+        allowed: false,
+        decision: 'denied',
+        reason: 'multiple_matches',
+        checkedPlate: vehiclePlate,
+        message: tx('service.vehicleEntry.multipleMatches'),
+        request: null,
+        currentPresence: 'unknown',
+      };
+    }
+
+    const request = await this.requestRepository.findById('pass', matches[0].id);
+
+    return {
+      eventId,
+      allowed: true,
+      decision: 'success',
+      reason: null,
+      checkedPlate: request?.vehicle_plate || vehiclePlate,
+      message: tx('service.vehicleEntry.allowed'),
+      request,
+      currentPresence: resolveVehiclePresenceStatus(request),
+    };
+  }
+
+  async processVehicleGateDecision(apiToken, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getVehicleGateApiEventOrFail(apiToken, tx);
+    const decisionResult = await this.checkVehicleAccess(
+      {
+        eventId: Number(event.id),
+        vehiclePlate: payload.vehiclePlate,
+      },
+      tx,
+    );
+    const configuredMode = ['entry', 'exit'].includes(event.vehicle_gate_api_mode)
+      ? event.vehicle_gate_api_mode
+      : 'decision';
+    const requestedDirection = payload.direction === 'entry' || payload.direction === 'exit'
+      ? payload.direction
+      : configuredMode;
+    const shouldRecordMovement = decisionResult.allowed && ['entry', 'exit'].includes(requestedDirection);
+
+    if (!shouldRecordMovement || !decisionResult.request) {
+      return {
+        ...decisionResult,
+        eventId: Number(event.id),
+        movement: {
+          mode: requestedDirection,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+        },
+      };
+    }
+
+    const latestMovement = await this.requestRepository.findLatestPassVehicleMovement(decisionResult.request.id);
+    const dedupeSeconds = Math.max(0, Number(event.vehicle_gate_api_dedupe_seconds || 180));
+    const latestMovementTs = latestMovement?.created_at ? new Date(latestMovement.created_at).getTime() : 0;
+    const shouldDeduplicate = Boolean(
+      latestMovement
+      && latestMovement.direction === requestedDirection
+      && dedupeSeconds > 0
+      && latestMovementTs > 0
+      && (Date.now() - latestMovementTs) < dedupeSeconds * 1000
+    );
+
+    if (shouldDeduplicate) {
+      return {
+        ...decisionResult,
+        eventId: Number(event.id),
+        movement: {
+          mode: requestedDirection,
+          recorded: false,
+          deduplicated: true,
+          performedAt: latestMovement.created_at || null,
+        },
+      };
+    }
+
+    const entryResult = await this.registerVehicleEntry(
+      {
+        eventId: Number(event.id),
+        vehiclePlate: decisionResult.checkedPlate,
+        direction: requestedDirection,
+        gateName: payload.gateName,
+        source: payload.source || 'external-gate-api',
+        metadata: payload.metadata,
+      },
+      tx,
+    );
+
+    return {
+      ...decisionResult,
+      eventId: Number(event.id),
+      request: entryResult.request,
+      currentPresence: entryResult.currentPresence,
+      movement: {
+        mode: requestedDirection,
+        recorded: true,
+        deduplicated: false,
+        performedAt: entryResult.performedAt || null,
+      },
+    };
+  }
+
   async registerPublicVehicleCheck(publicToken, payload, t) {
     const event = await this.eventService.getPublicVehicleCheckEventOrFail(publicToken, t);
 

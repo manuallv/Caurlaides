@@ -646,6 +646,30 @@ class RequestRepository {
     return rows;
   }
 
+  async findLatestPassVehicleMovement(requestId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          pass_request_id,
+          direction,
+          vehicle_plate,
+          vehicle_plate_normalized,
+          gate_name,
+          source,
+          metadata,
+          created_at
+        FROM pass_request_entry_logs
+        WHERE pass_request_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      `,
+      [requestId],
+    );
+
+    return rows[0] || null;
+  }
+
   async registerPassVehicleMovement(connection, requestId, payload) {
     const metadata = payload.metadata ? JSON.stringify(payload.metadata) : null;
     const [insertResult] = await connection.execute(

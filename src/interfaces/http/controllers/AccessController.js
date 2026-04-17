@@ -61,14 +61,51 @@ function normalizeRequestPayload(body) {
   };
 }
 
+function resolveVehicleEntryMetadata(body) {
+  const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
+    ? { ...body.metadata }
+    : {};
+  const seenAt = String(body.seenAt || body.seen_at || '').trim();
+  const normalizedPlate = String(body.normalizedPlate || body.normalized_plate || '').trim();
+  const cameraName = String(body.cameraName || body.camera_name || '').trim();
+  const confidence = Number(body.confidence);
+  const vehicleConfidence = Number(body.vehicleConfidence || body.vehicle_confidence);
+
+  if (seenAt) {
+    metadata.seenAt = seenAt;
+  }
+
+  if (normalizedPlate) {
+    metadata.normalizedPlate = normalizedPlate;
+  }
+
+  if (cameraName) {
+    metadata.cameraName = cameraName;
+  }
+
+  if (Number.isFinite(confidence)) {
+    metadata.confidence = confidence;
+  }
+
+  if (Number.isFinite(vehicleConfidence)) {
+    metadata.vehicleConfidence = vehicleConfidence;
+  }
+
+  return Object.keys(metadata).length ? metadata : null;
+}
+
 function normalizeVehicleEntryPayload(body) {
   return {
-    eventId: body.eventId ? Number(body.eventId) : null,
-    vehiclePlate: body.vehiclePlate,
+    eventId: body.eventId || body.event_id ? Number(body.eventId || body.event_id) : null,
+    vehiclePlate: body.vehiclePlate
+      || body.vehicle_plate
+      || body.plate
+      || body.normalizedPlate
+      || body.normalized_plate,
     direction: body.direction,
-    gateName: body.gateName,
-    source: body.source,
-    metadata: body.metadata,
+    gateName: body.gateName || body.gate_name || body.cameraName || body.camera_name,
+    source: body.source || body.source_name || null,
+    metadata: resolveVehicleEntryMetadata(body),
   };
 }
 
@@ -228,6 +265,54 @@ function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fal
     ),
     result: buildVehicleCheckResultPayload(req, res, result, fallbackPlate),
     recentMovements: recentMovements.map((movement) => buildVehicleCheckMovementPayload(req, res, movement)),
+  };
+}
+
+function buildVehicleAccessCheckPayload(req, res, result) {
+  const request = result.request || null;
+
+  return {
+    success: true,
+    decision: result.decision,
+    allowed: Boolean(result.allowed),
+    reason: result.reason || null,
+    message: result.message,
+    checkedPlate: result.checkedPlate || '',
+    currentPresence: result.currentPresence || 'unknown',
+    request: request
+      ? {
+        id: Number(request.id),
+        fullName: request.full_name || '',
+        companyName: request.company_name || '',
+        categoryName: request.category_name || '',
+        profileName: request.profile_name || '',
+        vehiclePlate: request.vehicle_plate || result.checkedPlate || '',
+        createdAt: request.created_at || null,
+        createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
+        enteredAt: request.entered_at || null,
+        enteredAtLabel: request.entered_at ? res.locals.helpers.formatDateTime(request.entered_at) : '',
+        lastEntryAt: request.last_entry_at || null,
+        lastEntryAtLabel: request.last_entry_at ? res.locals.helpers.formatDateTime(request.last_entry_at) : '',
+        lastExitAt: request.last_exit_at || null,
+        lastExitAtLabel: request.last_exit_at ? res.locals.helpers.formatDateTime(request.last_exit_at) : '',
+      }
+      : null,
+  };
+}
+
+function buildVehicleGateDecisionPayload(req, res, result) {
+  const base = buildVehicleAccessCheckPayload(req, res, result);
+  const movement = result.movement || {};
+
+  return {
+    ...base,
+    movement: {
+      mode: movement.mode || 'decision',
+      recorded: Boolean(movement.recorded),
+      deduplicated: Boolean(movement.deduplicated),
+      performedAt: movement.performedAt || null,
+      performedAtLabel: movement.performedAt ? res.locals.helpers.formatDateTime(movement.performedAt) : '',
+    },
   };
 }
 
@@ -970,6 +1055,31 @@ function buildAccessController({ categoryService, accessService }) {
             : '',
         },
       });
+    },
+
+    async checkVehicleAccess(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.checkVehicleAccess(payload, req.t);
+
+      return res.json(buildVehicleAccessCheckPayload(req, res, result));
+    },
+
+    async processVehicleGateDecision(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.processVehicleGateDecision(req.params.token, payload, req.t);
+
+      if (result.movement?.recorded && result.request) {
+        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+          req,
+          res,
+          'pass',
+          result.request,
+          null,
+        ));
+        emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      }
+
+      return res.json(buildVehicleGateDecisionPayload(req, res, result));
     },
 
     redirectLegacyPortal(req, res) {

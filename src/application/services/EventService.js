@@ -29,6 +29,22 @@ class EventService {
     return `${env.appUrl.replace(/\/$/, '')}/check/${encodeURIComponent(token)}`;
   }
 
+  buildVehicleCheckApiUrl() {
+    return `${env.appUrl.replace(/\/$/, '')}/api/external/pass-checks`;
+  }
+
+  isVehicleCheckApiConfigured() {
+    return Boolean(env.vehicleEntryApiKey);
+  }
+
+  buildVehicleGateApiUrl(token) {
+    if (!token) {
+      return '';
+    }
+
+    return `${env.appUrl.replace(/\/$/, '')}/api/external/events/${encodeURIComponent(token)}/vehicle-decisions`;
+  }
+
   async generateUniqueVehicleCheckToken() {
     for (let index = 0; index < 12; index += 1) {
       const token = crypto.randomBytes(20).toString('hex');
@@ -40,6 +56,19 @@ class EventService {
     }
 
     throw new Error('Unable to generate a unique vehicle check token');
+  }
+
+  async generateUniqueVehicleGateApiToken() {
+    for (let index = 0; index < 12; index += 1) {
+      const token = crypto.randomBytes(20).toString('hex');
+      const existingEvent = await this.eventRepository.findByVehicleGateApiToken(token);
+
+      if (!existingEvent) {
+        return token;
+      }
+    }
+
+    throw new Error('Unable to generate a unique vehicle gate API token');
   }
 
   async createEvent(actorId, payload, t) {
@@ -184,6 +213,149 @@ class EventService {
     }
 
     return event;
+  }
+
+  async getVehicleGateApiEventOrFail(token, t) {
+    const tx = resolveTranslate(t);
+    const normalizedToken = String(token || '').trim();
+
+    if (!normalizedToken) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    const event = await this.eventRepository.findByVehicleGateApiToken(normalizedToken);
+
+    if (!event) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    return event;
+  }
+
+  async updateVehicleGateApiConfig(eventId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const currentEvent = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(currentEvent.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const mode = ['decision', 'entry', 'exit'].includes(payload.mode) ? payload.mode : 'decision';
+    const dedupeSeconds = Math.max(0, Math.min(3600, Number(payload.dedupeSeconds || 180)));
+    const token = currentEvent.vehicle_gate_api_token || await this.generateUniqueVehicleGateApiToken();
+    const generatedToken = !currentEvent.vehicle_gate_api_token;
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleGateApiConfig(connection, eventId, {
+        token,
+        mode,
+        dedupeSeconds,
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'event',
+          entityId: eventId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiUpdated', {
+            name: currentEvent.name,
+          }),
+          beforeState: {
+            hasVehicleGateApiToken: Boolean(currentEvent.vehicle_gate_api_token),
+            vehicleGateApiMode: currentEvent.vehicle_gate_api_mode || 'decision',
+            vehicleGateApiDedupeSeconds: Number(currentEvent.vehicle_gate_api_dedupe_seconds || 180),
+          },
+          afterState: {
+            hasVehicleGateApiToken: true,
+            vehicleGateApiMode: mode,
+            vehicleGateApiDedupeSeconds: dedupeSeconds,
+            generatedToken,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiUpdated', {
+            name: currentEvent.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const event = await this.eventRepository.findAccessibleById(eventId, actorId);
+
+    return {
+      event,
+      generatedToken,
+      endpointUrl: this.buildVehicleGateApiUrl(token),
+    };
+  }
+
+  async regenerateVehicleGateApi(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const currentEvent = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(currentEvent.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const token = await this.generateUniqueVehicleGateApiToken();
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleGateApiConfig(connection, eventId, {
+        token,
+        mode: currentEvent.vehicle_gate_api_mode || 'decision',
+        dedupeSeconds: Number(currentEvent.vehicle_gate_api_dedupe_seconds || 180),
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'event',
+          entityId: eventId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiRegenerated', {
+            name: currentEvent.name,
+          }),
+          beforeState: {
+            hasVehicleGateApiToken: Boolean(currentEvent.vehicle_gate_api_token),
+          },
+          afterState: {
+            hasVehicleGateApiToken: true,
+            regenerated: true,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiRegenerated', {
+            name: currentEvent.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const event = await this.eventRepository.findAccessibleById(eventId, actorId);
+
+    return {
+      event,
+      endpointUrl: this.buildVehicleGateApiUrl(token),
+    };
   }
 
   async updateEvent(eventId, actorId, payload, t) {

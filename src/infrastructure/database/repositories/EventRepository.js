@@ -18,6 +18,10 @@ class EventRepository {
           e.wristband_request_deadline,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
           eu.role,
           (
             SELECT COUNT(*)
@@ -166,6 +170,10 @@ class EventRepository {
           e.wristband_request_deadline,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -196,6 +204,10 @@ class EventRepository {
           e.wristband_request_deadline,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
           e.deleted_at,
           e.created_at,
           e.updated_at,
@@ -227,6 +239,10 @@ class EventRepository {
           e.wristband_request_deadline,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -313,6 +329,10 @@ class EventRepository {
           e.wristband_request_deadline,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -337,6 +357,64 @@ class EventRepository {
         WHERE id = ?
       `,
       [token, eventId],
+    );
+  }
+
+  async findByVehicleGateApiToken(token) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          e.id,
+          e.owner_id,
+          e.name,
+          e.description,
+          e.start_date,
+          e.end_date,
+          e.location,
+          e.status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
+          e.deleted_at,
+          e.created_at,
+          e.updated_at
+        FROM events e
+        WHERE e.vehicle_gate_api_token = ?
+          AND e.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [token],
+    );
+
+    return rows[0] || null;
+  }
+
+  async updateVehicleGateApiConfig(connection, eventId, payload) {
+    await connection.execute(
+      `
+        UPDATE events
+        SET
+          vehicle_gate_api_token = ?,
+          vehicle_gate_api_token_created_at = CASE
+            WHEN vehicle_gate_api_token <=> ? THEN vehicle_gate_api_token_created_at
+            ELSE NOW()
+          END,
+          vehicle_gate_api_mode = ?,
+          vehicle_gate_api_dedupe_seconds = ?
+        WHERE id = ?
+      `,
+      [
+        payload.token,
+        payload.token,
+        payload.mode,
+        payload.dedupeSeconds,
+        eventId,
+      ],
     );
   }
 }

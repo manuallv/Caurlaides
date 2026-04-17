@@ -11,6 +11,7 @@ const {
   memberValidator,
   requestProfileValidator,
   requestStatusValidator,
+  vehicleGateApiSettingsValidator,
   publicVehicleCheckValidator,
 } = require('../validators/event-validators');
 
@@ -22,6 +23,14 @@ function buildEventRoutes({ eventController, accessController }) {
 
   router.get('/events/:eventId', requireAuth, asyncHandler(eventController.showDashboard));
   router.post('/events/:eventId/vehicle-check-link', requireAuth, asyncHandler(eventController.generateVehicleCheckLink));
+  router.post(
+    '/events/:eventId/vehicle-gate-api',
+    requireAuth,
+    vehicleGateApiSettingsValidator,
+    validateRequest,
+    asyncHandler(eventController.updateVehicleGateApi),
+  );
+  router.post('/events/:eventId/vehicle-gate-api/regenerate', requireAuth, asyncHandler(eventController.regenerateVehicleGateApi));
   router.get('/events/:eventId/categories', requireAuth, (req, res) =>
     res.redirect(`/events/${req.params.eventId}/wristbands`),
   );

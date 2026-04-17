@@ -1,3 +1,58 @@
+<%
+  const vehicleGateApiMode = ['entry', 'exit'].includes(activeEvent.vehicle_gate_api_mode)
+    ? activeEvent.vehicle_gate_api_mode
+    : 'decision';
+  const vehicleGateApiDedupeSeconds = Number(activeEvent.vehicle_gate_api_dedupe_seconds || 180);
+  const vehicleCheckApiRequestExample = JSON.stringify({
+    plate: 'AB-1234',
+    normalized_plate: 'AB1234',
+    seen_at: '2026-04-17T12:30:00+03:00',
+    camera_name: 'Gate A',
+    confidence: 0.98,
+    vehicle_confidence: 0.97,
+  }, null, 2);
+  const vehicleCheckApiSuccessExample = JSON.stringify({
+    success: true,
+    decision: 'success',
+    allowed: true,
+    reason: null,
+    message: t('service.vehicleEntry.allowed'),
+    checkedPlate: 'AB-1234',
+    currentPresence: vehicleGateApiMode === 'exit' ? 'outside' : 'inside',
+    movement: {
+      mode: vehicleGateApiMode,
+      recorded: vehicleGateApiMode !== 'decision',
+      deduplicated: false,
+    },
+    request: {
+      id: 128,
+      fullName: 'Janis Berzins',
+      companyName: 'Acme Logistics',
+      categoryName: 'VIP Parking',
+      profileName: 'Partners',
+      vehiclePlate: 'AB-1234',
+      createdAt: '2026-04-17T09:30:00.000Z',
+      enteredAt: null,
+      lastEntryAt: '2026-04-17T11:00:00.000Z',
+      lastExitAt: '2026-04-17T11:35:00.000Z',
+    },
+  }, null, 2);
+  const vehicleCheckApiDeniedExample = JSON.stringify({
+    success: true,
+    decision: 'denied',
+    allowed: false,
+    reason: 'not_found',
+    message: t('service.vehicleEntry.notFound'),
+    checkedPlate: 'ZZ-9999',
+    currentPresence: 'unknown',
+    movement: {
+      mode: vehicleGateApiMode,
+      recorded: false,
+      deduplicated: false,
+    },
+    request: null,
+  }, null, 2);
+%>
 <section class="space-y-6">
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" data-live-section="event-dashboard-summary">
     <div class="metric-card">
@@ -64,6 +119,113 @@
             <% } %>
           </div>
         </div>
+
+        <div class="shell-card overflow-hidden" id="vehicle-check-api">
+          <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 class="text-xl font-bold text-slate-900"><%= t('event.vehicleCheckApiTitle') %></h2>
+                <p class="mt-1 text-sm text-slate-500"><%= t('event.vehicleCheckApiDescription') %></p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold <%= vehicleCheckApiConfigured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' %>">
+                  <%= t(vehicleCheckApiConfigured ? 'event.vehicleCheckApiStatusConfigured' : 'event.vehicleCheckApiStatusMissing') %>
+                </span>
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold <%= vehicleCheckApiUrl ? 'bg-slate-100 text-slate-700' : 'bg-slate-100 text-slate-500' %>">
+                  <%= t(vehicleCheckApiUrl ? 'event.vehicleCheckApiEventScoped' : 'event.vehicleCheckApiNotGenerated') %>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4 px-5 py-5 sm:px-6">
+            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
+              <div>
+                <label class="field-label"><%= t('event.vehicleCheckApiEndpoint') %></label>
+                <input
+                  type="text"
+                  class="field-input font-mono text-[0.76rem]"
+                  value="<%= vehicleCheckApiUrl || '' %>"
+                  placeholder="<%= t('event.vehicleCheckApiEndpointEmpty') %>"
+                  readonly
+                  onclick="this.select()"
+                />
+              </div>
+
+              <% if (vehicleCheckApiUrl) { %>
+                <form action="/events/<%= activeEvent.id %>/vehicle-gate-api/regenerate" method="POST" class="flex items-end">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-secondary w-full sm:w-auto"><%= t('event.vehicleCheckApiRegenerate') %></button>
+                </form>
+              <% } %>
+            </div>
+
+            <form action="/events/<%= activeEvent.id %>/vehicle-gate-api" method="POST" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px_auto]">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+              <div>
+                <label class="field-label" for="vehicle-gate-api-mode"><%= t('event.vehicleCheckApiMode') %></label>
+                <select id="vehicle-gate-api-mode" name="mode" class="field-input">
+                  <option value="decision" <%= vehicleGateApiMode === 'decision' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeDecision') %></option>
+                  <option value="entry" <%= vehicleGateApiMode === 'entry' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeEntry') %></option>
+                  <option value="exit" <%= vehicleGateApiMode === 'exit' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeExit') %></option>
+                </select>
+              </div>
+
+              <div>
+                <label class="field-label" for="vehicle-gate-api-dedupe"><%= t('event.vehicleCheckApiDedupe') %></label>
+                <input
+                  id="vehicle-gate-api-dedupe"
+                  name="dedupeSeconds"
+                  type="number"
+                  min="0"
+                  max="3600"
+                  step="1"
+                  class="field-input"
+                  value="<%= vehicleGateApiDedupeSeconds %>"
+                />
+              </div>
+
+              <div class="flex items-end">
+                <button type="submit" class="btn-primary w-full sm:w-auto">
+                  <%= t(vehicleCheckApiUrl ? 'event.vehicleCheckApiSave' : 'event.vehicleCheckApiGenerate') %>
+                </button>
+              </div>
+            </form>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="panel">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiAuth') %></p>
+                <p class="mt-2 break-all font-mono text-xs text-slate-700">X-API-Key: YOUR_API_KEY</p>
+                <p class="mt-1 break-all font-mono text-xs text-slate-500">Authorization: Bearer YOUR_API_KEY</p>
+                <p class="mt-2 text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiAuthHint') %></p>
+              </div>
+
+              <div class="panel">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">POST</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">/api/external/events/{token}/vehicle-decisions</p>
+                <p class="mt-2 text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiConfigHint') %></p>
+              </div>
+            </div>
+
+            <div class="grid gap-4 xl:grid-cols-3">
+              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiRequest') %></p>
+                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiRequestExample %></pre>
+              </div>
+
+              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiSuccess') %></p>
+                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiSuccessExample %></pre>
+              </div>
+
+              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiDenied') %></p>
+                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiDeniedExample %></pre>
+              </div>
+            </div>
+          </div>
+        </div>
       <% } %>
 
       <div class="shell-card overflow-hidden" data-live-section="event-dashboard-team">
@@ -96,6 +258,21 @@
     <div class="space-y-6">
       <div class="shell-card overflow-hidden">
         <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+          <h2 class="text-xl font-bold text-slate-900"><%= t('event.quickActions') %></h2>
+        </div>
+        <div class="grid gap-3 px-5 py-5 sm:px-6">
+          <a href="/events/<%= activeEvent.id %>/wristbands" class="btn-primary"><%= t('event.manageWristbands') %></a>
+          <a href="/events/<%= activeEvent.id %>/passes" class="btn-secondary"><%= t('event.managePasses') %></a>
+          <% if (canManage) { %>
+            <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('event.manageRequestProfiles') %></a>
+            <a href="/events/<%= activeEvent.id %>/edit" class="btn-secondary"><%= t('event.editSettings') %></a>
+          <% } %>
+          <a href="/events/<%= activeEvent.id %>/activity" class="btn-secondary"><%= t('event.viewAuditHistory') %></a>
+        </div>
+      </div>
+
+      <div class="shell-card overflow-hidden">
+        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
           <h2 class="text-xl font-bold text-slate-900"><%= t('event.teamSnapshot') %></h2>
         </div>
         <div class="space-y-3 px-5 py-5 sm:px-6">
@@ -109,21 +286,6 @@
             </div>
           <% }) %>
           <a href="/events/<%= activeEvent.id %>/members" class="btn-secondary w-full"><%= t('event.manageCollaborators') %></a>
-        </div>
-      </div>
-
-      <div class="shell-card overflow-hidden">
-        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-          <h2 class="text-xl font-bold text-slate-900"><%= t('event.quickActions') %></h2>
-        </div>
-        <div class="grid gap-3 px-5 py-5 sm:px-6">
-          <a href="/events/<%= activeEvent.id %>/wristbands" class="btn-primary"><%= t('event.manageWristbands') %></a>
-          <a href="/events/<%= activeEvent.id %>/passes" class="btn-secondary"><%= t('event.managePasses') %></a>
-          <% if (canManage) { %>
-            <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('event.manageRequestProfiles') %></a>
-            <a href="/events/<%= activeEvent.id %>/edit" class="btn-secondary"><%= t('event.editSettings') %></a>
-          <% } %>
-          <a href="/events/<%= activeEvent.id %>/activity" class="btn-secondary"><%= t('event.viewAuditHistory') %></a>
         </div>
       </div>
 

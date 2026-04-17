@@ -14,6 +14,13 @@ function normalizeEventPayload(body) {
   };
 }
 
+function normalizeVehicleGateApiPayload(body) {
+  return {
+    mode: body.mode,
+    dedupeSeconds: body.dedupeSeconds ? Number(body.dedupeSeconds) : 180,
+  };
+}
+
 function buildEventController({ eventService, auditLogService }) {
   return {
     showCreateForm(req, res) {
@@ -46,6 +53,8 @@ function buildEventController({ eventService, auditLogService }) {
         recentActivity: data.recentActivity,
         canManage: MANAGEMENT_ROLES.includes(data.event.role),
         vehicleCheckLink: eventService.buildVehicleCheckUrl(data.event.vehicle_check_token),
+        vehicleCheckApiUrl: eventService.buildVehicleGateApiUrl(data.event.vehicle_gate_api_token),
+        vehicleCheckApiConfigured: eventService.isVehicleCheckApiConfigured(),
       });
     },
 
@@ -158,6 +167,31 @@ function buildEventController({ eventService, auditLogService }) {
         req.t(result.hadExistingLink ? 'flash.vehicleCheckLinkRegenerated' : 'flash.vehicleCheckLinkGenerated'),
       );
       return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
+    },
+
+    async updateVehicleGateApi(req, res) {
+      await eventService.updateVehicleGateApiConfig(
+        req.params.eventId,
+        req.currentUser.id,
+        normalizeVehicleGateApiPayload(req.body),
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleGateApiSaved'));
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-api`);
+    },
+
+    async regenerateVehicleGateApi(req, res) {
+      await eventService.regenerateVehicleGateApi(req.params.eventId, req.currentUser.id, req.t);
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleGateApiRegenerated'));
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-api`);
     },
   };
 }
