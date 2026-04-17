@@ -128,10 +128,16 @@ function normalizePassPrintTemplateFields(rawFields) {
       const x = Number(rawField?.x);
       const y = Number(rawField?.y);
       const fontSize = Number(rawField?.fontSize);
+      const width = Number(rawField?.width);
+      const rotation = Number(rawField?.rotation);
 
       if (!PASS_PRINT_FIELD_TYPE_SET.has(type)) {
         return null;
       }
+
+      const normalizedRotation = Number.isFinite(rotation)
+        ? ((((Math.round(rotation / 90) * 90) % 360) + 360) % 360)
+        : 0;
 
       return {
         id: rawField?.id ? String(rawField.id).trim().slice(0, 80) : `field-${index + 1}`,
@@ -139,6 +145,8 @@ function normalizePassPrintTemplateFields(rawFields) {
         x: Number.isFinite(x) ? Math.min(Math.max(x, 0), 0.96) : 0.15,
         y: Number.isFinite(y) ? Math.min(Math.max(y, 0), 0.96) : 0.15,
         fontSize: Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 64) : 18,
+        width: Number.isFinite(width) ? Math.min(Math.max(width, 0.08), 0.9) : 0.24,
+        rotation: normalizedRotation,
       };
     })
     .filter(Boolean);
@@ -249,15 +257,25 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
 
         const x = Math.max(0, Math.min(document.page.width - 24, document.page.width * Number(field.x || 0)));
         const y = Math.max(0, Math.min(document.page.height - 24, document.page.height * Number(field.y || 0)));
+        const textWidth = Math.max(48, document.page.width * Number(field.width || 0.24));
+        const rotation = Number(field.rotation || 0);
+
+        document.save();
+        document.translate(x, y);
+
+        if (rotation) {
+          document.rotate(rotation, { origin: [0, 0] });
+        }
 
         document
           .font('Helvetica')
           .fontSize(Number(field.fontSize || 18))
           .fillColor('#0f172a')
-          .text(String(value), x, y, {
-            width: Math.max(48, document.page.width - x - 18),
+          .text(String(value), 0, 0, {
+            width: textWidth,
             lineBreak: false,
           });
+        document.restore();
       });
     });
 

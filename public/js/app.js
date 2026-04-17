@@ -535,6 +535,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       app,
       stateScript: document.getElementById(stateScriptId),
+      tabs: [...document.querySelectorAll('[data-pass-print-tab]')],
+      panels: [...document.querySelectorAll('[data-pass-print-panel]')],
       form: document.querySelector('[data-pass-print-form]'),
       fieldsInput: document.querySelector('[data-pass-print-fields-input]'),
       page: document.querySelector('[data-pass-print-page]'),
@@ -544,9 +546,12 @@ document.addEventListener('DOMContentLoaded', () => {
       inspectorTitle: document.querySelector('[data-pass-print-inspector-title]'),
       fieldType: document.querySelector('[data-pass-print-field-type]'),
       fieldFontSize: document.querySelector('[data-pass-print-field-font-size]'),
+      fieldWidth: document.querySelector('[data-pass-print-field-width]'),
       positionX: document.querySelector('[data-pass-print-field-position-x]'),
       positionY: document.querySelector('[data-pass-print-field-position-y]'),
+      rotationValue: document.querySelector('[data-pass-print-field-rotation]'),
       removeFieldButton: document.querySelector('[data-pass-print-remove-field]'),
+      rotateFieldButton: document.querySelector('[data-pass-print-rotate-field]'),
       backgroundInput: document.querySelector('[data-pass-print-background-input]'),
       removeBackgroundInput: document.querySelector('[data-pass-print-remove-background]'),
     };
@@ -557,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fields: [],
     variables: [],
     selectedId: '',
+    activeTab: 'editor',
     currentBackgroundUrl: '',
     uploadedBackgroundUrl: '',
     drag: null,
@@ -577,6 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fields: Array.isArray(parsed.template?.fields) ? parsed.template.fields : [],
         variables: Array.isArray(parsed.variables) ? parsed.variables : [],
         currentBackgroundUrl: parsed.template?.backgroundUrl || '',
+        activeTab: 'editor',
       };
     } catch (error) {
       return null;
@@ -601,8 +608,26 @@ document.addEventListener('DOMContentLoaded', () => {
         x: Number(field.x || 0),
         y: Number(field.y || 0),
         fontSize: Number(field.fontSize || 18),
+        width: Number(field.width || 0.24),
+        rotation: Number(field.rotation || 0),
       })),
     );
+  };
+
+  const setPassPrintTab = (tabName = 'editor') => {
+    const { tabs, panels } = getPassPrintElements();
+    const nextTab = tabName === 'print' ? 'print' : 'editor';
+
+    passPrintEditorState.activeTab = nextTab;
+
+    tabs.forEach((tab) => {
+      tab.classList.toggle('is-active', tab.dataset.passPrintTab === nextTab);
+    });
+
+    panels.forEach((panel) => {
+      const isActive = panel.dataset.passPrintPanel === nextTab;
+      panel.classList.toggle('hidden', !isActive);
+    });
   };
 
   const syncPassPrintBackgroundPreview = () => {
@@ -632,9 +657,10 @@ document.addEventListener('DOMContentLoaded', () => {
         type="button"
         class="pass-print-field${field.id === passPrintEditorState.selectedId ? ' is-active' : ''}"
         data-pass-print-field-id="${escapeHtml(field.id || '')}"
-        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;font-size:${Number(field.fontSize || 18)}px;"
+        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;font-size:${Number(field.fontSize || 18)}px;--pass-print-rotation:${Number(field.rotation || 0)}deg;"
       >
         <span>${escapeHtml(getPassPrintVariableLabel(field.type))}</span>
+        <span class="pass-print-field__resize" data-pass-print-field-resize="${escapeHtml(field.id || '')}"></span>
       </button>
     `).join('');
 
@@ -649,9 +675,12 @@ document.addEventListener('DOMContentLoaded', () => {
       inspectorTitle,
       fieldType,
       fieldFontSize,
+      fieldWidth,
       positionX,
       positionY,
+      rotationValue,
       removeFieldButton,
+      rotateFieldButton,
     } = getPassPrintElements();
 
     if (!app) {
@@ -681,6 +710,11 @@ document.addEventListener('DOMContentLoaded', () => {
       fieldFontSize.value = hasSelection ? Number(selectedField.fontSize || 18) : '';
     }
 
+    if (fieldWidth) {
+      fieldWidth.disabled = !canEdit;
+      fieldWidth.value = hasSelection ? Math.round(Number(selectedField.width || 0.24) * 100) : '';
+    }
+
     if (positionX) {
       positionX.textContent = hasSelection ? `${Math.round(Number(selectedField.x || 0) * 100)}%` : '0%';
     }
@@ -689,8 +723,16 @@ document.addEventListener('DOMContentLoaded', () => {
       positionY.textContent = hasSelection ? `${Math.round(Number(selectedField.y || 0) * 100)}%` : '0%';
     }
 
+    if (rotationValue) {
+      rotationValue.textContent = hasSelection ? `${Number(selectedField.rotation || 0)}°` : '0°';
+    }
+
     if (removeFieldButton) {
       removeFieldButton.disabled = !canEdit;
+    }
+
+    if (rotateFieldButton) {
+      rotateFieldButton.disabled = !canEdit;
     }
   };
 
@@ -734,6 +776,8 @@ document.addEventListener('DOMContentLoaded', () => {
       x: Math.min(0.18 + (nextIndex % 4) * 0.08, 0.78),
       y: Math.min(0.12 + Math.floor(nextIndex / 4) * 0.07, 0.88),
       fontSize: 18,
+      width: 0.24,
+      rotation: 0,
     };
 
     passPrintEditorState.fields.push(field);
@@ -772,8 +816,30 @@ document.addEventListener('DOMContentLoaded', () => {
     passPrintEditorState.drag = {
       fieldId,
       pointerId: pointerEvent.pointerId,
+      mode: 'move',
       offsetX: pointerEvent.clientX - (rect.left + rect.width * Number(selectedField.x || 0)),
       offsetY: pointerEvent.clientY - (rect.top + rect.height * Number(selectedField.y || 0)),
+    };
+  };
+
+  const startPassPrintFieldResize = (pointerEvent, fieldId) => {
+    const { page } = getPassPrintElements();
+    const selectedField = passPrintEditorState.fields.find((field) => field.id === fieldId);
+
+    if (!page || !selectedField || !passPrintEditorState.canManage) {
+      return;
+    }
+
+    pointerEvent.preventDefault();
+    pointerEvent.stopPropagation();
+
+    const rect = page.getBoundingClientRect();
+
+    passPrintEditorState.drag = {
+      fieldId,
+      pointerId: pointerEvent.pointerId,
+      mode: 'resize',
+      originX: rect.left + rect.width * Number(selectedField.x || 0),
     };
   };
 
@@ -786,6 +852,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rect = page.getBoundingClientRect();
+
+    if (dragState.mode === 'resize') {
+      const width = (pointerEvent.clientX - dragState.originX) / rect.width;
+
+      upsertSelectedPassPrintField({
+        width: Math.min(Math.max(width, 0.08), 0.9),
+      });
+      return;
+    }
+
     const x = (pointerEvent.clientX - rect.left - dragState.offsetX) / rect.width;
     const y = (pointerEvent.clientY - rect.top - dragState.offsetY) / rect.height;
 
@@ -846,14 +922,18 @@ document.addEventListener('DOMContentLoaded', () => {
         x: Number(field.x || 0),
         y: Number(field.y || 0),
         fontSize: Number(field.fontSize || 18),
+        width: Number(field.width || 0.24),
+        rotation: Number(field.rotation || 0),
       })),
       variables: nextState.variables,
       selectedId: nextState.fields[0]?.id || '',
+      activeTab: nextState.activeTab || 'editor',
       currentBackgroundUrl: nextState.currentBackgroundUrl || '',
       uploadedBackgroundUrl: '',
       drag: null,
     };
 
+    setPassPrintTab(passPrintEditorState.activeTab);
     syncPassPrintBackgroundPreview();
     renderPassPrintFields();
     syncPassPrintInspector();
@@ -2579,6 +2659,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
+    const passPrintTabTrigger = event.target.closest('[data-pass-print-tab]');
+
+    if (passPrintTabTrigger) {
+      setPassPrintTab(passPrintTabTrigger.dataset.passPrintTab || 'editor');
+      return;
+    }
+
     const passPrintAddTrigger = event.target.closest('[data-pass-print-add-field]');
 
     if (passPrintAddTrigger) {
@@ -2590,6 +2677,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (passPrintRemoveTrigger) {
       removeSelectedPassPrintField();
+      return;
+    }
+
+    const passPrintRotateTrigger = event.target.closest('[data-pass-print-rotate-field]');
+
+    if (passPrintRotateTrigger) {
+      const selectedField = passPrintEditorState.fields.find((field) => field.id === passPrintEditorState.selectedId);
+
+      if (selectedField) {
+        upsertSelectedPassPrintField({
+          rotation: (Number(selectedField.rotation || 0) + 90) % 360,
+        });
+      }
       return;
     }
 
@@ -2839,6 +2939,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('pointerdown', (event) => {
+    const passPrintResizeTrigger = event.target.closest('[data-pass-print-field-resize]');
+
+    if (passPrintResizeTrigger) {
+      const fieldId = passPrintResizeTrigger.dataset.passPrintFieldResize || '';
+
+      selectPassPrintField(fieldId);
+      startPassPrintFieldResize(event, fieldId);
+      return;
+    }
+
     const passPrintFieldTrigger = event.target.closest('[data-pass-print-field-id]');
 
     if (!passPrintFieldTrigger) {
@@ -2902,6 +3012,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target.matches('[data-pass-print-field-font-size]')) {
       upsertSelectedPassPrintField({
         fontSize: Number(event.target.value || 18),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-width]')) {
+      upsertSelectedPassPrintField({
+        width: Math.min(Math.max(Number(event.target.value || 24) / 100, 0.08), 0.9),
       });
       return;
     }
