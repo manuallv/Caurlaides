@@ -1007,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     requestForm.reset();
     requestForm.action = isEdit
-      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`
+      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}?_method=PUT`
       : (ui.requestCreateAction || `/events/${eventId}/${accessType}/requests`);
 
     if (requestMethodHolder) {

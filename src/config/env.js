@@ -2,10 +2,15 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+// Keep all server-side date parsing/formatting aligned with the Latvia-facing
+// product, even when the host machine defaults to UTC.
+process.env.TZ = process.env.APP_TIME_ZONE || 'Europe/Riga';
+
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 3000),
   appUrl: process.env.APP_URL || 'http://localhost:3000',
+  timeZone: process.env.TZ,
   sessionSecret: process.env.SESSION_SECRET || 'development-session-secret',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   designAssetsSource: process.env.DESIGN_ASSETS_SOURCE || '',

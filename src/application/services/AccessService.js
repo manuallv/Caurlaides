@@ -1380,13 +1380,17 @@ class AccessService {
     }
 
     const payload = buildRequestPayload(body, portal.profile.name);
-    await this.assertPortalRequestAllowed(portal.profile, type, payload.categoryId, requestId, tx);
+    const normalizedPayload = {
+      ...payload,
+      requestProfileId: portal.profile.id,
+    };
+    await this.assertPortalRequestAllowed(portal.profile, type, normalizedPayload.categoryId, requestId, tx);
 
     const connection = await this.pool.getConnection();
 
     try {
       await connection.beginTransaction();
-      await this.requestRepository.update(connection, type, requestId, payload);
+      await this.requestRepository.update(connection, type, requestId, normalizedPayload);
 
       await this.auditLogService.record(
         {
@@ -1397,13 +1401,13 @@ class AccessService {
           action: 'updated',
           message: translate(DEFAULT_LOCALE, 'audit.message.portalRequestUpdated', {
             type: translate(DEFAULT_LOCALE, `accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
           beforeState: existingRequest,
-          afterState: payload,
+          afterState: normalizedPayload,
           metadata: buildAuditMetadata('audit.message.portalRequestUpdated', {
             type: tx(`accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
         },
         connection,
