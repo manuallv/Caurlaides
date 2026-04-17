@@ -451,6 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'check';
     const formData = new FormData(form);
     const body = new URLSearchParams();
+    const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
 
     formData.forEach((value, key) => {
       body.append(key, value);
@@ -466,6 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'CSRF-Token': csrfValue,
         },
         credentials: 'same-origin',
       });
