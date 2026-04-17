@@ -45,6 +45,7 @@ function buildEventController({ eventService, auditLogService }) {
         members: data.members,
         recentActivity: data.recentActivity,
         canManage: MANAGEMENT_ROLES.includes(data.event.role),
+        vehicleCheckLink: eventService.buildVehicleCheckUrl(data.event.vehicle_check_token),
       });
     },
 
@@ -144,6 +145,19 @@ function buildEventController({ eventService, auditLogService }) {
         activeEvent: event,
         activity,
       });
+    },
+
+    async generateVehicleCheckLink(req, res) {
+      const result = await eventService.generateVehicleCheckLink(req.params.eventId, req.currentUser.id, req.t);
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash(
+        'success',
+        req.t(result.hadExistingLink ? 'flash.vehicleCheckLinkRegenerated' : 'flash.vehicleCheckLinkGenerated'),
+      );
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
     },
   };
 }

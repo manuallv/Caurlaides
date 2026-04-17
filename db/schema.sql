@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS events (
   status ENUM('draft', 'active', 'completed', 'archived') NOT NULL DEFAULT 'draft',
   pass_request_deadline DATETIME NULL,
   wristband_request_deadline DATETIME NULL,
+  vehicle_check_token CHAR(40) NULL,
+  vehicle_check_token_created_at DATETIME NULL,
   deleted_at DATETIME NULL,
   deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -42,6 +44,7 @@ CREATE TABLE IF NOT EXISTS events (
   PRIMARY KEY (id),
   KEY idx_events_owner_id (owner_id),
   KEY idx_events_status (status),
+  UNIQUE KEY uq_events_vehicle_check_token (vehicle_check_token),
   CONSTRAINT fk_events_owner
     FOREIGN KEY (owner_id) REFERENCES users (id)
     ON DELETE RESTRICT

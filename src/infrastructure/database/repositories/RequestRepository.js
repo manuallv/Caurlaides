@@ -608,6 +608,44 @@ class RequestRepository {
     return rows;
   }
 
+  async listPassVehicleMovements(requestId, limit = 100) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          log.id,
+          log.event_id,
+          log.pass_request_id,
+          log.direction,
+          log.vehicle_plate,
+          log.vehicle_plate_normalized,
+          log.gate_name,
+          log.source,
+          log.metadata,
+          log.created_at,
+          request.full_name,
+          request.company_name,
+          request.last_entry_at,
+          request.last_exit_at,
+          request.entered_at,
+          request.status,
+          category.name AS category_name,
+          profile.name AS profile_name
+        FROM pass_request_entry_logs log
+        INNER JOIN pass_requests request ON request.id = log.pass_request_id
+        INNER JOIN pass_categories category ON category.id = request.pass_category_id
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
+        WHERE log.pass_request_id = ?
+          AND request.deleted_at IS NULL
+          AND category.deleted_at IS NULL
+        ORDER BY log.created_at DESC, log.id DESC
+        LIMIT ?
+      `,
+      [requestId, Number(limit)],
+    );
+
+    return rows;
+  }
+
   async registerPassVehicleMovement(connection, requestId, payload) {
     const metadata = payload.metadata ? JSON.stringify(payload.metadata) : null;
     const [insertResult] = await connection.execute(

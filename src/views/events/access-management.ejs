@@ -54,6 +54,13 @@
     data-access-request-edit-title="<%= t('access.modal.editTitle', { type: typeLabel }) %>"
     data-access-request-create-submit="<%= t('access.actions.addRequest', { type: typeLabel }) %>"
     data-access-request-save-submit="<%= t('buttons.save') %>"
+    data-access-history-title="<%= t('access.history.title') %>"
+    data-access-history-loading="<%= t('access.history.loading') %>"
+    data-access-history-empty="<%= t('access.history.empty') %>"
+    data-access-history-error="<%= t('access.history.error') %>"
+    data-access-history-gate-label="<%= t('access.history.gate') %>"
+    data-access-history-source-label="<%= t('access.history.source') %>"
+    data-access-history-button-label="<%= t('access.actions.viewHistory') %>"
   >
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -144,6 +151,9 @@
               <thead>
                 <tr>
                   <th><%= t('access.workspace.person') %></th>
+                  <% if (isPass) { %>
+                    <th><%= t('access.fields.vehiclePlate') %></th>
+                  <% } %>
                   <th><%= t('access.fields.type') %></th>
                   <th><%= t('access.workspace.profile') %></th>
                   <th><%= t('access.workspace.contact') %></th>
@@ -166,15 +176,22 @@
                           <img src="/public/design-assets/icons/feather/users.svg" alt="" />
                           <span><%= request.full_name %></span>
                         </div>
-                        <% if (isPass && request.vehicle_plate) { %>
-                          <p class="access-person-cell__meta"><%= t('access.fields.vehiclePlate') %>: <%= request.vehicle_plate %></p>
-                        <% } else if (request.notes) { %>
+                        <% if (request.notes) { %>
                           <p class="access-person-cell__meta"><%= request.notes %></p>
                         <% } else if (request.email) { %>
                           <p class="access-person-cell__meta"><%= request.email %></p>
+                        <% } else if (request.phone) { %>
+                          <p class="access-person-cell__meta"><%= request.phone %></p>
                         <% } %>
                       </div>
                     </td>
+                    <% if (isPass) { %>
+                      <td>
+                        <div class="access-data-stack">
+                          <strong><%= request.vehicle_plate || t('common.notSet') %></strong>
+                        </div>
+                      </td>
+                    <% } %>
                     <td>
                       <div class="access-data-stack">
                         <strong><%= request.category_name %></strong>
@@ -218,9 +235,28 @@
                     </td>
                     <td>
                       <div class="access-row-actions">
+                        <% if (isPass) { %>
+                          <button
+                            type="button"
+                            class="table-icon-button"
+                            data-access-history-open
+                            data-request-id="<%= request.id %>"
+                            data-request-history-url="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/history"
+                            data-request-full-name="<%= request.full_name %>"
+                            data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
+                            title="<%= t('access.actions.viewHistory') %>"
+                            aria-label="<%= t('access.actions.viewHistory') %>"
+                          >
+                            <svg viewBox="0 0 20 20" aria-hidden="true">
+                              <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z" />
+                              <path d="M10 7v3l2 1.5" />
+                            </svg>
+                          </button>
+                        <% } %>
+
                         <button
                           type="button"
-                          class="access-mini-button access-mini-button--secondary"
+                          class="table-icon-button"
                           data-access-edit-request
                           data-request-id="<%= request.id %>"
                           data-request-profile-id="<%= request.request_profile_id || '' %>"
@@ -231,7 +267,14 @@
                           data-request-email="<%= request.email || '' %>"
                           data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
                           data-request-notes="<%= request.notes || '' %>"
-                        ><%= t('access.actions.editRequest') %></button>
+                          title="<%= t('access.actions.editRequest') %>"
+                          aria-label="<%= t('access.actions.editRequest') %>"
+                        >
+                          <svg viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M13.9 4.6a1.5 1.5 0 0 1 2.1 2.1l-7.5 7.5-3.1.9.9-3.1 7.6-7.4Z" />
+                            <path d="M12.5 6l1.5 1.5" />
+                          </svg>
+                        </button>
 
                         <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -254,6 +297,31 @@
 
         <div class="access-table-footer">
           <span data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+        </div>
+      </div>
+
+      <div class="portal-modal" data-access-history-modal>
+        <button type="button" class="portal-modal__backdrop" data-access-history-close></button>
+        <div class="portal-modal__dialog shell-card">
+          <div class="portal-modal__header">
+            <div class="portal-modal__title-block">
+              <p class="worldnic-eyebrow" data-access-history-eyebrow><%= t('access.history.title') %></p>
+              <h2 data-access-history-title><%= t('access.history.title') %></h2>
+              <p class="mt-2 text-sm text-slate-500" data-access-history-meta></p>
+            </div>
+
+            <button type="button" class="table-icon-button" data-access-history-close aria-label="<%= t('buttons.cancel') %>">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 5l10 10M15 5 5 15" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="access-history-shell">
+            <p class="text-sm text-slate-500" data-access-history-loading><%= t('access.history.loading') %></p>
+            <p class="text-sm text-slate-500" data-access-history-empty hidden><%= t('access.history.empty') %></p>
+            <div class="access-history-list" data-access-history-list></div>
+          </div>
         </div>
       </div>
 

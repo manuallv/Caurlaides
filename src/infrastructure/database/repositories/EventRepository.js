@@ -16,6 +16,8 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
           eu.role,
           (
             SELECT COUNT(*)
@@ -162,6 +164,8 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -190,6 +194,8 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
           e.deleted_at,
           e.created_at,
           e.updated_at,
@@ -219,6 +225,8 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -286,6 +294,49 @@ class EventRepository {
         WHERE event_id = ? AND user_id = ?
       `,
       [eventId, userId],
+    );
+  }
+
+  async findByVehicleCheckToken(token) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          e.id,
+          e.owner_id,
+          e.name,
+          e.description,
+          e.start_date,
+          e.end_date,
+          e.location,
+          e.status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
+          e.deleted_at,
+          e.created_at,
+          e.updated_at
+        FROM events e
+        WHERE e.vehicle_check_token = ?
+          AND e.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [token],
+    );
+
+    return rows[0] || null;
+  }
+
+  async updateVehicleCheckToken(connection, eventId, token) {
+    await connection.execute(
+      `
+        UPDATE events
+        SET
+          vehicle_check_token = ?,
+          vehicle_check_token_created_at = NOW()
+        WHERE id = ?
+      `,
+      [token, eventId],
     );
   }
 }

@@ -590,6 +590,29 @@ class AccessService {
     };
   }
 
+  async getRequestHistory(eventId, actorId, type, requestId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (type !== 'pass') {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    const request = await this.requestRepository.findById(type, requestId);
+
+    if (!request || Number(request.event_id) !== Number(event.id)) {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    const movements = await this.requestRepository.listPassVehicleMovements(requestId, 100);
+
+    return {
+      event,
+      request,
+      movements,
+    };
+  }
+
   async getRequestProfilesPage(eventId, actorId, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
@@ -1240,23 +1263,26 @@ class AccessService {
     };
   }
 
-  async getVehicleCheckPage(actorId, selectedEventId, t) {
+  async getVehicleCheckPage(actorId, eventId, t) {
     const tx = resolveTranslate(t);
-    const events = await this.eventService.listUserEvents(actorId);
-    let selectedEvent = null;
-
-    if (selectedEventId) {
-      selectedEvent = await this.eventService.getEventAccessOrFail(selectedEventId, actorId, tx);
-    } else if (events.length) {
-      selectedEvent = await this.eventService.getEventAccessOrFail(events[0].id, actorId, tx);
-    }
-
-    const recentMovements = selectedEvent
-      ? await this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20)
-      : [];
+    const selectedEvent = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const recentMovements = await this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20);
 
     return {
-      events,
+      selectedEvent,
+      recentMovements: recentMovements.map((movement) => ({
+        ...movement,
+        presence_status: resolveVehiclePresenceStatus(movement),
+      })),
+    };
+  }
+
+  async getPublicVehicleCheckPage(publicToken, t) {
+    const tx = resolveTranslate(t);
+    const selectedEvent = await this.eventService.getPublicVehicleCheckEventOrFail(publicToken, tx);
+    const recentMovements = await this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20);
+
+    return {
       selectedEvent,
       recentMovements: recentMovements.map((movement) => ({
         ...movement,
@@ -2003,6 +2029,21 @@ class AccessService {
       },
       t,
       { actorId },
+    );
+  }
+
+  async registerPublicVehicleCheck(publicToken, payload, t) {
+    const event = await this.eventService.getPublicVehicleCheckEventOrFail(publicToken, t);
+
+    return this.registerVehicleEntry(
+      {
+        eventId: Number(event.id),
+        vehiclePlate: payload.vehiclePlate,
+        direction: payload.direction,
+        gateName: payload.gateName,
+        source: 'public-check-link',
+      },
+      t,
     );
   }
 

@@ -453,19 +453,54 @@ function buildAccessController({ categoryService, accessService }) {
       return res.send(exportFile.buffer);
     },
 
+    async getRequestHistory(req, res) {
+      const type = resolveAccessType(req);
+      const result = await accessService.getRequestHistory(
+        req.params.eventId,
+        req.currentUser.id,
+        type,
+        req.params.requestId,
+        req.t,
+      );
+
+      return res.json({
+        request: {
+          id: Number(result.request.id),
+          fullName: result.request.full_name || '',
+          vehiclePlate: result.request.vehicle_plate || '',
+          companyName: result.request.company_name || '',
+          categoryName: result.request.category_name || '',
+          profileName: result.request.profile_name || '',
+        },
+        movements: result.movements.map((movement) => ({
+          id: Number(movement.id),
+          direction: movement.direction === 'exit' ? 'exit' : 'entry',
+          directionLabel: req.t(movement.direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
+          createdAtLabel: movement.created_at ? res.locals.helpers.formatDateTime(movement.created_at) : '',
+          gateName: movement.gate_name || '',
+          source: movement.source || '',
+          vehiclePlate: movement.vehicle_plate || result.request.vehicle_plate || '',
+        })),
+      });
+    },
+
     async showVehicleCheck(req, res) {
       const data = await accessService.getVehicleCheckPage(
         req.currentUser.id,
-        req.query.eventId,
+        req.params.eventId,
         req.t,
       );
 
       return res.render('check/index', {
-        pageTitle: req.t('check.title'),
+        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        activeEvent: data.selectedEvent,
         selectedEvent: data.selectedEvent,
-        events: data.events,
+        events: [],
         recentMovements: data.recentMovements,
         checkResult: null,
+        checkAction: `/events/${data.selectedEvent.id}/check`,
+        showEventPicker: false,
+        isPublicVehicleCheck: false,
         checkFormValues: {
           vehiclePlate: '',
           gateName: '',
@@ -475,19 +510,76 @@ function buildAccessController({ categoryService, accessService }) {
 
     async submitVehicleCheck(req, res) {
       const payload = normalizeVehicleEntryPayload(req.body);
-      const result = await accessService.registerVehicleCheck(req.currentUser.id, payload, req.t);
+      const result = await accessService.registerVehicleCheck(
+        req.currentUser.id,
+        {
+          ...payload,
+          eventId: Number(req.params.eventId),
+        },
+        req.t,
+      );
       const data = await accessService.getVehicleCheckPage(
         req.currentUser.id,
-        payload.eventId,
+        req.params.eventId,
         req.t,
       );
 
       return res.render('check/index', {
-        pageTitle: req.t('check.title'),
+        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        activeEvent: data.selectedEvent,
         selectedEvent: data.selectedEvent,
-        events: data.events,
+        events: [],
         recentMovements: data.recentMovements,
         checkResult: result,
+        checkAction: `/events/${data.selectedEvent.id}/check`,
+        showEventPicker: false,
+        isPublicVehicleCheck: false,
+        checkFormValues: {
+          vehiclePlate: payload.vehiclePlate || '',
+          gateName: payload.gateName || '',
+        },
+      });
+    },
+
+    async showPublicVehicleCheck(req, res) {
+      const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
+
+      return res.render('check/index', {
+        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        selectedEvent: data.selectedEvent,
+        events: [],
+        recentMovements: data.recentMovements,
+        checkResult: null,
+        checkAction: `/check/${encodeURIComponent(req.params.token)}`,
+        showEventPicker: false,
+        isPublicPortal: true,
+        isPublicVehicleCheck: true,
+        portalPageMode: 'manage',
+        portalHeaderTitle: data.selectedEvent.name,
+        checkFormValues: {
+          vehiclePlate: '',
+          gateName: '',
+        },
+      });
+    },
+
+    async submitPublicVehicleCheck(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.registerPublicVehicleCheck(req.params.token, payload, req.t);
+      const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
+
+      return res.render('check/index', {
+        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        selectedEvent: data.selectedEvent,
+        events: [],
+        recentMovements: data.recentMovements,
+        checkResult: result,
+        checkAction: `/check/${encodeURIComponent(req.params.token)}`,
+        showEventPicker: false,
+        isPublicPortal: true,
+        isPublicVehicleCheck: true,
+        portalPageMode: 'manage',
+        portalHeaderTitle: data.selectedEvent.name,
         checkFormValues: {
           vehiclePlate: payload.vehiclePlate || '',
           gateName: payload.gateName || '',

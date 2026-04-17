@@ -257,6 +257,22 @@ const externalVehicleEntryValidator = [
     .withMessage((value, { req }) => req.t('validation.vehicleEntry.source', { max: 80 })),
 ];
 
+const publicVehicleCheckValidator = [
+  body('vehiclePlate')
+    .trim()
+    .isLength({ min: 2, max: 20 })
+    .withMessage((value, { req }) => req.t('validation.portal.vehiclePlateLength', { min: 2, max: 20 })),
+  body('direction')
+    .optional({ values: 'falsy' })
+    .isIn(['entry', 'exit'])
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.direction')),
+  body('gateName')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.gateName', { max: 120 })),
+];
+
 module.exports = {
   accessTypeParamValidator,
   accessTypeValidator,
@@ -268,6 +284,7 @@ module.exports = {
   memberRoleValidator,
   memberValidator,
   portalCodeValidator,
+  publicVehicleCheckValidator,
   portalRequestValidator,
   requestProfileValidator,
   requestStatusValidator,

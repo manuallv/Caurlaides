@@ -11,6 +11,7 @@ const {
   memberValidator,
   requestProfileValidator,
   requestStatusValidator,
+  publicVehicleCheckValidator,
 } = require('../validators/event-validators');
 
 function buildEventRoutes({ eventController, accessController }) {
@@ -20,6 +21,7 @@ function buildEventRoutes({ eventController, accessController }) {
   router.post('/events', requireAuth, eventValidator, validateRequest, asyncHandler(eventController.create));
 
   router.get('/events/:eventId', requireAuth, asyncHandler(eventController.showDashboard));
+  router.post('/events/:eventId/vehicle-check-link', requireAuth, asyncHandler(eventController.generateVehicleCheckLink));
   router.get('/events/:eventId/categories', requireAuth, (req, res) =>
     res.redirect(`/events/${req.params.eventId}/wristbands`),
   );
@@ -46,6 +48,20 @@ function buildEventRoutes({ eventController, accessController }) {
 
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
   router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
+  router.get(
+    '/events/:eventId/:type/requests/:requestId/history',
+    requireAuth,
+    accessTypeParamValidator,
+    asyncHandler(accessController.getRequestHistory),
+  );
+  router.get('/events/:eventId/check', requireAuth, asyncHandler(accessController.showVehicleCheck));
+  router.post(
+    '/events/:eventId/check',
+    requireAuth,
+    publicVehicleCheckValidator,
+    validateRequest,
+    asyncHandler(accessController.submitVehicleCheck),
+  );
   router.get(
     '/events/:eventId/:type/export',
     requireAuth,

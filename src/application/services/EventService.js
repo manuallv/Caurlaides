@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const { env } = require('../../config/env');
 const { AppError } = require('../../shared/errors/AppError');
 const { EVENT_ROLES, MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
@@ -17,6 +19,27 @@ class EventService {
 
   async listUserEvents(userId) {
     return this.eventRepository.listForUser(userId);
+  }
+
+  buildVehicleCheckUrl(token) {
+    if (!token) {
+      return '';
+    }
+
+    return `${env.appUrl.replace(/\/$/, '')}/check/${encodeURIComponent(token)}`;
+  }
+
+  async generateUniqueVehicleCheckToken() {
+    for (let index = 0; index < 12; index += 1) {
+      const token = crypto.randomBytes(20).toString('hex');
+      const existingEvent = await this.eventRepository.findByVehicleCheckToken(token);
+
+      if (!existingEvent) {
+        return token;
+      }
+    }
+
+    throw new Error('Unable to generate a unique vehicle check token');
   }
 
   async createEvent(actorId, payload, t) {
@@ -87,6 +110,80 @@ class EventService {
       members,
       recentActivity,
     };
+  }
+
+  async generateVehicleCheckLink(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const currentEvent = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(currentEvent.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const token = await this.generateUniqueVehicleCheckToken();
+    const hadExistingLink = Boolean(currentEvent.vehicle_check_token);
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleCheckToken(connection, eventId, token);
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'event',
+          entityId: eventId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleCheckLinkGenerated', {
+            name: currentEvent.name,
+          }),
+          beforeState: {
+            hasVehicleCheckLink: hadExistingLink,
+          },
+          afterState: {
+            hasVehicleCheckLink: true,
+            regenerated: hadExistingLink,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleCheckLinkGenerated', {
+            name: currentEvent.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const event = await this.eventRepository.findAccessibleById(eventId, actorId);
+
+    return {
+      event,
+      hadExistingLink,
+      link: this.buildVehicleCheckUrl(token),
+    };
+  }
+
+  async getPublicVehicleCheckEventOrFail(token, t) {
+    const tx = resolveTranslate(t);
+    const normalizedToken = String(token || '').trim();
+
+    if (!normalizedToken) {
+      throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
+    }
+
+    const event = await this.eventRepository.findByVehicleCheckToken(normalizedToken);
+
+    if (!event) {
+      throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
+    }
+
+    return event;
   }
 
   async updateEvent(eventId, actorId, payload, t) {

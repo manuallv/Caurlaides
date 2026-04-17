@@ -6,6 +6,7 @@ const {
   accessTypeParamValidator,
   portalCodeValidator,
   portalRequestValidator,
+  publicVehicleCheckValidator,
 } = require('../validators/event-validators');
 
 function buildPublicAccessRoutes({ accessController }) {
@@ -18,6 +19,8 @@ function buildPublicAccessRoutes({ accessController }) {
   });
 
   router.get('/p', asyncHandler(accessController.showPortalLogin));
+  router.get('/check/:token', asyncHandler(accessController.showPublicVehicleCheck));
+  router.post('/check/:token', publicVehicleCheckValidator, validateRequest, asyncHandler(accessController.submitPublicVehicleCheck));
   router.post('/p/access', portalCodeValidator, validateRequest, asyncHandler(accessController.authorizePortal));
   router.get('/p/manage', asyncHandler(accessController.showPortal));
   router.post('/p/logout', asyncHandler(accessController.logoutPortal));

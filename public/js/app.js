@@ -419,6 +419,13 @@ document.addEventListener('DOMContentLoaded', () => {
     fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
     filterForm: document.querySelector('[data-live-filter-form]'),
     exportModal: document.querySelector('[data-access-export-modal]'),
+    historyModal: document.querySelector('[data-access-history-modal]'),
+    historyTitle: document.querySelector('[data-access-history-title]'),
+    historyEyebrow: document.querySelector('[data-access-history-eyebrow]'),
+    historyMeta: document.querySelector('[data-access-history-meta]'),
+    historyLoading: document.querySelector('[data-access-history-loading]'),
+    historyEmpty: document.querySelector('[data-access-history-empty]'),
+    historyList: document.querySelector('[data-access-history-list]'),
     table: document.querySelector('[data-access-requests-table]'),
     tableBody: document.querySelector('[data-access-requests-body]'),
     tableScroll: document.querySelector('[data-access-table-scroll]'),
@@ -460,6 +467,13 @@ document.addEventListener('DOMContentLoaded', () => {
       requestEditTitle: workspace.dataset.accessRequestEditTitle,
       requestCreateSubmit: workspace.dataset.accessRequestCreateSubmit,
       requestSaveSubmit: workspace.dataset.accessRequestSaveSubmit,
+      historyTitle: workspace.dataset.accessHistoryTitle,
+      historyLoading: workspace.dataset.accessHistoryLoading,
+      historyEmpty: workspace.dataset.accessHistoryEmpty,
+      historyError: workspace.dataset.accessHistoryError,
+      historyGateLabel: workspace.dataset.accessHistoryGateLabel,
+      historySourceLabel: workspace.dataset.accessHistorySourceLabel,
+      historyButtonLabel: workspace.dataset.accessHistoryButtonLabel,
       eventId: workspace.dataset.accessEventId,
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
@@ -816,13 +830,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ui = getAccessUi();
     const row = document.createElement('tr');
     const notSet = ui.notSet || '-';
+    const isPass = ui.pageType === 'pass';
     const buttonToneClass = request.nextStatusTone === 'primary'
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
     const statusToneClass = request.statusTone === 'active' ? 'status-active' : 'status-pending';
-    const personMeta = request.vehiclePlate
-      ? `${escapeHtml(ui.vehiclePlateLabel || 'Vehicle plate')}: ${escapeHtml(request.vehiclePlate)}`
-      : escapeHtml(request.notes || request.email || '');
+    const personMeta = escapeHtml(request.notes || request.email || request.phone || '');
     const secondaryUpdatedLabel = request.enteredAtLabel
       ? `${escapeHtml(ui.entryAtLabel || 'Entered')}: ${escapeHtml(request.enteredAtLabel)}`
       : '&nbsp;';
@@ -839,9 +852,16 @@ document.addEventListener('DOMContentLoaded', () => {
             <img src="/public/design-assets/icons/feather/users.svg" alt="" />
             <span>${escapeHtml(request.fullName || '')}</span>
           </div>
-          <p class="access-person-cell__meta">${personMeta}</p>
+          <p class="access-person-cell__meta">${personMeta || '&nbsp;'}</p>
         </div>
       </td>
+      ${isPass ? `
+        <td>
+          <div class="access-data-stack">
+            <strong>${escapeHtml(request.vehiclePlate || notSet)}</strong>
+          </div>
+        </td>
+      ` : ''}
       <td>
         <div class="access-data-stack">
           <strong>${escapeHtml(request.categoryName || '')}</strong>
@@ -874,9 +894,27 @@ document.addEventListener('DOMContentLoaded', () => {
       </td>
       <td>
         <div class="access-row-actions">
+          ${isPass ? `
+            <button
+              type="button"
+              class="table-icon-button"
+              data-access-history-open
+              data-request-id="${escapeHtml(request.id)}"
+              data-request-history-url="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/history"
+              data-request-full-name="${escapeHtml(request.fullName || '')}"
+              data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
+              title="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
+              aria-label="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"></path>
+                <path d="M10 7v3l2 1.5"></path>
+              </svg>
+            </button>
+          ` : ''}
           <button
             type="button"
-            class="access-mini-button access-mini-button--secondary"
+            class="table-icon-button"
             data-access-edit-request
             data-request-id="${escapeHtml(request.id)}"
             data-request-profile-id="${escapeHtml(request.requestProfileId || '')}"
@@ -887,7 +925,14 @@ document.addEventListener('DOMContentLoaded', () => {
             data-request-email="${escapeHtml(request.email || '')}"
             data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
             data-request-notes="${escapeHtml(request.notes || '')}"
-          >${escapeHtml(ui.editLabel || 'Edit')}</button>
+            title="${escapeHtml(ui.editLabel || 'Edit')}"
+            aria-label="${escapeHtml(ui.editLabel || 'Edit')}"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M13.9 4.6a1.5 1.5 0 0 1 2.1 2.1l-7.5 7.5-3.1.9.9-3.1 7.6-7.4"></path>
+              <path d="M12.5 6l1.5 1.5"></path>
+            </svg>
+          </button>
 
           <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
             <input type="hidden" name="_csrf" value="${escapeHtml(document.querySelector('[data-access-request-form] input[name=\"_csrf\"]')?.value || '')}" />
@@ -1065,6 +1110,157 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('portal-modal-open');
   };
 
+  const closeAccessHistoryModal = () => {
+    const {
+      historyModal,
+      historyTitle,
+      historyEyebrow,
+      historyMeta,
+      historyLoading,
+      historyEmpty,
+      historyList,
+    } = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!historyModal) {
+      return;
+    }
+
+    historyModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
+
+    if (historyTitle) {
+      historyTitle.textContent = ui.historyTitle || 'Vehicle history';
+    }
+
+    if (historyEyebrow) {
+      historyEyebrow.textContent = ui.historyTitle || 'Vehicle history';
+    }
+
+    if (historyMeta) {
+      historyMeta.textContent = '';
+    }
+
+    if (historyLoading) {
+      historyLoading.textContent = ui.historyLoading || 'Loading history...';
+      historyLoading.hidden = false;
+    }
+
+    if (historyEmpty) {
+      historyEmpty.textContent = ui.historyEmpty || 'No vehicle history has been recorded for this pass yet.';
+      historyEmpty.hidden = true;
+    }
+
+    if (historyList) {
+      historyList.innerHTML = '';
+    }
+  };
+
+  const renderAccessHistoryItems = (items = []) => {
+    const ui = getAccessUi();
+
+    return items.map((item) => {
+      const details = [
+        item.gateName ? `${escapeHtml(ui.historyGateLabel || 'Gate')}: ${escapeHtml(item.gateName)}` : '',
+        item.source ? `${escapeHtml(ui.historySourceLabel || 'Source')}: ${escapeHtml(item.source)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      return `
+        <div class="access-history-item">
+          <div class="access-history-item__top">
+            <span class="portal-type-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">${escapeHtml(item.directionLabel || '')}</span>
+            <strong>${escapeHtml(item.createdAtLabel || '')}</strong>
+          </div>
+          ${details ? `<p class="access-history-item__meta">${details}</p>` : ''}
+        </div>
+      `;
+    }).join('');
+  };
+
+  const openAccessHistoryModal = async (trigger) => {
+    const {
+      historyModal,
+      historyTitle,
+      historyEyebrow,
+      historyMeta,
+      historyLoading,
+      historyEmpty,
+      historyList,
+    } = getAccessElements();
+    const ui = getAccessUi();
+
+    if (!historyModal || !trigger?.dataset.requestHistoryUrl) {
+      return;
+    }
+
+    closeAccessRequestModal();
+    closeAccessExportModal();
+    closeAccessHistoryModal();
+
+    if (historyTitle) {
+      historyTitle.textContent = trigger.dataset.requestFullName || ui.historyTitle || 'Vehicle history';
+    }
+
+    if (historyEyebrow) {
+      historyEyebrow.textContent = ui.historyTitle || 'Vehicle history';
+    }
+
+    if (historyMeta) {
+      historyMeta.textContent = trigger.dataset.requestVehiclePlate || '';
+    }
+
+    historyModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+
+    try {
+      const response = await fetch(trigger.dataset.requestHistoryUrl, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || ui.historyError || 'Could not load vehicle history.');
+      }
+
+      if (historyTitle) {
+        historyTitle.textContent = payload.request?.fullName || ui.historyTitle || 'Vehicle history';
+      }
+
+      if (historyMeta) {
+        historyMeta.textContent = payload.request?.vehiclePlate || '';
+      }
+
+      if (historyLoading) {
+        historyLoading.hidden = true;
+      }
+
+      if (!payload.movements?.length) {
+        if (historyEmpty) {
+          historyEmpty.hidden = false;
+        }
+        return;
+      }
+
+      if (historyList) {
+        historyList.innerHTML = renderAccessHistoryItems(payload.movements);
+      }
+    } catch (error) {
+      if (historyLoading) {
+        historyLoading.hidden = true;
+      }
+
+      if (historyEmpty) {
+        historyEmpty.hidden = false;
+        historyEmpty.textContent = error.message || ui.historyError || 'Could not load vehicle history.';
+      }
+    }
+  };
+
   const openAccessRequestModal = (trigger = null) => {
     const {
       requestModal,
@@ -1083,6 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    closeAccessHistoryModal();
     closeAccessExportModal();
 
     const eventId = document.body.dataset.eventRoom;
@@ -1152,6 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    closeAccessHistoryModal();
     closeAccessRequestModal();
     exportModal.classList.add('is-open');
     document.body.classList.add('portal-modal-open');
@@ -1507,6 +1705,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeSidebar();
       setAccessFullscreen(false);
       setPortalWorkspaceView('table');
+      closeAccessHistoryModal();
       closeAccessRequestModal();
       closeAccessExportModal();
     }
@@ -1583,6 +1782,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const accessHistoryTrigger = event.target.closest('[data-access-history-open]');
+
+    if (accessHistoryTrigger) {
+      await openAccessHistoryModal(accessHistoryTrigger);
+      return;
+    }
+
     const accessCreateRequestTrigger = event.target.closest('[data-access-create-request]');
 
     if (accessCreateRequestTrigger) {
@@ -1601,6 +1807,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessRequestCloseTrigger) {
       closeAccessRequestModal();
+      return;
+    }
+
+    const accessHistoryCloseTrigger = event.target.closest('[data-access-history-close]');
+
+    if (accessHistoryCloseTrigger) {
+      closeAccessHistoryModal();
       return;
     }
 
@@ -1857,6 +2070,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.addEventListener('codex:live-sections-refreshed', () => {
+    closeAccessHistoryModal();
     closeAccessRequestModal();
     closeAccessExportModal();
     initializeAccessUI();

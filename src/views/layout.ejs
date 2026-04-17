@@ -35,20 +35,15 @@
           ? 'wristbands'
           : currentPath.includes('/passes')
             ? 'passes'
+            : currentPath.includes('/check')
+              ? 'check'
             : currentPath.includes('/request-profiles')
               ? 'profiles'
               : currentPath.includes('/edit') || currentPath.includes('/members') || currentPath.includes('/activity')
                 ? 'settings'
                 : ''
       : '';
-    const sidebarLinks = [
-      {
-        href: '/check',
-        label: t('nav.vehicleCheck'),
-        icon: 'activity',
-        active: currentPath.startsWith('/check'),
-      },
-    ];
+    const sidebarLinks = [];
     const primarySidebarLink = {
       href: '/dashboard',
       label: t('nav.sidebar.events'),
@@ -116,6 +111,12 @@
             label: t('event.sidebar.autoPasses'),
             icon: 'layers',
             active: eventSection === 'passes',
+          },
+          {
+            href: `/events/${activeEvent.id}/check`,
+            label: t('nav.vehicleCheck'),
+            icon: 'activity',
+            active: eventSection === 'check',
           },
           {
             href: `/events/${activeEvent.id}/request-profiles`,

@@ -105,6 +105,48 @@
           <a href="/events/<%= activeEvent.id %>/activity" class="btn-secondary"><%= t('event.viewAuditHistory') %></a>
         </div>
       </div>
+
+      <% if (canManage) { %>
+        <div class="shell-card overflow-hidden" id="vehicle-check-link" data-live-section="event-dashboard-vehicle-check-link">
+          <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+            <h2 class="text-xl font-bold text-slate-900"><%= t('event.vehicleCheckLinkTitle') %></h2>
+            <p class="mt-1 text-sm text-slate-500"><%= t('event.vehicleCheckLinkDescription') %></p>
+          </div>
+
+          <div class="space-y-4 px-5 py-5 sm:px-6">
+            <% if (vehicleCheckLink) { %>
+              <div>
+                <label class="field-label"><%= t('event.vehicleCheckLinkField') %></label>
+                <input type="text" class="field-input" value="<%= vehicleCheckLink %>" readonly onclick="this.select()" />
+              </div>
+
+              <p class="text-xs text-slate-500">
+                <%= t('event.vehicleCheckLinkGeneratedAt', {
+                  time: helpers.formatDateTime(activeEvent.vehicle_check_token_created_at),
+                }) %>
+              </p>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <a href="<%= vehicleCheckLink %>" target="_blank" rel="noreferrer" class="btn-secondary">
+                  <%= t('event.vehicleCheckLinkOpen') %>
+                </a>
+
+                <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkRegenerate') %></button>
+                </form>
+              </div>
+            <% } else { %>
+              <p class="text-sm text-slate-500"><%= t('event.vehicleCheckLinkEmpty') %></p>
+
+              <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkGenerate') %></button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
     </div>
   </div>
 </section>
