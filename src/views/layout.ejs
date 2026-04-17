@@ -42,6 +42,12 @@
                 : ''
       : '';
     const sidebarLinks = [];
+    const primarySidebarLink = {
+      href: '/dashboard',
+      label: t('nav.sidebar.events'),
+      icon: 'calendar',
+      active: currentPath === '/dashboard',
+    };
     const systemSection = currentPath.startsWith('/system/settings/templates')
       ? 'templates'
       : currentPath.startsWith('/system/settings/test')
@@ -179,6 +185,15 @@
             </a>
 
             <button type="button" class="worldnic-close" data-mobile-sidebar-close aria-label="<%= t('nav.menu') %>">&times;</button>
+          </div>
+
+          <div class="worldnic-sidebar__primary-link">
+            <a href="<%= primarySidebarLink.href %>" class="worldnic-nav__link <%= primarySidebarLink.active ? 'is-active' : '' %>">
+              <span class="worldnic-nav__icon">
+                <img src="/public/design-assets/icons/feather/<%= primarySidebarLink.icon %>.svg" alt="" />
+              </span>
+              <span><%= primarySidebarLink.label %></span>
+            </a>
           </div>
 
           <div class="worldnic-sidebar__scroll">
