@@ -2088,9 +2088,10 @@ class AccessService {
     };
   }
 
-  async processVehicleGateDecision(apiToken, payload, t) {
+  async processVehicleGateDecision(apiToken, payload, t, options = {}) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getVehicleGateApiEventOrFail(apiToken, tx);
+    this.eventService.assertVehicleGateApiAuthorized(event, options.providedApiKey, tx);
     const decisionResult = await this.checkVehicleAccess(
       {
         eventId: Number(event.id),
@@ -2179,6 +2180,18 @@ class AccessService {
         direction: payload.direction,
         gateName: payload.gateName,
         source: 'public-check-link',
+      },
+      t,
+    );
+  }
+
+  async checkPublicVehicleAccess(publicToken, payload, t) {
+    const event = await this.eventService.getPublicVehicleCheckEventOrFail(publicToken, t);
+
+    return this.checkVehicleAccess(
+      {
+        eventId: Number(event.id),
+        vehiclePlate: payload.vehiclePlate,
       },
       t,
     );

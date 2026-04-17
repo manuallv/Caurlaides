@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { env } = require('../../../config/env');
 const { AppError } = require('../../../shared/errors/AppError');
 
-function extractApiKey(req) {
+function extractExternalApiKey(req) {
   const authorization = String(req.get('Authorization') || '').trim();
 
   if (authorization.toLowerCase().startsWith('bearer ')) {
@@ -28,7 +28,7 @@ function requireExternalApiKey(req, res, next) {
     return next(new AppError(req.t('service.vehicleEntry.apiUnavailable'), 503));
   }
 
-  const providedApiKey = extractApiKey(req);
+  const providedApiKey = extractExternalApiKey(req);
 
   if (!providedApiKey || !safeCompare(providedApiKey, env.vehicleEntryApiKey)) {
     return next(new AppError(req.t('service.vehicleEntry.forbidden'), 403));
@@ -37,4 +37,4 @@ function requireExternalApiKey(req, res, next) {
   return next();
 }
 
-module.exports = { requireExternalApiKey };
+module.exports = { requireExternalApiKey, extractExternalApiKey };

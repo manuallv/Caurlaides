@@ -3,6 +3,7 @@ const {
   PUBLIC_PORTAL_SESSION_KEY,
 } = require('../../../application/services/AccessService');
 const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
+const { extractExternalApiKey } = require('../middleware/external-api-key');
 const { AppError } = require('../../../shared/errors/AppError');
 
 function normalizeCategoryPayload(body) {
@@ -212,7 +213,11 @@ function buildVehicleCheckMovementPayload(req, res, movement) {
 
 function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
   const request = result.request || {};
-  const direction = result.direction === 'exit' ? 'exit' : 'entry';
+  const direction = result.direction === 'exit'
+    ? 'exit'
+    : result.direction === 'check'
+      ? 'check'
+      : 'entry';
   const currentPresence = result.currentPresence === 'inside'
     ? 'inside'
     : result.currentPresence === 'outside'
@@ -220,10 +225,19 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
       : 'unknown';
 
   return {
+    allowed: result.allowed !== false,
+    decision: result.decision || (result.allowed === false ? 'denied' : 'success'),
+    checkedPlate: result.checkedPlate || request.vehicle_plate || fallbackPlate,
     direction,
-    directionTitle: req.t(direction === 'exit' ? 'check.resultDirectionExit' : 'check.resultDirectionEntry'),
+    directionTitle: req.t(
+      direction === 'exit'
+        ? 'check.resultDirectionExit'
+        : direction === 'check'
+          ? 'check.resultDirectionCheck'
+          : 'check.resultDirectionEntry',
+    ),
     alreadyEntered: Boolean(result.alreadyEntered),
-    alreadyEnteredMessage: result.alreadyEntered ? req.t('check.resultAlreadyEntered') : '',
+    alreadyEnteredMessage: result.alreadyEntered && direction === 'entry' ? req.t('check.resultAlreadyEntered') : '',
     currentPresence,
     currentPresenceLabel: req.t(
       currentPresence === 'inside'
@@ -255,16 +269,29 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
 }
 
 function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fallbackPlate = '') {
+  const isDecisionOnly = result.direction === 'check';
+
   return {
     success: true,
-    message: req.t(
-      result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
-      {
-        plate: result.request?.vehicle_plate || fallbackPlate || '',
-      },
-    ),
+    allowed: result.allowed !== false,
+    decision: result.decision || (result.allowed === false ? 'denied' : 'success'),
+    message: isDecisionOnly
+      ? result.message
+      : req.t(
+        result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+        {
+          plate: result.request?.vehicle_plate || fallbackPlate || '',
+        },
+      ),
     result: buildVehicleCheckResultPayload(req, res, result, fallbackPlate),
     recentMovements: recentMovements.map((movement) => buildVehicleCheckMovementPayload(req, res, movement)),
+  };
+}
+
+function withVehicleCheckDirection(result, direction = 'check') {
+  return {
+    ...result,
+    direction,
   };
 }
 
@@ -674,29 +701,41 @@ function buildAccessController({ categoryService, accessService }) {
 
     async submitVehicleCheck(req, res) {
       const payload = normalizeVehicleEntryPayload(req.body);
-      const result = await accessService.registerVehicleCheck(
-        req.currentUser.id,
-        {
-          ...payload,
-          eventId: Number(req.params.eventId),
-        },
-        req.t,
-      );
+      const normalizedPayload = {
+        ...payload,
+        eventId: Number(req.params.eventId),
+      };
+      const isDecisionOnly = normalizedPayload.direction === 'check';
+      const result = isDecisionOnly
+        ? withVehicleCheckDirection(await accessService.checkVehicleAccess(
+          normalizedPayload,
+          req.t,
+          { actorId: req.currentUser.id },
+        ))
+        : await accessService.registerVehicleCheck(
+          req.currentUser.id,
+          normalizedPayload,
+          req.t,
+        );
       const data = await accessService.getVehicleCheckPage(
         req.currentUser.id,
         req.params.eventId,
         req.t,
       );
-      const liveRequestUpsert = buildAccessRequestLivePayload(
-        req,
-        res,
-        'pass',
-        result.request,
-        null,
-      );
+      const liveRequestUpsert = !isDecisionOnly && result.request
+        ? buildAccessRequestLivePayload(
+          req,
+          res,
+          'pass',
+          result.request,
+          null,
+        )
+        : null;
 
-      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
-      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      if (liveRequestUpsert) {
+        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+        emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      }
 
       if (isAsyncRequest(req)) {
         return res.json(
@@ -705,7 +744,7 @@ function buildAccessController({ categoryService, accessService }) {
             res,
             result,
             data.recentMovements,
-            payload.vehiclePlate,
+            normalizedPayload.vehiclePlate,
           ),
         );
       }
@@ -716,13 +755,13 @@ function buildAccessController({ categoryService, accessService }) {
         selectedEvent: data.selectedEvent,
         events: [],
         recentMovements: data.recentMovements,
-        checkResult: result,
+        checkResult: buildVehicleCheckResultPayload(req, res, result, normalizedPayload.vehiclePlate),
         checkAction: `/events/${data.selectedEvent.id}/check`,
         showEventPicker: false,
         isPublicVehicleCheck: false,
         checkFormValues: {
-          vehiclePlate: payload.vehiclePlate || '',
-          gateName: payload.gateName || '',
+          vehiclePlate: normalizedPayload.vehiclePlate || '',
+          gateName: normalizedPayload.gateName || '',
         },
       });
     },
@@ -751,17 +790,22 @@ function buildAccessController({ categoryService, accessService }) {
 
     async submitPublicVehicleCheck(req, res) {
       const payload = normalizeVehicleEntryPayload(req.body);
-      const result = await accessService.registerPublicVehicleCheck(req.params.token, payload, req.t);
+      const isDecisionOnly = payload.direction === 'check';
+      const result = isDecisionOnly
+        ? withVehicleCheckDirection(await accessService.checkPublicVehicleAccess(req.params.token, payload, req.t))
+        : await accessService.registerPublicVehicleCheck(req.params.token, payload, req.t);
       const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
 
-      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
-        req,
-        res,
-        'pass',
-        result.request,
-        null,
-      ));
-      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      if (!isDecisionOnly && result.request) {
+        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+          req,
+          res,
+          'pass',
+          result.request,
+          null,
+        ));
+        emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      }
 
       if (isAsyncRequest(req)) {
         return res.json(
@@ -780,7 +824,7 @@ function buildAccessController({ categoryService, accessService }) {
         selectedEvent: data.selectedEvent,
         events: [],
         recentMovements: data.recentMovements,
-        checkResult: result,
+        checkResult: buildVehicleCheckResultPayload(req, res, result, payload.vehiclePlate),
         checkAction: `/check/${encodeURIComponent(req.params.token)}`,
         showEventPicker: false,
         isPublicPortal: true,
@@ -1066,7 +1110,12 @@ function buildAccessController({ categoryService, accessService }) {
 
     async processVehicleGateDecision(req, res) {
       const payload = normalizeVehicleEntryPayload(req.body);
-      const result = await accessService.processVehicleGateDecision(req.params.token, payload, req.t);
+      const result = await accessService.processVehicleGateDecision(
+        req.params.token,
+        payload,
+        req.t,
+        { providedApiKey: extractExternalApiKey(req) },
+      );
 
       if (result.movement?.recorded && result.request) {
         emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(

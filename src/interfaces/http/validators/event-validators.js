@@ -77,6 +77,10 @@ const memberRoleValidator = [
 ];
 
 const vehicleGateApiSettingsValidator = [
+  body('authMode')
+    .optional({ values: 'falsy' })
+    .isIn(['none', 'api_key'])
+    .withMessage((value, { req }) => req.t('validation.vehicleGateApi.authMode')),
   body('mode')
     .isIn(['decision', 'entry', 'exit'])
     .withMessage((value, { req }) => req.t('validation.vehicleGateApi.mode')),
@@ -313,7 +317,7 @@ const publicVehicleCheckValidator = [
     .withMessage((value, { req }) => req.t('validation.portal.vehiclePlateLength', { min: 2, max: 20 })),
   body('direction')
     .optional({ values: 'falsy' })
-    .isIn(['entry', 'exit'])
+    .isIn(['check', 'entry', 'exit'])
     .withMessage((value, { req }) => req.t('validation.vehicleEntry.direction')),
   body('gateName')
     .optional({ values: 'falsy' })

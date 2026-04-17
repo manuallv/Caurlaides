@@ -382,8 +382,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    resultCard.classList.remove('is-entry', 'is-exit');
-    resultCard.classList.add(result.direction === 'exit' ? 'is-exit' : 'is-entry');
+    resultCard.classList.remove('is-entry', 'is-exit', 'is-check');
+    resultCard.classList.add(
+      result.direction === 'exit'
+        ? 'is-exit'
+        : result.direction === 'check'
+          ? 'is-check'
+          : 'is-entry',
+    );
     resultEmpty.classList.add('hidden');
     resultContent.classList.remove('hidden');
 
@@ -392,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (resultPlate) {
-      resultPlate.textContent = result.request?.vehiclePlate || '';
+      resultPlate.textContent = result.request?.vehiclePlate || result.checkedPlate || '';
     }
 
     if (resultPerson) {
@@ -438,7 +444,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const submitCheckForm = async (form, submitter = null) => {
     const { vehiclePlateInput } = getCheckElements();
-    const direction = submitter?.value === 'exit' ? 'exit' : 'entry';
+    const direction = submitter?.value === 'exit'
+      ? 'exit'
+      : submitter?.value === 'entry'
+        ? 'entry'
+        : 'check';
     const formData = new FormData(form);
 
     formData.set('direction', direction);
@@ -469,12 +479,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       renderCheckResult(payload.result || null);
       renderCheckRecentMovements(payload.recentMovements || []);
-      setCheckFeedback(payload.message || '', 'success');
-      pulseCheckVehicleInput('success');
+      const isAllowed = payload?.allowed !== false && payload?.result?.allowed !== false;
+      setCheckFeedback(payload.message || '', isAllowed ? 'success' : 'error');
+      pulseCheckVehicleInput(isAllowed ? 'success' : 'error');
 
       if (vehiclePlateInput) {
-        vehiclePlateInput.value = '';
-        vehiclePlateInput.focus();
+        if (isAllowed) {
+          vehiclePlateInput.value = '';
+          vehiclePlateInput.focus();
+        } else {
+          vehiclePlateInput.focus();
+          vehiclePlateInput.select();
+        }
       }
     } catch (error) {
       setCheckFeedback(error.message || 'Request failed.', 'error');

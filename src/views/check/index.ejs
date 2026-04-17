@@ -49,12 +49,21 @@
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
+            <button
+              type="submit"
+              name="direction"
+              value="check"
+              class="btn-secondary py-4 text-sm font-semibold sm:text-base"
+              data-check-submit-button
+            >
+              <%= t('check.checkButton') %>
+            </button>
             <button
               type="submit"
               name="direction"
               value="entry"
-              class="btn-primary py-4 text-base font-semibold"
+              class="btn-primary py-4 text-sm font-semibold sm:text-base"
               data-check-submit-button
             >
               <%= t('check.entryButton') %>
@@ -63,7 +72,7 @@
               type="submit"
               name="direction"
               value="exit"
-              class="btn-secondary py-4 text-base font-semibold"
+              class="btn-secondary py-4 text-sm font-semibold sm:text-base"
               data-check-submit-button
             >
               <%= t('check.exitButton') %>
@@ -76,7 +85,7 @@
 
       <div class="flex flex-col gap-6">
         <div
-          class="shell-card p-6 check-result-card<%= hasCheckResult ? ` is-${checkResult.direction === 'exit' ? 'exit' : 'entry'}` : '' %>"
+          class="shell-card p-6 check-result-card<%= hasCheckResult ? ` is-${checkResult.direction === 'exit' ? 'exit' : checkResult.direction === 'check' ? 'check' : 'entry'}` : '' %>"
           data-check-result-card
         >
           <p class="worldnic-eyebrow"><%= t('check.resultTitle') %></p>
@@ -88,51 +97,39 @@
           <div class="mt-4 space-y-4<%= hasCheckResult ? '' : ' hidden' %>" data-check-result-content>
             <div>
               <h2 class="text-xl font-extrabold text-slate-900" data-check-result-title>
-                <% if (hasCheckResult) { %>
-                  <%= t(checkResult.direction === 'exit' ? 'check.resultDirectionExit' : 'check.resultDirectionEntry') %>
-                <% } %>
+                <%= hasCheckResult ? (checkResult.directionTitle || '') : '' %>
               </h2>
-              <p class="mt-1 text-sm text-slate-500" data-check-result-plate><%= hasCheckResult ? checkResult.request.vehicle_plate : '' %></p>
+              <p class="mt-1 text-sm text-slate-500" data-check-result-plate><%= hasCheckResult ? ((checkResult.request?.vehiclePlate || checkResult.checkedPlate || '')) : '' %></p>
             </div>
 
             <div class="grid gap-3 text-sm text-slate-600">
               <div>
                 <span class="font-semibold text-slate-900"><%= t('check.resultPerson') %>:</span>
-                <span data-check-result-person><%= hasCheckResult ? checkResult.request.full_name : '' %></span>
+                <span data-check-result-person><%= hasCheckResult ? (checkResult.request?.fullName || t('common.notSet')) : '' %></span>
               </div>
               <div>
                 <span class="font-semibold text-slate-900"><%= t('check.resultCompany') %>:</span>
-                <span data-check-result-company><%= hasCheckResult ? (checkResult.request.company_name || t('common.notSet')) : '' %></span>
+                <span data-check-result-company><%= hasCheckResult ? (checkResult.request?.companyName || t('common.notSet')) : '' %></span>
               </div>
               <div>
                 <span class="font-semibold text-slate-900"><%= t('check.resultType') %>:</span>
-                <span data-check-result-type><%= hasCheckResult ? (checkResult.request.category_name || t('common.notSet')) : '' %></span>
+                <span data-check-result-type><%= hasCheckResult ? (checkResult.request?.categoryName || t('common.notSet')) : '' %></span>
               </div>
               <div>
                 <span class="font-semibold text-slate-900"><%= t('check.resultPresence') %>:</span>
-                <span data-check-result-presence>
-                  <% if (hasCheckResult) { %>
-                    <%= t(
-                      checkResult.currentPresence === 'inside'
-                        ? 'check.resultPresenceInside'
-                        : checkResult.currentPresence === 'outside'
-                          ? 'check.resultPresenceOutside'
-                          : 'check.resultPresenceUnknown'
-                    ) %>
-                  <% } %>
-                </span>
+                <span data-check-result-presence><%= hasCheckResult ? (checkResult.currentPresenceLabel || t('common.notSet')) : '' %></span>
               </div>
               <div>
                 <span class="font-semibold text-slate-900"><%= t('check.resultPerformedAt') %>:</span>
-                <span data-check-result-performed-at><%= hasCheckResult && checkResult.performedAt ? helpers.formatDateTime(checkResult.performedAt) : '' %></span>
+                <span data-check-result-performed-at><%= hasCheckResult ? (checkResult.performedAtLabel || t('common.notSet')) : '' %></span>
               </div>
             </div>
 
             <div
-              class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900<%= hasCheckResult && checkResult.direction === 'entry' && checkResult.alreadyEntered ? '' : ' hidden' %>"
+              class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900<%= hasCheckResult && checkResult.alreadyEnteredMessage ? '' : ' hidden' %>"
               data-check-result-note
             >
-              <%= t('check.resultAlreadyEntered') %>
+              <%= hasCheckResult ? (checkResult.alreadyEnteredMessage || '') : '' %>
             </div>
           </div>
         </div>

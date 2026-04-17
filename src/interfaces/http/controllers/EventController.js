@@ -16,6 +16,7 @@ function normalizeEventPayload(body) {
 
 function normalizeVehicleGateApiPayload(body) {
   return {
+    authMode: body.authMode,
     mode: body.mode,
     dedupeSeconds: body.dedupeSeconds ? Number(body.dedupeSeconds) : 180,
   };
@@ -54,7 +55,8 @@ function buildEventController({ eventService, auditLogService }) {
         canManage: MANAGEMENT_ROLES.includes(data.event.role),
         vehicleCheckLink: eventService.buildVehicleCheckUrl(data.event.vehicle_check_token),
         vehicleCheckApiUrl: eventService.buildVehicleGateApiUrl(data.event.vehicle_gate_api_token),
-        vehicleCheckApiConfigured: eventService.isVehicleCheckApiConfigured(),
+        vehicleCheckApiConfigured:
+          data.event.vehicle_gate_api_auth_mode === 'none' || Boolean(data.event.vehicle_gate_api_key),
       });
     },
 

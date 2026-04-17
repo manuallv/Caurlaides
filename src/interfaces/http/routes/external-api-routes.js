@@ -23,7 +23,6 @@ function buildExternalApiRoutes({ accessController }) {
   );
   router.post(
     '/api/external/events/:token/vehicle-decisions',
-    requireExternalApiKey,
     externalVehicleDecisionValidator,
     validateRequest,
     asyncHandler(accessController.processVehicleGateDecision),

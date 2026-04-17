@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS events (
   vehicle_check_token_created_at DATETIME NULL,
   vehicle_gate_api_token CHAR(40) NULL,
   vehicle_gate_api_token_created_at DATETIME NULL,
+  vehicle_gate_api_auth_mode ENUM('none', 'api_key') NOT NULL DEFAULT 'api_key',
+  vehicle_gate_api_key CHAR(48) NULL,
   vehicle_gate_api_mode ENUM('decision', 'entry', 'exit') NOT NULL DEFAULT 'decision',
   vehicle_gate_api_dedupe_seconds INT UNSIGNED NOT NULL DEFAULT 180,
   deleted_at DATETIME NULL,
@@ -50,6 +52,7 @@ CREATE TABLE IF NOT EXISTS events (
   KEY idx_events_status (status),
   UNIQUE KEY uq_events_vehicle_check_token (vehicle_check_token),
   UNIQUE KEY uq_events_vehicle_gate_api_token (vehicle_gate_api_token),
+  UNIQUE KEY uq_events_vehicle_gate_api_key (vehicle_gate_api_key),
   CONSTRAINT fk_events_owner
     FOREIGN KEY (owner_id) REFERENCES users (id)
     ON DELETE RESTRICT
