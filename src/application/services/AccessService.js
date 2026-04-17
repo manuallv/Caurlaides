@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const dayjs = require('dayjs');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
@@ -11,6 +13,25 @@ const { comparePassword, hashPassword } = require('../../infrastructure/security
 
 const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
 const PUBLIC_PORTAL_IMPORTS_KEY = 'publicRequestProfileImports';
+const PASS_PRINT_BACKGROUND_MIME_TYPES = new Map([
+  ['image/png', 'png'],
+  ['image/jpeg', 'jpg'],
+  ['image/jpg', 'jpg'],
+]);
+const PASS_PRINT_FIELD_DEFINITIONS = [
+  { type: 'vehiclePlate', labelKey: 'passPrint.variables.vehiclePlate' },
+  { type: 'fullName', labelKey: 'passPrint.variables.fullName' },
+  { type: 'phone', labelKey: 'passPrint.variables.phone' },
+  { type: 'email', labelKey: 'passPrint.variables.email' },
+  { type: 'companyName', labelKey: 'passPrint.variables.companyName' },
+  { type: 'categoryName', labelKey: 'passPrint.variables.categoryName' },
+  { type: 'profileName', labelKey: 'passPrint.variables.profileName' },
+  { type: 'notes', labelKey: 'passPrint.variables.notes' },
+  { type: 'createdAt', labelKey: 'passPrint.variables.createdAt' },
+  { type: 'eventName', labelKey: 'passPrint.variables.eventName' },
+  { type: 'eventLocation', labelKey: 'passPrint.variables.eventLocation' },
+];
+const PASS_PRINT_FIELD_TYPE_SET = new Set(PASS_PRINT_FIELD_DEFINITIONS.map((field) => field.type));
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -52,6 +73,196 @@ function resolveVehiclePresenceStatus(request = {}) {
   }
 
   return lastEntryTs > lastExitTs ? 'inside' : 'outside';
+}
+
+function shouldEnforceEntryWindow(direction) {
+  return direction !== 'exit';
+}
+
+function buildPassPrintTemplatePublicUrl(backgroundPath) {
+  if (!backgroundPath) {
+    return '';
+  }
+
+  return `/public/${String(backgroundPath).replace(/^\/+/, '').replace(/\\/g, '/')}`;
+}
+
+function buildPassPrintTemplateAbsolutePath(backgroundPath) {
+  if (!backgroundPath) {
+    return '';
+  }
+
+  return path.join(process.cwd(), 'public', String(backgroundPath).replace(/^\/+/, ''));
+}
+
+function getPassPrintVariableDefinitions(t) {
+  const tx = resolveTranslate(t);
+
+  return PASS_PRINT_FIELD_DEFINITIONS.map((field) => ({
+    type: field.type,
+    label: tx(field.labelKey),
+  }));
+}
+
+function parsePassPrintTemplateFields(rawValue) {
+  if (!rawValue) {
+    return [];
+  }
+
+  if (Array.isArray(rawValue)) {
+    return rawValue;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function normalizePassPrintTemplateFields(rawFields) {
+  return parsePassPrintTemplateFields(rawFields)
+    .map((rawField, index) => {
+      const type = String(rawField?.type || '').trim();
+      const x = Number(rawField?.x);
+      const y = Number(rawField?.y);
+      const fontSize = Number(rawField?.fontSize);
+
+      if (!PASS_PRINT_FIELD_TYPE_SET.has(type)) {
+        return null;
+      }
+
+      return {
+        id: rawField?.id ? String(rawField.id).trim().slice(0, 80) : `field-${index + 1}`,
+        type,
+        x: Number.isFinite(x) ? Math.min(Math.max(x, 0), 0.96) : 0.15,
+        y: Number.isFinite(y) ? Math.min(Math.max(y, 0), 0.96) : 0.15,
+        fontSize: Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 64) : 18,
+      };
+    })
+    .filter(Boolean);
+}
+
+function sanitizePassPrintTemplateFields(rawFields, t) {
+  const tx = resolveTranslate(t);
+  const fields = normalizePassPrintTemplateFields(rawFields);
+
+  if (!fields.length) {
+    throw new AppError(tx('service.passPrint.fieldsRequired'), 422);
+  }
+
+  return fields;
+}
+
+function buildPassPrintTemplateFromEvent(event, t) {
+  const tx = resolveTranslate(t);
+
+  return {
+    name: String(event.pass_print_template_name || '').trim() || tx('passPrint.defaultTemplateName'),
+    backgroundPath: event.pass_print_template_background_path || '',
+    backgroundUrl: buildPassPrintTemplatePublicUrl(event.pass_print_template_background_path),
+    fields: normalizePassPrintTemplateFields(event.pass_print_template_fields_json || '[]'),
+    updatedAt: event.pass_print_template_updated_at || null,
+  };
+}
+
+function resolvePassPrintFieldValue(type, request, event) {
+  switch (type) {
+    case 'vehiclePlate':
+      return request.vehicle_plate || '';
+    case 'fullName':
+      return request.full_name || '';
+    case 'phone':
+      return request.phone || '';
+    case 'email':
+      return request.email || '';
+    case 'companyName':
+      return request.company_name || '';
+    case 'categoryName':
+      return request.category_name || '';
+    case 'profileName':
+      return request.profile_name || '';
+    case 'notes':
+      return request.notes || '';
+    case 'createdAt':
+      return request.created_at ? dayjs(request.created_at).format('DD.MM.YYYY HH:mm') : '';
+    case 'eventName':
+      return event.name || '';
+    case 'eventLocation':
+      return event.location || '';
+    default:
+      return '';
+  }
+}
+
+async function buildPassPrintPdfBuffer({ event, requests, template }) {
+  let backgroundPath = '';
+
+  if (template.backgroundPath) {
+    const candidatePath = buildPassPrintTemplateAbsolutePath(template.backgroundPath);
+
+    try {
+      await fs.access(candidatePath);
+      backgroundPath = candidatePath;
+    } catch (error) {
+      backgroundPath = '';
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const document = new PDFDocument({
+      size: 'A4',
+      margin: 0,
+      autoFirstPage: false,
+      bufferPages: false,
+    });
+    const chunks = [];
+
+    document.on('data', (chunk) => chunks.push(chunk));
+    document.on('end', () => resolve(Buffer.concat(chunks)));
+    document.on('error', reject);
+
+    requests.forEach((request) => {
+      document.addPage({
+        size: 'A4',
+        margin: 0,
+      });
+
+      if (backgroundPath) {
+        try {
+          document.image(backgroundPath, 0, 0, {
+            width: document.page.width,
+            height: document.page.height,
+          });
+        } catch (error) {
+          backgroundPath = '';
+        }
+      }
+
+      template.fields.forEach((field) => {
+        const value = resolvePassPrintFieldValue(field.type, request, event);
+
+        if (!value) {
+          return;
+        }
+
+        const x = Math.max(0, Math.min(document.page.width - 24, document.page.width * Number(field.x || 0)));
+        const y = Math.max(0, Math.min(document.page.height - 24, document.page.height * Number(field.y || 0)));
+
+        document
+          .font('Helvetica')
+          .fontSize(Number(field.fontSize || 18))
+          .fillColor('#0f172a')
+          .text(String(value), x, y, {
+            width: Math.max(48, document.page.width - x - 18),
+            lineBreak: false,
+          });
+      });
+    });
+
+    document.end();
+  });
 }
 
 function buildRequestPayload(body, fallbackCompanyName = null) {
@@ -584,6 +795,177 @@ class AccessService {
         event,
         title: `${event.name} - ${typeTitle}`,
         rows,
+      }),
+      filename: `${baseFileName}.pdf`,
+      contentType: 'application/pdf',
+    };
+  }
+
+  async getPassPrintPage(eventId, actorId, t) {
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
+    const [categories, categoryCounts, summary] = await Promise.all([
+      this.categoryRepository.listByEvent(eventId, 'pass'),
+      this.requestRepository.listCategoryRequestCounts(eventId, 'pass'),
+      this.requestRepository.getAdminSummary(eventId, 'pass'),
+    ]);
+    const categoryCountMap = categoryCounts.reduce((map, entry) => {
+      map[entry.category_id] = entry;
+      return map;
+    }, {});
+
+    return {
+      event,
+      canManage: MANAGEMENT_ROLES.includes(event.role),
+      template: buildPassPrintTemplateFromEvent(event, t),
+      variableDefinitions: getPassPrintVariableDefinitions(t),
+      summary,
+      categories: categories.map((category) => ({
+        ...category,
+        total_requests: Number(categoryCountMap[Number(category.id)]?.total_requests || 0),
+      })),
+    };
+  }
+
+  async savePassPrintTemplate(eventId, actorId, payload, backgroundImage, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const templateFields = sanitizePassPrintTemplateFields(payload.templateFields, tx);
+    const templateName = String(payload.templateName || '').trim().slice(0, 160) || tx('passPrint.defaultTemplateName');
+    const removeBackground = Boolean(payload.removeBackground);
+    let backgroundPath = removeBackground ? '' : (event.pass_print_template_background_path || '');
+    let replacedBackgroundPath = '';
+
+    if (backgroundImage?.buffer?.length) {
+      const fileExtension = PASS_PRINT_BACKGROUND_MIME_TYPES.get(backgroundImage.mimetype);
+
+      if (!fileExtension) {
+        throw new AppError(tx('service.passPrint.backgroundInvalid'), 422);
+      }
+
+      const relativePath = path.posix.join(
+        'uploads',
+        'pass-print-templates',
+        `event-${eventId}`,
+        `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${fileExtension}`,
+      );
+      const absolutePath = path.join(process.cwd(), 'public', relativePath);
+
+      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+      await fs.writeFile(absolutePath, backgroundImage.buffer);
+      replacedBackgroundPath = event.pass_print_template_background_path || '';
+      backgroundPath = relativePath;
+    } else if (removeBackground) {
+      replacedBackgroundPath = event.pass_print_template_background_path || '';
+      backgroundPath = '';
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updatePassPrintTemplate(connection, eventId, {
+        name: templateName,
+        backgroundPath: backgroundPath || null,
+        fieldsJson: JSON.stringify(templateFields),
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'event',
+          entityId: eventId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.passPrintTemplateUpdated', {
+            name: event.name,
+          }),
+          beforeState: {
+            passPrintTemplateName: event.pass_print_template_name || null,
+            hasPassPrintBackground: Boolean(event.pass_print_template_background_path),
+            passPrintFieldCount: parsePassPrintTemplateFields(event.pass_print_template_fields_json).length,
+          },
+          afterState: {
+            passPrintTemplateName: templateName,
+            hasPassPrintBackground: Boolean(backgroundPath),
+            passPrintFieldCount: templateFields.length,
+          },
+          metadata: buildAuditMetadata('audit.message.passPrintTemplateUpdated', {
+            name: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+
+      if (backgroundPath && backgroundPath !== event.pass_print_template_background_path) {
+        await fs.unlink(path.join(process.cwd(), 'public', backgroundPath)).catch(() => {});
+      }
+
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    if (replacedBackgroundPath && replacedBackgroundPath !== backgroundPath) {
+      await fs.unlink(path.join(process.cwd(), 'public', replacedBackgroundPath)).catch(() => {});
+    }
+
+    return {
+      event: await this.eventService.getEventAccessOrFail(eventId, actorId, tx),
+      template: {
+        name: templateName,
+        backgroundPath,
+        backgroundUrl: buildPassPrintTemplatePublicUrl(backgroundPath),
+        fields: templateFields,
+      },
+    };
+  }
+
+  async exportPassPrintPdf(eventId, actorId, filters, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const categories = await this.categoryRepository.listByEvent(eventId, 'pass');
+    const categoryId = filters.categoryId ? Number(filters.categoryId) : null;
+    const selectedCategory = categoryId
+      ? categories.find((category) => Number(category.id) === categoryId)
+      : null;
+
+    if (categoryId && !selectedCategory) {
+      throw new AppError(tx('service.passPrint.categoryInvalid'), 404);
+    }
+
+    const template = buildPassPrintTemplateFromEvent(event, tx);
+
+    if (!template.fields.length) {
+      throw new AppError(tx('service.passPrint.templateMissing'), 422);
+    }
+
+    const requests = await this.requestRepository.listAdminRequests(eventId, 'pass', {
+      categoryId: selectedCategory ? Number(selectedCategory.id) : null,
+      sort: 'newest',
+    });
+
+    if (!requests.length) {
+      throw new AppError(tx('service.passPrint.noRequests'), 422);
+    }
+
+    const timestamp = dayjs().format('YYYYMMDD-HHmm');
+    const categoryLabel = selectedCategory ? selectedCategory.name : tx('passPrint.printAllTypes');
+    const baseFileName = sanitizeFileName(`${event.name}-${categoryLabel}-${timestamp}`);
+
+    return {
+      buffer: await buildPassPrintPdfBuffer({
+        event,
+        requests,
+        template,
       }),
       filename: `${baseFileName}.pdf`,
       contentType: 'application/pdf',
@@ -1947,6 +2329,16 @@ class AccessService {
 
     const existingRequest = matches[0];
     const alreadyEntered = Boolean(existingRequest.entered_at);
+    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+      existingRequest.category_id,
+      direction,
+      tx,
+    );
+
+    if (!entryWindowDecision.allowed) {
+      throw new AppError(entryWindowDecision.message, 409);
+    }
+
     const connection = await this.pool.getConnection();
 
     try {
@@ -2035,6 +2427,7 @@ class AccessService {
   async checkVehicleAccess(payload, t, options = {}) {
     const tx = resolveTranslate(t);
     const eventId = Number(payload.eventId);
+    const direction = payload.direction === 'exit' ? 'exit' : payload.direction === 'entry' ? 'entry' : 'check';
     const vehiclePlate = formatVehiclePlate(payload.vehiclePlate);
     const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
 
@@ -2075,6 +2468,24 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
+    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+      request?.category_id,
+      direction,
+      tx,
+    );
+
+    if (!entryWindowDecision.allowed) {
+      return {
+        eventId,
+        allowed: false,
+        decision: 'denied',
+        reason: 'outside_entry_window',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: entryWindowDecision.message,
+        request,
+        currentPresence: resolveVehiclePresenceStatus(request),
+      };
+    }
 
     return {
       eventId,
@@ -2092,19 +2503,20 @@ class AccessService {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getVehicleGateApiEventOrFail(apiToken, tx);
     this.eventService.assertVehicleGateApiAuthorized(event, options.providedApiKey, tx);
-    const decisionResult = await this.checkVehicleAccess(
-      {
-        eventId: Number(event.id),
-        vehiclePlate: payload.vehiclePlate,
-      },
-      tx,
-    );
     const configuredMode = ['entry', 'exit'].includes(event.vehicle_gate_api_mode)
       ? event.vehicle_gate_api_mode
       : 'decision';
     const requestedDirection = payload.direction === 'entry' || payload.direction === 'exit'
       ? payload.direction
       : configuredMode;
+    const decisionResult = await this.checkVehicleAccess(
+      {
+        eventId: Number(event.id),
+        vehiclePlate: payload.vehiclePlate,
+        direction: requestedDirection,
+      },
+      tx,
+    );
     const shouldRecordMovement = decisionResult.allowed && ['entry', 'exit'].includes(requestedDirection);
 
     if (!shouldRecordMovement || !decisionResult.request) {
@@ -2192,9 +2604,54 @@ class AccessService {
       {
         eventId: Number(event.id),
         vehiclePlate: payload.vehiclePlate,
+        direction: payload.direction,
       },
       t,
     );
+  }
+
+  async getPassCategoryEntryWindowDecision(categoryId, direction, t) {
+    const tx = resolveTranslate(t);
+
+    if (!categoryId || !shouldEnforceEntryWindow(direction)) {
+      return {
+        allowed: true,
+        windows: [],
+      };
+    }
+
+    const entryWindows = await this.categoryRepository.listPassEntryWindowsByCategoryIds([categoryId]);
+
+    if (!entryWindows.length) {
+      return {
+        allowed: true,
+        windows: [],
+      };
+    }
+
+    const now = dayjs();
+    const isInsideAllowedWindow = entryWindows.some((entryWindow) => {
+      const startAt = dayjs(entryWindow.start_at);
+      const endAt = dayjs(entryWindow.end_at);
+
+      return startAt.isValid()
+        && endAt.isValid()
+        && !now.isBefore(startAt)
+        && !now.isAfter(endAt);
+    });
+
+    if (isInsideAllowedWindow) {
+      return {
+        allowed: true,
+        windows: entryWindows,
+      };
+    }
+
+    return {
+      allowed: false,
+      windows: entryWindows,
+      message: tx('service.vehicleEntry.outsideEntryWindow'),
+    };
   }
 
   isPortalRequestEditable(profile, type, request) {

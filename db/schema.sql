@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS events (
   vehicle_gate_api_key CHAR(48) NULL,
   vehicle_gate_api_mode ENUM('decision', 'entry', 'exit') NOT NULL DEFAULT 'decision',
   vehicle_gate_api_dedupe_seconds INT UNSIGNED NOT NULL DEFAULT 180,
+  pass_print_template_name VARCHAR(160) NULL,
+  pass_print_template_background_path VARCHAR(255) NULL,
+  pass_print_template_fields_json LONGTEXT NULL,
+  pass_print_template_updated_at DATETIME NULL,
   deleted_at DATETIME NULL,
   deleted_by_user_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -119,6 +123,24 @@ CREATE TABLE IF NOT EXISTS pass_categories (
   CONSTRAINT fk_pass_categories_deleted_by
     FOREIGN KEY (deleted_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS pass_category_entry_windows (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  pass_category_id BIGINT UNSIGNED NOT NULL,
+  start_at DATETIME NOT NULL,
+  end_at DATETIME NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_pass_category_entry_windows_category (pass_category_id),
+  KEY idx_pass_category_entry_windows_start (start_at),
+  KEY idx_pass_category_entry_windows_end (end_at),
+  CONSTRAINT fk_pass_category_entry_windows_category
+    FOREIGN KEY (pass_category_id) REFERENCES pass_categories (id)
+    ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 

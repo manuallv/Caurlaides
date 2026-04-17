@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('multer');
 const { asyncHandler } = require('../../../shared/utils/async-handler');
 const { requireAuth } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validate');
@@ -17,6 +18,12 @@ const {
 
 function buildEventRoutes({ eventController, accessController }) {
   const router = express.Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+    },
+  });
 
   router.get('/events/new', requireAuth, eventController.showCreateForm);
   router.post('/events', requireAuth, eventValidator, validateRequest, asyncHandler(eventController.create));
@@ -56,6 +63,14 @@ function buildEventRoutes({ eventController, accessController }) {
   router.delete('/events/:eventId/members/:userId', requireAuth, asyncHandler(eventController.removeMember));
 
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
+  router.get('/events/:eventId/passes/print', requireAuth, asyncHandler(accessController.showPassPrintPage));
+  router.post(
+    '/events/:eventId/passes/print/template',
+    requireAuth,
+    upload.single('backgroundImage'),
+    asyncHandler(accessController.savePassPrintTemplate),
+  );
+  router.get('/events/:eventId/passes/print/export', requireAuth, asyncHandler(accessController.exportPassPrintPdf));
   router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
   router.get(
     '/events/:eventId/:type/requests/:requestId/history',

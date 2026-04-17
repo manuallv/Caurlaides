@@ -1,9 +1,63 @@
+const dayjs = require('dayjs');
 const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
+}
+
+function normalizeEntryWindowsInput(input) {
+  if (!input) {
+    return [];
+  }
+
+  if (Array.isArray(input)) {
+    return input;
+  }
+
+  if (typeof input === 'object') {
+    return Object.values(input);
+  }
+
+  return [];
+}
+
+function sanitizePassEntryWindowsPayload(input, t) {
+  const tx = resolveTranslate(t);
+  const entryWindows = normalizeEntryWindowsInput(input);
+
+  return entryWindows.reduce((sanitized, rawWindow, index) => {
+    const startAtRaw = String(rawWindow?.startAt || rawWindow?.start_at || '').trim();
+    const endAtRaw = String(rawWindow?.endAt || rawWindow?.end_at || '').trim();
+
+    if (!startAtRaw && !endAtRaw) {
+      return sanitized;
+    }
+
+    if (!startAtRaw || !endAtRaw) {
+      throw new AppError(tx('validation.accessType.entryWindowIncomplete'), 422);
+    }
+
+    const startAt = dayjs(startAtRaw);
+    const endAt = dayjs(endAtRaw);
+
+    if (!startAt.isValid() || !endAt.isValid()) {
+      throw new AppError(tx('validation.accessType.entryWindowInvalid'), 422);
+    }
+
+    if (!endAt.isAfter(startAt)) {
+      throw new AppError(tx('validation.accessType.entryWindowOrder'), 422);
+    }
+
+    sanitized.push({
+      startAt: startAt.format('YYYY-MM-DD HH:mm:ss'),
+      endAt: endAt.format('YYYY-MM-DD HH:mm:ss'),
+      sortOrder: index,
+    });
+
+    return sanitized;
+  }, []);
 }
 
 class CategoryService {
@@ -35,6 +89,7 @@ class CategoryService {
       throw new AppError(tx('service.category.manageCategories'), 403);
     }
 
+    const entryWindows = type === 'pass' ? sanitizePassEntryWindowsPayload(payload.entryWindows, tx) : [];
     const connection = await this.pool.getConnection();
 
     try {
@@ -45,6 +100,10 @@ class CategoryService {
         userId: actorId,
         ...payload,
       });
+
+      if (type === 'pass') {
+        await this.categoryRepository.replacePassEntryWindows(connection, categoryId, entryWindows);
+      }
 
       await this.auditLogService.record(
         {
@@ -57,7 +116,10 @@ class CategoryService {
             type: translate(DEFAULT_LOCALE, `categoryType.${type}`),
             name: payload.name,
           }),
-          afterState: payload,
+          afterState: {
+            ...payload,
+            entryWindows,
+          },
           metadata: buildAuditMetadata('audit.message.categoryCreated', {
             type: tx(`categoryType.${type}`),
             name: payload.name,
@@ -84,34 +146,54 @@ class CategoryService {
       throw new AppError(tx('service.category.manageCategories'), 403);
     }
 
+    const entryWindows = type === 'pass' ? sanitizePassEntryWindowsPayload(payload.entryWindows, tx) : [];
     const existingCategory = await this.categoryRepository.findById(type, categoryId);
 
     if (!existingCategory || Number(existingCategory.event_id) !== Number(eventId)) {
       throw new AppError(tx('service.category.notFound'), 404);
     }
 
-    await this.categoryRepository.update(type, categoryId, {
-      userId: actorId,
-      ...payload,
-    });
+    const connection = await this.pool.getConnection();
 
-    await this.auditLogService.record({
-      eventId,
-      userId: actorId,
-      entityType: `${type}_category`,
-      entityId: categoryId,
-      action: 'updated',
-      message: translate(DEFAULT_LOCALE, 'audit.message.categoryUpdated', {
-        type: translate(DEFAULT_LOCALE, `categoryType.${type}`),
-        name: payload.name,
-      }),
-      beforeState: existingCategory,
-      afterState: payload,
-      metadata: buildAuditMetadata('audit.message.categoryUpdated', {
-        type: tx(`categoryType.${type}`),
-        name: payload.name,
-      }),
-    });
+    try {
+      await connection.beginTransaction();
+      await this.categoryRepository.updateWithConnection(connection, type, categoryId, {
+        userId: actorId,
+        ...payload,
+      });
+
+      if (type === 'pass') {
+        await this.categoryRepository.replacePassEntryWindows(connection, categoryId, entryWindows);
+      }
+
+      await this.auditLogService.record({
+        eventId,
+        userId: actorId,
+        entityType: `${type}_category`,
+        entityId: categoryId,
+        action: 'updated',
+        message: translate(DEFAULT_LOCALE, 'audit.message.categoryUpdated', {
+          type: translate(DEFAULT_LOCALE, `categoryType.${type}`),
+          name: payload.name,
+        }),
+        beforeState: existingCategory,
+        afterState: {
+          ...payload,
+          entryWindows,
+        },
+        metadata: buildAuditMetadata('audit.message.categoryUpdated', {
+          type: tx(`categoryType.${type}`),
+          name: payload.name,
+        }),
+      }, connection);
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async deleteCategory(eventId, categoryId, actorId, type, t) {

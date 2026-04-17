@@ -528,6 +528,338 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const getPassPrintElements = () => {
+    const app = document.querySelector('[data-pass-print-app]');
+    const stateScriptId = app?.dataset.passPrintStateScript || 'pass-print-state';
+
+    return {
+      app,
+      stateScript: document.getElementById(stateScriptId),
+      form: document.querySelector('[data-pass-print-form]'),
+      fieldsInput: document.querySelector('[data-pass-print-fields-input]'),
+      page: document.querySelector('[data-pass-print-page]'),
+      fieldLayer: document.querySelector('[data-pass-print-field-layer]'),
+      emptyState: document.querySelector('[data-pass-print-empty-state]'),
+      addButtons: [...document.querySelectorAll('[data-pass-print-add-field]')],
+      inspectorTitle: document.querySelector('[data-pass-print-inspector-title]'),
+      fieldType: document.querySelector('[data-pass-print-field-type]'),
+      fieldFontSize: document.querySelector('[data-pass-print-field-font-size]'),
+      positionX: document.querySelector('[data-pass-print-field-position-x]'),
+      positionY: document.querySelector('[data-pass-print-field-position-y]'),
+      removeFieldButton: document.querySelector('[data-pass-print-remove-field]'),
+      backgroundInput: document.querySelector('[data-pass-print-background-input]'),
+      removeBackgroundInput: document.querySelector('[data-pass-print-remove-background]'),
+    };
+  };
+
+  let passPrintEditorState = {
+    canManage: false,
+    fields: [],
+    variables: [],
+    selectedId: '',
+    currentBackgroundUrl: '',
+    uploadedBackgroundUrl: '',
+    drag: null,
+  };
+
+  const parsePassPrintState = () => {
+    const { app, stateScript } = getPassPrintElements();
+
+    if (!app || !stateScript) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(stateScript.textContent || '{}');
+
+      return {
+        canManage: app.dataset.passPrintCanManage === 'true' && Boolean(parsed.canManage),
+        fields: Array.isArray(parsed.template?.fields) ? parsed.template.fields : [],
+        variables: Array.isArray(parsed.variables) ? parsed.variables : [],
+        currentBackgroundUrl: parsed.template?.backgroundUrl || '',
+      };
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getPassPrintVariableLabel = (type) => (
+    passPrintEditorState.variables.find((variable) => variable.type === type)?.label || type || ''
+  );
+
+  const syncPassPrintFieldsInput = () => {
+    const { fieldsInput } = getPassPrintElements();
+
+    if (!fieldsInput) {
+      return;
+    }
+
+    fieldsInput.value = JSON.stringify(
+      passPrintEditorState.fields.map((field) => ({
+        id: field.id,
+        type: field.type,
+        x: Number(field.x || 0),
+        y: Number(field.y || 0),
+        fontSize: Number(field.fontSize || 18),
+      })),
+    );
+  };
+
+  const syncPassPrintBackgroundPreview = () => {
+    const { page, removeBackgroundInput } = getPassPrintElements();
+
+    if (!page) {
+      return;
+    }
+
+    const backgroundUrl = removeBackgroundInput?.checked
+      ? ''
+      : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
+
+    page.classList.toggle('has-background', Boolean(backgroundUrl));
+    page.style.backgroundImage = backgroundUrl ? `url("${backgroundUrl.replace(/"/g, '\\"')}")` : '';
+  };
+
+  const renderPassPrintFields = () => {
+    const { fieldLayer, emptyState } = getPassPrintElements();
+
+    if (!fieldLayer) {
+      return;
+    }
+
+    fieldLayer.innerHTML = passPrintEditorState.fields.map((field) => `
+      <button
+        type="button"
+        class="pass-print-field${field.id === passPrintEditorState.selectedId ? ' is-active' : ''}"
+        data-pass-print-field-id="${escapeHtml(field.id || '')}"
+        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;font-size:${Number(field.fontSize || 18)}px;"
+      >
+        <span>${escapeHtml(getPassPrintVariableLabel(field.type))}</span>
+      </button>
+    `).join('');
+
+    if (emptyState) {
+      emptyState.classList.toggle('hidden', passPrintEditorState.fields.length > 0);
+    }
+  };
+
+  const syncPassPrintInspector = () => {
+    const {
+      app,
+      inspectorTitle,
+      fieldType,
+      fieldFontSize,
+      positionX,
+      positionY,
+      removeFieldButton,
+    } = getPassPrintElements();
+
+    if (!app) {
+      return;
+    }
+
+    const selectedField = passPrintEditorState.fields.find((field) => field.id === passPrintEditorState.selectedId) || null;
+    const hasSelection = Boolean(selectedField);
+    const canEdit = passPrintEditorState.canManage && hasSelection;
+
+    if (inspectorTitle) {
+      inspectorTitle.textContent = hasSelection
+        ? getPassPrintVariableLabel(selectedField.type)
+        : (app.dataset.passPrintNoSelection || 'Select a field');
+    }
+
+    if (fieldType) {
+      fieldType.disabled = !canEdit;
+
+      if (hasSelection) {
+        fieldType.value = selectedField.type;
+      }
+    }
+
+    if (fieldFontSize) {
+      fieldFontSize.disabled = !canEdit;
+      fieldFontSize.value = hasSelection ? Number(selectedField.fontSize || 18) : '';
+    }
+
+    if (positionX) {
+      positionX.textContent = hasSelection ? `${Math.round(Number(selectedField.x || 0) * 100)}%` : '0%';
+    }
+
+    if (positionY) {
+      positionY.textContent = hasSelection ? `${Math.round(Number(selectedField.y || 0) * 100)}%` : '0%';
+    }
+
+    if (removeFieldButton) {
+      removeFieldButton.disabled = !canEdit;
+    }
+  };
+
+  const selectPassPrintField = (fieldId = '') => {
+    if (!passPrintEditorState.fields.some((field) => field.id === fieldId)) {
+      passPrintEditorState.selectedId = '';
+    } else {
+      passPrintEditorState.selectedId = fieldId;
+    }
+
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
+  const upsertSelectedPassPrintField = (patch = {}) => {
+    if (!passPrintEditorState.selectedId) {
+      return;
+    }
+
+    passPrintEditorState.fields = passPrintEditorState.fields.map((field) => (
+      field.id === passPrintEditorState.selectedId
+        ? { ...field, ...patch }
+        : field
+    ));
+
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
+  const addPassPrintField = (type) => {
+    if (!passPrintEditorState.canManage) {
+      return;
+    }
+
+    const nextIndex = passPrintEditorState.fields.length;
+    const field = {
+      id: `field-${Date.now()}-${nextIndex}`,
+      type,
+      x: Math.min(0.18 + (nextIndex % 4) * 0.08, 0.78),
+      y: Math.min(0.12 + Math.floor(nextIndex / 4) * 0.07, 0.88),
+      fontSize: 18,
+    };
+
+    passPrintEditorState.fields.push(field);
+    passPrintEditorState.selectedId = field.id;
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
+  const removeSelectedPassPrintField = () => {
+    if (!passPrintEditorState.canManage || !passPrintEditorState.selectedId) {
+      return;
+    }
+
+    passPrintEditorState.fields = passPrintEditorState.fields.filter(
+      (field) => field.id !== passPrintEditorState.selectedId,
+    );
+    passPrintEditorState.selectedId = passPrintEditorState.fields[0]?.id || '';
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
+  const startPassPrintFieldDrag = (pointerEvent, fieldId) => {
+    const { page } = getPassPrintElements();
+    const selectedField = passPrintEditorState.fields.find((field) => field.id === fieldId);
+
+    if (!page || !selectedField || !passPrintEditorState.canManage) {
+      return;
+    }
+
+    pointerEvent.preventDefault();
+
+    const rect = page.getBoundingClientRect();
+
+    passPrintEditorState.drag = {
+      fieldId,
+      pointerId: pointerEvent.pointerId,
+      offsetX: pointerEvent.clientX - (rect.left + rect.width * Number(selectedField.x || 0)),
+      offsetY: pointerEvent.clientY - (rect.top + rect.height * Number(selectedField.y || 0)),
+    };
+  };
+
+  const movePassPrintFieldDrag = (pointerEvent) => {
+    const { page } = getPassPrintElements();
+    const dragState = passPrintEditorState.drag;
+
+    if (!page || !dragState) {
+      return;
+    }
+
+    const rect = page.getBoundingClientRect();
+    const x = (pointerEvent.clientX - rect.left - dragState.offsetX) / rect.width;
+    const y = (pointerEvent.clientY - rect.top - dragState.offsetY) / rect.height;
+
+    upsertSelectedPassPrintField({
+      x: Math.min(Math.max(x, 0), 0.96),
+      y: Math.min(Math.max(y, 0), 0.96),
+    });
+  };
+
+  const stopPassPrintFieldDrag = () => {
+    passPrintEditorState.drag = null;
+  };
+
+  const handlePassPrintBackgroundChange = (file) => {
+    if (!file) {
+      passPrintEditorState.uploadedBackgroundUrl = '';
+      syncPassPrintBackgroundPreview();
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      passPrintEditorState.uploadedBackgroundUrl = String(reader.result || '');
+      const { removeBackgroundInput } = getPassPrintElements();
+
+      if (removeBackgroundInput) {
+        removeBackgroundInput.checked = false;
+      }
+
+      syncPassPrintBackgroundPreview();
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const initializePassPrintUI = () => {
+    const nextState = parsePassPrintState();
+
+    if (!nextState) {
+      passPrintEditorState = {
+        canManage: false,
+        fields: [],
+        variables: [],
+        selectedId: '',
+        currentBackgroundUrl: '',
+        uploadedBackgroundUrl: '',
+        drag: null,
+      };
+      return;
+    }
+
+    passPrintEditorState = {
+      canManage: nextState.canManage,
+      fields: nextState.fields.map((field) => ({
+        id: String(field.id || ''),
+        type: field.type,
+        x: Number(field.x || 0),
+        y: Number(field.y || 0),
+        fontSize: Number(field.fontSize || 18),
+      })),
+      variables: nextState.variables,
+      selectedId: nextState.fields[0]?.id || '',
+      currentBackgroundUrl: nextState.currentBackgroundUrl || '',
+      uploadedBackgroundUrl: '',
+      drag: null,
+    };
+
+    syncPassPrintBackgroundPreview();
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
   const copyTextToClipboard = async (value) => {
     const text = String(value || '').trim();
 
@@ -725,6 +1057,9 @@ document.addEventListener('DOMContentLoaded', () => {
     requestSubmitLabel: document.querySelector('[data-access-request-submit-label]'),
     requestProfile: document.querySelector('[data-access-request-profile]'),
     requestCategory: document.querySelector('[data-access-request-category]'),
+    entryWindowsList: document.querySelector('[data-access-entry-windows-list]'),
+    entryWindowsEmpty: document.querySelector('[data-access-entry-windows-empty]'),
+    entryWindowTemplate: document.querySelector('[data-access-entry-window-template]'),
     typeTotalNodes: [...document.querySelectorAll('[data-access-type-total]')],
     typeHandedNodes: [...document.querySelectorAll('[data-access-type-handed]')],
   });
@@ -839,6 +1174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.typeForm.elements.sortOrder) {
       elements.typeForm.elements.sortOrder.value = '0';
     }
+
+    setAccessEntryWindows([], { ensureBlank: true });
   };
 
   const populateAccessTypeForm = (trigger) => {
@@ -869,8 +1206,99 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.typeForm.elements.isActive.checked = trigger.dataset.typeIsActive === '1';
     }
 
+    let entryWindows = [];
+
+    try {
+      entryWindows = JSON.parse(trigger.dataset.typeEntryWindows || '[]');
+    } catch (error) {
+      entryWindows = [];
+    }
+
+    setAccessEntryWindows(entryWindows, { ensureBlank: true });
+
     setAccessView('types');
     elements.typeForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const toggleAccessEntryWindowsEmptyState = () => {
+    const { entryWindowsList, entryWindowsEmpty } = getAccessElements();
+    const hasRows = Boolean(entryWindowsList?.querySelector('[data-access-entry-window-row]'));
+
+    if (entryWindowsEmpty) {
+      entryWindowsEmpty.classList.toggle('hidden', hasRows);
+    }
+  };
+
+  const reindexAccessEntryWindowRows = () => {
+    const { entryWindowsList } = getAccessElements();
+    const rows = entryWindowsList
+      ? [...entryWindowsList.querySelectorAll('[data-access-entry-window-row]')]
+      : [];
+
+    rows.forEach((row, index) => {
+      const startInput = row.querySelector('[data-access-entry-window-start]');
+      const endInput = row.querySelector('[data-access-entry-window-end]');
+
+      if (startInput) {
+        startInput.name = `entryWindows[${index}][startAt]`;
+      }
+
+      if (endInput) {
+        endInput.name = `entryWindows[${index}][endAt]`;
+      }
+    });
+
+    toggleAccessEntryWindowsEmptyState();
+  };
+
+  const addAccessEntryWindowRow = (values = {}) => {
+    const { entryWindowsList, entryWindowTemplate } = getAccessElements();
+
+    if (!entryWindowsList || !entryWindowTemplate?.content) {
+      return null;
+    }
+
+    const fragment = entryWindowTemplate.content.cloneNode(true);
+    const row = fragment.querySelector('[data-access-entry-window-row]');
+    const startInput = row?.querySelector('[data-access-entry-window-start]');
+    const endInput = row?.querySelector('[data-access-entry-window-end]');
+
+    if (startInput) {
+      startInput.value = values.startAt || '';
+    }
+
+    if (endInput) {
+      endInput.value = values.endAt || '';
+    }
+
+    entryWindowsList.appendChild(fragment);
+    reindexAccessEntryWindowRows();
+    return row || null;
+  };
+
+  const setAccessEntryWindows = (entryWindows = [], { ensureBlank = false } = {}) => {
+    const { entryWindowsList } = getAccessElements();
+
+    if (!entryWindowsList) {
+      return;
+    }
+
+    entryWindowsList.innerHTML = '';
+    const normalizedWindows = Array.isArray(entryWindows) ? entryWindows : [];
+
+    if (normalizedWindows.length) {
+      normalizedWindows.forEach((entryWindow) => {
+        addAccessEntryWindowRow(entryWindow);
+      });
+      return;
+    }
+
+    if (ensureBlank) {
+      addAccessEntryWindowRow();
+      return;
+    }
+
+    toggleAccessEntryWindowsEmptyState();
   };
 
   const initializeAccessUI = () => {
@@ -888,6 +1316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+    if (elements.entryWindowsList && !elements.entryWindowsList.children.length) {
+      setAccessEntryWindows([], { ensureBlank: true });
+    }
     syncAccessTypeUsageMetrics();
     applyAccessFilters();
   };
@@ -2148,6 +2579,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
+    const passPrintAddTrigger = event.target.closest('[data-pass-print-add-field]');
+
+    if (passPrintAddTrigger) {
+      addPassPrintField(passPrintAddTrigger.dataset.passPrintAddField || '');
+      return;
+    }
+
+    const passPrintRemoveTrigger = event.target.closest('[data-pass-print-remove-field]');
+
+    if (passPrintRemoveTrigger) {
+      removeSelectedPassPrintField();
+      return;
+    }
+
+    const passPrintFieldTrigger = event.target.closest('[data-pass-print-field-id]');
+
+    if (passPrintFieldTrigger) {
+      selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '');
+      return;
+    }
+
     const sortDirectionTrigger = event.target.closest('[data-portal-sort-direction]');
 
     if (sortDirectionTrigger) {
@@ -2195,6 +2647,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessTypeResetTrigger) {
       resetAccessTypeForm();
+      return;
+    }
+
+    const accessEntryWindowAddTrigger = event.target.closest('[data-access-entry-window-add]');
+
+    if (accessEntryWindowAddTrigger) {
+      addAccessEntryWindowRow();
+      return;
+    }
+
+    const accessEntryWindowRemoveTrigger = event.target.closest('[data-access-entry-window-remove]');
+
+    if (accessEntryWindowRemoveTrigger) {
+      accessEntryWindowRemoveTrigger.closest('[data-access-entry-window-row]')?.remove();
+      reindexAccessEntryWindowRows();
       return;
     }
 
@@ -2371,7 +2838,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.addEventListener('pointerdown', (event) => {
+    const passPrintFieldTrigger = event.target.closest('[data-pass-print-field-id]');
+
+    if (!passPrintFieldTrigger) {
+      return;
+    }
+
+    selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '');
+    startPassPrintFieldDrag(event, passPrintFieldTrigger.dataset.passPrintFieldId || '');
+  });
+
+  window.addEventListener('pointermove', (event) => {
+    if (!passPrintEditorState.drag) {
+      return;
+    }
+
+    movePassPrintFieldDrag(event);
+  });
+
+  window.addEventListener('pointerup', () => {
+    stopPassPrintFieldDrag();
+  });
+
   document.addEventListener('change', (event) => {
+    if (event.target.matches('[data-pass-print-field-type]')) {
+      upsertSelectedPassPrintField({
+        type: event.target.value || 'vehiclePlate',
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-background-input]')) {
+      handlePassPrintBackgroundChange(event.target.files?.[0] || null);
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-remove-background]')) {
+      syncPassPrintBackgroundPreview();
+      return;
+    }
+
     if (event.target.matches('[data-portal-table-sort]')) {
       portalTableSortField = event.target.value || 'updated';
       filterPortalRows();
@@ -2392,6 +2899,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('input', (event) => {
+    if (event.target.matches('[data-pass-print-field-font-size]')) {
+      upsertSelectedPassPrintField({
+        fontSize: Number(event.target.value || 18),
+      });
+      return;
+    }
+
     if (event.target.matches('[data-request-profile-search]')) {
       filterRequestProfileRows();
     }
@@ -2544,6 +3058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessExportModal();
     initializeAccessUI();
     initializeCheckUI();
+    initializePassPrintUI();
     initializePortalUI();
     initializeRequestProfileUI();
     initializeSystemEmailSettings();
@@ -2551,6 +3066,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initializeAccessUI();
   initializeCheckUI();
+  initializePassPrintUI();
   initializePortalUI();
   initializeRequestProfileUI();
   initializeSystemEmailSettings();

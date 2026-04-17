@@ -24,6 +24,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           eu.role,
           (
             SELECT COUNT(*)
@@ -178,6 +182,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -214,6 +222,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
           e.updated_at,
@@ -251,6 +263,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -343,6 +359,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -392,6 +412,10 @@ class EventRepository {
           e.vehicle_gate_api_key,
           e.vehicle_gate_api_mode,
           e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
           e.updated_at
@@ -429,6 +453,26 @@ class EventRepository {
         payload.apiKey,
         payload.mode,
         payload.dedupeSeconds,
+        eventId,
+      ],
+    );
+  }
+
+  async updatePassPrintTemplate(connection, eventId, payload) {
+    await connection.execute(
+      `
+        UPDATE events
+        SET
+          pass_print_template_name = ?,
+          pass_print_template_background_path = ?,
+          pass_print_template_fields_json = ?,
+          pass_print_template_updated_at = NOW()
+        WHERE id = ?
+      `,
+      [
+        payload.name,
+        payload.backgroundPath,
+        payload.fieldsJson,
         eventId,
       ],
     );

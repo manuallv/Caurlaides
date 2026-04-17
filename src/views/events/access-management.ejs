@@ -479,6 +479,54 @@
                 <textarea name="description" rows="4" class="field-input"></textarea>
               </div>
 
+              <% if (isPass) { %>
+                <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50/80 p-4">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <label class="field-label"><%= t('access.entryWindows.title') %></label>
+                      <p class="mt-1 text-sm text-slate-500"><%= t('access.entryWindows.description') %></p>
+                    </div>
+
+                    <button type="button" class="btn-secondary" data-access-entry-window-add>
+                      <%= t('access.entryWindows.add') %>
+                    </button>
+                  </div>
+
+                  <div class="mt-4 space-y-3" data-access-entry-windows-list></div>
+                  <p class="mt-3 text-sm text-slate-500" data-access-entry-windows-empty><%= t('access.entryWindows.empty') %></p>
+
+                  <template data-access-entry-window-template>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4" data-access-entry-window-row>
+                      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+                        <div>
+                          <label class="field-label"><%= t('access.entryWindows.from') %></label>
+                          <input
+                            type="datetime-local"
+                            step="60"
+                            class="field-input"
+                            data-access-entry-window-start
+                          />
+                        </div>
+
+                        <div>
+                          <label class="field-label"><%= t('access.entryWindows.until') %></label>
+                          <input
+                            type="datetime-local"
+                            step="60"
+                            class="field-input"
+                            data-access-entry-window-end
+                          />
+                        </div>
+
+                        <button type="button" class="access-mini-button access-mini-button--danger" data-access-entry-window-remove>
+                          <%= t('access.entryWindows.remove') %>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              <% } %>
+
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
                   <label class="field-label"><%= t('access.referenceQuota') %></label>
@@ -533,6 +581,17 @@
                         <div class="access-data-stack">
                           <strong><%= category.name %></strong>
                           <span><%= category.description || t('common.noDescription') %></span>
+                          <% if (isPass) { %>
+                            <% if ((category.entry_windows || []).length) { %>
+                              <div class="mt-2 space-y-1 text-xs text-slate-500">
+                                <% category.entry_windows.forEach((entryWindow) => { %>
+                                  <div><%= helpers.formatDateTime(entryWindow.start_at) %> - <%= helpers.formatDateTime(entryWindow.end_at) %></div>
+                                <% }) %>
+                              </div>
+                            <% } else { %>
+                              <span><%= t('access.entryWindows.unrestricted') %></span>
+                            <% } %>
+                          <% } %>
                         </div>
                       </td>
                       <td>
@@ -565,6 +624,7 @@
                               data-type-quota="<%= category.quota || '' %>"
                               data-type-sort-order="<%= category.sort_order %>"
                               data-type-is-active="<%= category.is_active ? '1' : '0' %>"
+                              data-type-entry-windows="<%= JSON.stringify((category.entry_windows || []).map((entryWindow) => ({ startAt: helpers.formatDateTimeLocalInput(entryWindow.start_at), endAt: helpers.formatDateTimeLocalInput(entryWindow.end_at) }))) %>"
                             ><%= t('access.types.editButton') %></button>
 
                             <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" method="POST" data-live-form data-confirm-message="<%= t('common.confirmDelete') %>">

@@ -7,6 +7,7 @@ function normalizeCategoryPayload(body) {
     quota: body.quota ? Number(body.quota) : null,
     isActive: body.isActive === 'on' ? 1 : 0,
     sortOrder: body.sortOrder ? Number(body.sortOrder) : 0,
+    entryWindows: body.entryWindows || [],
   };
 }
 

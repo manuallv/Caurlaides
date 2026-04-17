@@ -13,6 +13,7 @@ function normalizeCategoryPayload(body) {
     quota: body.quota ? Number(body.quota) : null,
     isActive: body.isActive === 'on' ? 1 : 0,
     sortOrder: body.sortOrder ? Number(body.sortOrder) : 0,
+    entryWindows: body.entryWindows || [],
   };
 }
 
@@ -59,6 +60,20 @@ function normalizeRequestPayload(body) {
     email: body.email,
     vehiclePlate: body.vehiclePlate,
     notes: body.notes,
+  };
+}
+
+function normalizePassPrintTemplatePayload(body) {
+  return {
+    templateName: body.templateName || '',
+    templateFields: body.templateFields || '[]',
+    removeBackground: body.removeBackground === 'on',
+  };
+}
+
+function normalizePassPrintFilters(query) {
+  return {
+    categoryId: query.categoryId ? Number(query.categoryId) : null,
   };
 }
 
@@ -454,6 +469,66 @@ function buildAccessController({ categoryService, accessService }) {
         wristbandCategories: data.wristbandCategories,
         editingProfile,
       });
+    },
+
+    async showPassPrintPage(req, res) {
+      const data = await accessService.getPassPrintPage(req.params.eventId, req.currentUser.id, req.t);
+
+      return res.render('events/pass-print', {
+        pageTitle: `${data.event.name} · ${req.t('passPrint.title')}`,
+        activeEvent: data.event,
+        canManage: data.canManage,
+        template: data.template,
+        variableDefinitions: data.variableDefinitions,
+        categories: data.categories,
+        printSummary: data.summary,
+        selectedCategoryId: null,
+      });
+    },
+
+    async savePassPrintTemplate(req, res) {
+      try {
+        await accessService.savePassPrintTemplate(
+          req.params.eventId,
+          req.currentUser.id,
+          normalizePassPrintTemplatePayload(req.body),
+          req.file || null,
+          req.t,
+        );
+
+        req.flash('success', req.t('flash.passPrintTemplateSaved'));
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/passes/print`);
+        }
+
+        throw error;
+      }
+
+      return res.redirect(`/events/${req.params.eventId}/passes/print`);
+    },
+
+    async exportPassPrintPdf(req, res) {
+      try {
+        const exportFile = await accessService.exportPassPrintPdf(
+          req.params.eventId,
+          req.currentUser.id,
+          normalizePassPrintFilters(req.query),
+          req.t,
+        );
+
+        res.setHeader('Content-Type', exportFile.contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${exportFile.filename}"`);
+        return res.send(exportFile.buffer);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/passes/print`);
+        }
+
+        throw error;
+      }
     },
 
     async createRequestProfile(req, res) {

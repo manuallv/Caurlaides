@@ -111,6 +111,18 @@
             label: t('event.sidebar.autoPasses'),
             icon: 'layers',
             active: eventSection === 'passes',
+            children: [
+              {
+                href: `/events/${activeEvent.id}/passes`,
+                label: t('event.sidebar.passRequests'),
+                active: currentPath === `/events/${activeEvent.id}/passes`,
+              },
+              {
+                href: `/events/${activeEvent.id}/passes/print`,
+                label: t('event.sidebar.passPrint'),
+                active: currentPath === `/events/${activeEvent.id}/passes/print`,
+              },
+            ],
           },
           {
             href: `/events/${activeEvent.id}/check`,

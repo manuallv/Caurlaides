@@ -299,6 +299,7 @@
         <div class="grid gap-3 px-5 py-5 sm:px-6">
           <a href="/events/<%= activeEvent.id %>/wristbands" class="btn-primary"><%= t('event.manageWristbands') %></a>
           <a href="/events/<%= activeEvent.id %>/passes" class="btn-secondary"><%= t('event.managePasses') %></a>
+          <a href="/events/<%= activeEvent.id %>/passes/print" class="btn-secondary"><%= t('event.printPasses') %></a>
           <% if (canManage) { %>
             <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('event.manageRequestProfiles') %></a>
             <a href="/events/<%= activeEvent.id %>/edit" class="btn-secondary"><%= t('event.editSettings') %></a>
