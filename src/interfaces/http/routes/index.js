@@ -24,6 +24,7 @@ const { buildSystemController } = require('../controllers/SystemController');
 const { buildAuthRoutes } = require('./auth-routes');
 const { buildDashboardRoutes } = require('./dashboard-routes');
 const { buildEventRoutes } = require('./event-routes');
+const { buildExternalApiRoutes } = require('./external-api-routes');
 const { buildPublicAccessRoutes } = require('./public-access-routes');
 const { buildSystemRoutes } = require('./system-routes');
 const { setLocale } = require('../middleware/locale');
@@ -84,8 +85,9 @@ function buildRouter() {
 
   router.get('/language/:locale', setLocale);
   router.use(buildAuthRoutes({ authController }));
-  router.use(buildDashboardRoutes({ dashboardController }));
+  router.use(buildDashboardRoutes({ dashboardController, accessController }));
   router.use(buildSystemRoutes({ systemController }));
+  router.use(buildExternalApiRoutes({ accessController }));
   router.use(buildPublicAccessRoutes({ accessController }));
   router.use(buildEventRoutes({ eventController, accessController }));
 

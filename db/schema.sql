@@ -227,6 +227,8 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   company_name VARCHAR(160) NULL,
   phone VARCHAR(40) NULL,
   email VARCHAR(190) NULL,
+  vehicle_plate VARCHAR(20) NULL,
+  vehicle_plate_normalized VARCHAR(20) NULL,
   notes TEXT NULL,
   status ENUM('pending', 'approved', 'rejected', 'handed_out', 'returned', 'finalized') NOT NULL DEFAULT 'pending',
   submitted_by_user_id BIGINT UNSIGNED NULL,
@@ -235,6 +237,9 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   handed_out_at DATETIME NULL,
   returned_at DATETIME NULL,
   finalized_at DATETIME NULL,
+  entered_at DATETIME NULL,
+  last_entry_at DATETIME NULL,
+  last_exit_at DATETIME NULL,
   deleted_at DATETIME NULL,
   deleted_by_user_id BIGINT UNSIGNED NULL,
   status_updated_at DATETIME NULL,
@@ -244,6 +249,7 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   PRIMARY KEY (id),
   KEY idx_pass_requests_event_status (event_id, status),
   KEY idx_pass_requests_profile_id (request_profile_id),
+  KEY idx_pass_requests_event_plate (event_id, vehicle_plate_normalized, deleted_at),
   CONSTRAINT fk_pass_requests_event
     FOREIGN KEY (event_id) REFERENCES events (id)
     ON DELETE CASCADE
@@ -275,6 +281,31 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   CONSTRAINT fk_pass_requests_status_updated_by
     FOREIGN KEY (status_updated_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS pass_request_entry_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id BIGINT UNSIGNED NOT NULL,
+  pass_request_id BIGINT UNSIGNED NOT NULL,
+  direction ENUM('entry', 'exit') NOT NULL DEFAULT 'entry',
+  vehicle_plate VARCHAR(20) NOT NULL,
+  vehicle_plate_normalized VARCHAR(20) NOT NULL,
+  gate_name VARCHAR(120) NULL,
+  source VARCHAR(80) NULL,
+  metadata JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_pass_request_entry_logs_event_created (event_id, created_at),
+  KEY idx_pass_request_entry_logs_request_created (pass_request_id, created_at),
+  KEY idx_pass_request_entry_logs_plate_created (vehicle_plate_normalized, created_at),
+  CONSTRAINT fk_pass_request_entry_logs_event
+    FOREIGN KEY (event_id) REFERENCES events (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pass_request_entry_logs_request
+    FOREIGN KEY (pass_request_id) REFERENCES pass_requests (id)
+    ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 

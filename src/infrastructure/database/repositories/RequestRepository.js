@@ -5,6 +5,7 @@ const REQUEST_CONFIG = {
     quotaTable: 'request_profile_pass_categories',
     categoryIdField: 'pass_category_id',
     label: 'pass',
+    supportsVehiclePlate: true,
   },
   wristband: {
     requestTable: 'wristband_requests',
@@ -12,8 +13,29 @@ const REQUEST_CONFIG = {
     quotaTable: 'request_profile_wristband_categories',
     categoryIdField: 'wristband_category_id',
     label: 'wristband',
+    supportsVehiclePlate: false,
   },
 };
+
+function buildVehiclePlateSelect(config, alias = 'request') {
+  if (config.supportsVehiclePlate) {
+    return `
+      ${alias}.vehicle_plate,
+      ${alias}.vehicle_plate_normalized,
+      ${alias}.entered_at,
+      ${alias}.last_entry_at,
+      ${alias}.last_exit_at
+    `;
+  }
+
+  return `
+    NULL AS vehicle_plate,
+    NULL AS vehicle_plate_normalized,
+    NULL AS entered_at,
+    NULL AS last_entry_at,
+    NULL AS last_exit_at
+  `;
+}
 
 class RequestRepository {
   constructor(pool) {
@@ -35,6 +57,19 @@ class RequestRepository {
     const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
     const params = [eventId];
     const orderDirection = filters.sort === 'oldest' ? 'ASC' : 'DESC';
+    const searchColumns = [
+      'request.full_name',
+      'request.phone',
+      'request.email',
+      'request.company_name',
+      'request.notes',
+      'profile.name',
+      'category.name',
+    ];
+
+    if (config.supportsVehiclePlate) {
+      searchColumns.push('request.vehicle_plate');
+    }
 
     if (filters.status) {
       where.push('request.status = ?');
@@ -57,20 +92,10 @@ class RequestRepository {
     }
 
     if (filters.query) {
-      where.push(
-        `(
-          request.full_name LIKE ?
-          OR request.phone LIKE ?
-          OR request.email LIKE ?
-          OR request.company_name LIKE ?
-          OR request.notes LIKE ?
-          OR profile.name LIKE ?
-          OR category.name LIKE ?
-        )`,
-      );
+      where.push(`(${searchColumns.map((column) => `${column} LIKE ?`).join(' OR ')})`);
 
       const like = `%${filters.query}%`;
-      params.push(like, like, like, like, like, like, like);
+      params.push(...searchColumns.map(() => like));
     }
 
     const [rows] = await this.pool.execute(
@@ -84,6 +109,7 @@ class RequestRepository {
           request.company_name,
           request.phone,
           request.email,
+          ${buildVehiclePlateSelect(config)},
           request.notes,
           request.status,
           request.handed_out_at,
@@ -166,7 +192,15 @@ class RequestRepository {
     const [rows] = await this.pool.execute(
       `
         SELECT
-          request.*,
+          request.*
+          ${config.supportsVehiclePlate ? '' : `,
+          NULL AS vehicle_plate,
+          NULL AS vehicle_plate_normalized,
+          NULL AS entered_at,
+          NULL AS last_entry_at,
+          NULL AS last_exit_at`}
+          ,
+          request.${config.categoryIdField} AS category_id,
           profile.name AS profile_name,
           profile.public_slug,
           category.name AS category_name
@@ -188,7 +222,15 @@ class RequestRepository {
     const [rows] = await this.pool.execute(
       `
         SELECT
-          request.*,
+          request.*
+          ${config.supportsVehiclePlate ? '' : `,
+          NULL AS vehicle_plate,
+          NULL AS vehicle_plate_normalized,
+          NULL AS entered_at,
+          NULL AS last_entry_at,
+          NULL AS last_exit_at`}
+          ,
+          request.${config.categoryIdField} AS category_id,
           profile.name AS profile_name,
           profile.public_slug,
           category.name AS category_name
@@ -206,6 +248,43 @@ class RequestRepository {
 
   async create(connection, type, payload) {
     const config = this.resolveConfig(type);
+
+    if (config.supportsVehiclePlate) {
+      const [result] = await connection.execute(
+        `
+          INSERT INTO ${config.requestTable} (
+            event_id,
+            request_profile_id,
+            ${config.categoryIdField},
+            full_name,
+            company_name,
+            phone,
+            email,
+            vehicle_plate,
+            vehicle_plate_normalized,
+            notes,
+            status,
+            status_updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+        `,
+        [
+          payload.eventId,
+          payload.requestProfileId,
+          payload.categoryId,
+          payload.fullName,
+          payload.companyName,
+          payload.phone,
+          payload.email,
+          payload.vehiclePlate || null,
+          payload.vehiclePlateNormalized || null,
+          payload.notes,
+        ],
+      );
+
+      return result.insertId;
+    }
+
     const [result] = await connection.execute(
       `
         INSERT INTO ${config.requestTable} (
@@ -239,6 +318,39 @@ class RequestRepository {
 
   async update(connection, type, requestId, payload) {
     const config = this.resolveConfig(type);
+
+    if (config.supportsVehiclePlate) {
+      await connection.execute(
+        `
+          UPDATE ${config.requestTable}
+          SET
+            request_profile_id = ?,
+            ${config.categoryIdField} = ?,
+            full_name = ?,
+            company_name = ?,
+            phone = ?,
+            email = ?,
+            vehicle_plate = ?,
+            vehicle_plate_normalized = ?,
+            notes = ?
+          WHERE id = ?
+        `,
+        [
+          payload.requestProfileId || null,
+          payload.categoryId,
+          payload.fullName,
+          payload.companyName,
+          payload.phone,
+          payload.email,
+          payload.vehiclePlate || null,
+          payload.vehiclePlateNormalized || null,
+          payload.notes,
+          requestId,
+        ],
+      );
+      return;
+    }
+
     await connection.execute(
       `
         UPDATE ${config.requestTable}
@@ -344,6 +456,7 @@ class RequestRepository {
           request.company_name,
           request.phone,
           request.email,
+          ${buildVehiclePlateSelect(config)},
           request.notes,
           request.status,
           request.handed_out_at,
@@ -417,6 +530,136 @@ class RequestRepository {
       quota: Number(row.quota || 0),
       used_count: Number(row.used_count || 0),
     }));
+  }
+
+  async listPassesByVehiclePlate(eventId, vehiclePlateNormalized) {
+    const config = this.resolveConfig('pass');
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.id,
+          request.event_id,
+          request.request_profile_id,
+          request.${config.categoryIdField} AS category_id,
+          request.full_name,
+          request.company_name,
+          request.phone,
+          request.email,
+          ${buildVehiclePlateSelect(config)},
+          request.notes,
+          request.status,
+          request.handed_out_at,
+          request.status_updated_at,
+          request.created_at,
+          request.updated_at,
+          profile.name AS profile_name,
+          profile.public_slug,
+          category.name AS category_name
+        FROM ${config.requestTable} request
+        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
+        WHERE request.event_id = ?
+          AND request.vehicle_plate_normalized = ?
+          AND request.deleted_at IS NULL
+          AND category.deleted_at IS NULL
+        ORDER BY request.created_at DESC, request.id DESC
+      `,
+      [eventId, vehiclePlateNormalized],
+    );
+
+    return rows;
+  }
+
+  async listRecentPassVehicleMovements(eventId, limit = 20) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          log.id,
+          log.event_id,
+          log.pass_request_id,
+          log.direction,
+          log.vehicle_plate,
+          log.vehicle_plate_normalized,
+          log.gate_name,
+          log.source,
+          log.metadata,
+          log.created_at,
+          request.full_name,
+          request.company_name,
+          request.last_entry_at,
+          request.last_exit_at,
+          request.entered_at,
+          request.status,
+          category.name AS category_name,
+          profile.name AS profile_name
+        FROM pass_request_entry_logs log
+        INNER JOIN pass_requests request ON request.id = log.pass_request_id
+        INNER JOIN pass_categories category ON category.id = request.pass_category_id
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
+        WHERE log.event_id = ?
+          AND request.deleted_at IS NULL
+          AND category.deleted_at IS NULL
+        ORDER BY log.created_at DESC, log.id DESC
+        LIMIT ?
+      `,
+      [eventId, Number(limit)],
+    );
+
+    return rows;
+  }
+
+  async registerPassVehicleMovement(connection, requestId, payload) {
+    const metadata = payload.metadata ? JSON.stringify(payload.metadata) : null;
+    const [insertResult] = await connection.execute(
+      `
+        INSERT INTO pass_request_entry_logs (
+          event_id,
+          pass_request_id,
+          direction,
+          vehicle_plate,
+          vehicle_plate_normalized,
+          gate_name,
+          source,
+          metadata
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        payload.eventId,
+        requestId,
+        payload.direction,
+        payload.vehiclePlate,
+        payload.vehiclePlateNormalized,
+        payload.gateName || null,
+        payload.source || null,
+        metadata,
+      ],
+    );
+
+    if (payload.direction === 'exit') {
+      await connection.execute(
+        `
+          UPDATE pass_requests
+          SET
+            last_exit_at = NOW()
+          WHERE id = ?
+        `,
+        [requestId],
+      );
+    } else {
+      await connection.execute(
+        `
+          UPDATE pass_requests
+          SET
+            entered_at = COALESCE(entered_at, NOW()),
+            last_entry_at = NOW()
+          WHERE id = ?
+        `,
+        [requestId],
+      );
+    }
+
+    return insertResult.insertId;
   }
 }
 

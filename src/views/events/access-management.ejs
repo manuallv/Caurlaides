@@ -40,6 +40,8 @@
     data-access-status-pending-label="<%= t('statuses.pending') %>"
     data-access-status-handed-out-label="<%= t('statuses.handed_out') %>"
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
+    data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
+    data-access-entry-at-label="<%= t('access.entryAt') %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -164,7 +166,9 @@
                           <img src="/public/design-assets/icons/feather/users.svg" alt="" />
                           <span><%= request.full_name %></span>
                         </div>
-                        <% if (request.notes) { %>
+                        <% if (isPass && request.vehicle_plate) { %>
+                          <p class="access-person-cell__meta"><%= t('access.fields.vehiclePlate') %>: <%= request.vehicle_plate %></p>
+                        <% } else if (request.notes) { %>
                           <p class="access-person-cell__meta"><%= request.notes %></p>
                         <% } else if (request.email) { %>
                           <p class="access-person-cell__meta"><%= request.email %></p>
@@ -205,7 +209,11 @@
                     <td>
                       <div class="access-data-stack">
                         <strong data-request-updated-primary><%= helpers.formatDateTime(request.created_at) %></strong>
-                        <span data-request-updated-by>&nbsp;</span>
+                        <% if (isPass && request.entered_at) { %>
+                          <span data-request-updated-by><%= t('access.entryAt') %>: <%= helpers.formatDateTime(request.entered_at) %></span>
+                        <% } else { %>
+                          <span data-request-updated-by>&nbsp;</span>
+                        <% } %>
                       </div>
                     </td>
                     <td>
@@ -221,6 +229,7 @@
                           data-request-company-name="<%= request.company_name || '' %>"
                           data-request-phone="<%= request.phone || '' %>"
                           data-request-email="<%= request.email || '' %>"
+                          data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
                           data-request-notes="<%= request.notes || '' %>"
                         ><%= t('access.actions.editRequest') %></button>
 
@@ -309,6 +318,13 @@
                 <label class="field-label"><%= t('portal.fields.email') %></label>
                 <input name="email" type="email" class="field-input" />
               </div>
+
+              <% if (isPass) { %>
+                <div>
+                  <label class="field-label"><%= t('access.fields.vehiclePlate') %></label>
+                  <input name="vehiclePlate" type="text" class="field-input" />
+                </div>
+              <% } %>
 
               <div class="portal-form-grid__full">
                 <label class="field-label"><%= t('portal.fields.notes') %></label>
@@ -439,11 +455,11 @@
                       <td>
                         <div class="access-data-stack access-type-usage">
                           <strong>
-                            <span data-access-type-total="<%= category.id %>"><%= category.total_requests || 0 %></span>
+                            <span data-access-type-total="<%= category.id %>" data-access-type-total-value="<%= category.total_requests || 0 %>"><%= category.total_requests || 0 %></span>
                             <span> <%= t('access.types.submittedCount') %></span>
                           </strong>
                           <span>
-                            <span data-access-type-handed="<%= category.id %>"><%= category.handed_out_requests || 0 %></span>
+                            <span data-access-type-handed="<%= category.id %>" data-access-type-handed-value="<%= category.handed_out_requests || 0 %>"><%= category.handed_out_requests || 0 %></span>
                             <span> <%= t('access.types.handedOutCount') %></span>
                           </span>
                         </div>

@@ -11,6 +11,7 @@ const env = {
   port: Number(process.env.PORT || 3000),
   appUrl: process.env.APP_URL || 'http://localhost:3000',
   timeZone: process.env.TZ,
+  vehicleEntryApiKey: String(process.env.VEHICLE_ENTRY_API_KEY || '').trim(),
   sessionSecret: process.env.SESSION_SECRET || 'development-session-secret',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   designAssetsSource: process.env.DESIGN_ASSETS_SOURCE || '',

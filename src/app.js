@@ -17,6 +17,9 @@ const { buildRouter } = require('./interfaces/http/routes');
 
 function createApp() {
   const app = express();
+  const csrfProtection = csrf({
+    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
+  });
 
   if (env.isProduction) {
     // Shared hosts such as Hostinger usually terminate HTTPS at a proxy,
@@ -39,11 +42,13 @@ function createApp() {
   app.use(createSessionMiddleware());
   app.use(attachLocale);
   app.use(flash());
-  app.use(
-    csrf({
-      ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
-    }),
-  );
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/external/')) {
+      return next();
+    }
+
+    return csrfProtection(req, res, next);
+  });
   app.use(attachCurrentUser);
   app.use(attachViewLocals);
 

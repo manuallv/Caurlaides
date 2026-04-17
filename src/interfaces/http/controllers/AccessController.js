@@ -56,7 +56,19 @@ function normalizeRequestPayload(body) {
     companyName: body.companyName,
     phone: body.phone,
     email: body.email,
+    vehiclePlate: body.vehiclePlate,
     notes: body.notes,
+  };
+}
+
+function normalizeVehicleEntryPayload(body) {
+  return {
+    eventId: body.eventId ? Number(body.eventId) : null,
+    vehiclePlate: body.vehiclePlate,
+    direction: body.direction,
+    gateName: body.gateName,
+    source: body.source,
+    metadata: body.metadata,
   };
 }
 
@@ -111,6 +123,7 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       companyName: request.company_name || '',
       phone: request.phone || '',
       email: request.email || '',
+      vehiclePlate: request.vehicle_plate || '',
       notes: request.notes || '',
       profileName: request.profile_name || '',
       categoryName: request.category_name || '',
@@ -121,6 +134,10 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
         ? res.locals.helpers.formatDateTime(request.status_updated_at)
         : '',
       statusUpdatedAtTs: request.status_updated_at ? new Date(request.status_updated_at).getTime() : 0,
+      enteredAtLabel: request.entered_at ? res.locals.helpers.formatDateTime(request.entered_at) : '',
+      enteredAtTs: request.entered_at ? new Date(request.entered_at).getTime() : 0,
+      lastEntryAtLabel: request.last_entry_at ? res.locals.helpers.formatDateTime(request.last_entry_at) : '',
+      lastEntryAtTs: request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0,
       createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
       createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
       nextStatus: status === 'handed_out' ? 'pending' : 'handed_out',
@@ -436,6 +453,48 @@ function buildAccessController({ categoryService, accessService }) {
       return res.send(exportFile.buffer);
     },
 
+    async showVehicleCheck(req, res) {
+      const data = await accessService.getVehicleCheckPage(
+        req.currentUser.id,
+        req.query.eventId,
+        req.t,
+      );
+
+      return res.render('check/index', {
+        pageTitle: req.t('check.title'),
+        selectedEvent: data.selectedEvent,
+        events: data.events,
+        recentMovements: data.recentMovements,
+        checkResult: null,
+        checkFormValues: {
+          vehiclePlate: '',
+          gateName: '',
+        },
+      });
+    },
+
+    async submitVehicleCheck(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.registerVehicleCheck(req.currentUser.id, payload, req.t);
+      const data = await accessService.getVehicleCheckPage(
+        req.currentUser.id,
+        payload.eventId,
+        req.t,
+      );
+
+      return res.render('check/index', {
+        pageTitle: req.t('check.title'),
+        selectedEvent: data.selectedEvent,
+        events: data.events,
+        recentMovements: data.recentMovements,
+        checkResult: result,
+        checkFormValues: {
+          vehiclePlate: payload.vehiclePlate || '',
+          gateName: payload.gateName || '',
+        },
+      });
+    },
+
     async showPortalLogin(req, res) {
       const entry = await accessService.getPortalLoginPage();
 
@@ -514,6 +573,7 @@ function buildAccessController({ categoryService, accessService }) {
             previewPhoneColumn: req.t('portal.import.preview.phone'),
             previewCompanyColumn: req.t('portal.import.preview.company'),
             previewEmailColumn: req.t('portal.import.preview.email'),
+            previewVehiclePlateColumn: req.t('portal.import.preview.vehiclePlate'),
             previewValidationColumn: req.t('portal.import.preview.validation'),
             previewOk: req.t('portal.import.preview.ok'),
             sortDirectionAsc: req.t('portal.sort.directionAsc'),
@@ -646,6 +706,54 @@ function buildAccessController({ categoryService, accessService }) {
         message: req.t('flash.portalImportCreated', { count: result.importedCount }),
         payload: {
           importedCount: result.importedCount,
+        },
+      });
+    },
+
+    async registerVehicleEntry(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.registerVehicleEntry(payload, req.t);
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        'pass',
+        result.request,
+        null,
+      );
+
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+
+      return res.json({
+        success: true,
+        message: req.t(
+          result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+          {
+          plate: result.request?.vehicle_plate || payload.vehiclePlate || '',
+          },
+        ),
+        direction: result.direction,
+        alreadyEntered: result.alreadyEntered,
+        currentPresence: result.currentPresence,
+        request: {
+          id: Number(result.request.id),
+          fullName: result.request.full_name || '',
+          companyName: result.request.company_name || '',
+          categoryName: result.request.category_name || '',
+          vehiclePlate: result.request.vehicle_plate || '',
+          enteredAt: result.request.entered_at || null,
+          lastEntryAt: result.request.last_entry_at || null,
+          lastExitAt: result.request.last_exit_at || null,
+          performedAt: result.performedAt || null,
+          enteredAtLabel: result.request.entered_at
+            ? res.locals.helpers.formatDateTime(result.request.entered_at)
+            : '',
+          lastEntryAtLabel: result.request.last_entry_at
+            ? res.locals.helpers.formatDateTime(result.request.last_entry_at)
+            : '',
+          lastExitAtLabel: result.request.last_exit_at
+            ? res.locals.helpers.formatDateTime(result.request.last_exit_at)
+            : '',
         },
       });
     },

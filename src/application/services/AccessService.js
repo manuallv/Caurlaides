@@ -11,7 +11,6 @@ const { comparePassword, hashPassword } = require('../../infrastructure/security
 
 const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
 const PUBLIC_PORTAL_IMPORTS_KEY = 'publicRequestProfileImports';
-const IMPORT_SAMPLE_HEADERS = ['Full Name', 'Phone', 'Company', 'Email', 'Notes'];
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -30,13 +29,42 @@ function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase() || null;
 }
 
+function formatVehiclePlate(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ') || null;
+}
+
+function normalizeVehiclePlate(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '') || null;
+}
+
+function resolveVehiclePresenceStatus(request = {}) {
+  const lastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+  const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
+
+  if (!lastEntryTs && !lastExitTs) {
+    return 'unknown';
+  }
+
+  return lastEntryTs > lastExitTs ? 'inside' : 'outside';
+}
+
 function buildRequestPayload(body, fallbackCompanyName = null) {
+  const vehiclePlate = formatVehiclePlate(body.vehiclePlate);
+
   return {
     categoryId: Number(body.categoryId),
     fullName: body.fullName ? body.fullName.trim() : '',
     companyName: (body.companyName || fallbackCompanyName || '').trim() || null,
     phone: body.phone ? body.phone.trim() : null,
     email: body.email ? body.email.trim() : null,
+    vehiclePlate,
+    vehiclePlateNormalized: normalizeVehiclePlate(vehiclePlate),
     notes: body.notes ? body.notes.trim() : null,
   };
 }
@@ -130,6 +158,8 @@ function normalizeImportHeader(header = '') {
   return String(header)
     .trim()
     .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[_\s-]+/g, '');
 }
 
@@ -150,8 +180,23 @@ function normalizeImportRow(rawRow = {}, index = 0, fallbackCompanyName = null) 
       normalized.company || normalized.companyname || normalized.uznemums || fallbackCompanyName || '',
     ).trim(),
     email: String(normalized.email || normalized.epasts || '').trim(),
+    vehiclePlate: formatVehiclePlate(
+      normalized.vehicleplate
+      || normalized.carnumber
+      || normalized.carnr
+      || normalized.platenumber
+      || normalized.autonumurs
+      || normalized.numurzime
+      || '',
+    ),
     notes: String(normalized.notes || normalized.piezimes || '').trim(),
   };
+}
+
+function buildImportSampleHeaders(type) {
+  return type === 'pass'
+    ? ['Full Name', 'Phone', 'Company', 'Email', 'Vehicle Plate', 'Notes']
+    : ['Full Name', 'Phone', 'Company', 'Email', 'Notes'];
 }
 
 function formatExportDateTime(value) {
@@ -1037,6 +1082,8 @@ class AccessService {
       }
     }
 
+    await this.assertVehiclePlateAvailable(eventId, type, payload.vehiclePlateNormalized, null, tx);
+
     let requestId = null;
     const connection = await this.pool.getConnection();
 
@@ -1051,6 +1098,8 @@ class AccessService {
         companyName: payload.companyName,
         phone: payload.phone,
         email: payload.email,
+        vehiclePlate: payload.vehiclePlate,
+        vehiclePlateNormalized: payload.vehiclePlateNormalized,
         notes: payload.notes,
       });
 
@@ -1132,6 +1181,14 @@ class AccessService {
       }
     }
 
+    await this.assertVehiclePlateAvailable(
+      eventId,
+      type,
+      normalizedPayload.vehiclePlateNormalized,
+      requestId,
+      tx,
+    );
+
     const connection = await this.pool.getConnection();
 
     try {
@@ -1180,6 +1237,31 @@ class AccessService {
       event,
       request,
       summary,
+    };
+  }
+
+  async getVehicleCheckPage(actorId, selectedEventId, t) {
+    const tx = resolveTranslate(t);
+    const events = await this.eventService.listUserEvents(actorId);
+    let selectedEvent = null;
+
+    if (selectedEventId) {
+      selectedEvent = await this.eventService.getEventAccessOrFail(selectedEventId, actorId, tx);
+    } else if (events.length) {
+      selectedEvent = await this.eventService.getEventAccessOrFail(events[0].id, actorId, tx);
+    }
+
+    const recentMovements = selectedEvent
+      ? await this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20)
+      : [];
+
+    return {
+      events,
+      selectedEvent,
+      recentMovements: recentMovements.map((movement) => ({
+        ...movement,
+        presence_status: resolveVehiclePresenceStatus(movement),
+      })),
     };
   }
 
@@ -1312,6 +1394,13 @@ class AccessService {
     const portal = await this.getPublicPortal(session, tx);
     const payload = buildRequestPayload(body, portal.profile.name);
 
+    await this.assertVehiclePlateAvailable(
+      portal.profile.event_id,
+      type,
+      payload.vehiclePlateNormalized,
+      null,
+      tx,
+    );
     await this.assertPortalRequestAllowed(portal.profile, type, payload.categoryId, null, tx);
 
     let requestId = null;
@@ -1384,6 +1473,13 @@ class AccessService {
       ...payload,
       requestProfileId: portal.profile.id,
     };
+    await this.assertVehiclePlateAvailable(
+      portal.profile.event_id,
+      type,
+      normalizedPayload.vehiclePlateNormalized,
+      requestId,
+      tx,
+    );
     await this.assertPortalRequestAllowed(portal.profile, type, normalizedPayload.categoryId, requestId, tx);
 
     const connection = await this.pool.getConnection();
@@ -1502,9 +1598,13 @@ class AccessService {
     }
 
     const worksheet = XLSX.utils.aoa_to_sheet([
-      IMPORT_SAMPLE_HEADERS,
-      ['Janis Berzins', '+37120000000', portal.profile.name, 'janis@example.com', ''],
-      ['Anna Liepa', '+37120000001', portal.profile.name, '', ''],
+      buildImportSampleHeaders(type),
+      type === 'pass'
+        ? ['Janis Berzins', '+37120000000', portal.profile.name, 'janis@example.com', 'AB-1234', '']
+        : ['Janis Berzins', '+37120000000', portal.profile.name, 'janis@example.com', ''],
+      type === 'pass'
+        ? ['Anna Liepa', '+37120000001', portal.profile.name, '', 'CD-5678', '']
+        : ['Anna Liepa', '+37120000001', portal.profile.name, '', ''],
     ]);
     const workbook = XLSX.utils.book_new();
 
@@ -1552,9 +1652,11 @@ class AccessService {
       throw new AppError(tx('service.portal.importEmpty'), 422);
     }
 
+    const seenVehiclePlates = new Set();
     const rows = rawRows.map((row, index) => {
       const normalizedRow = normalizeImportRow(row, index, portal.profile.name);
       const errors = [];
+      const normalizedVehiclePlate = normalizeVehiclePlate(normalizedRow.vehiclePlate);
 
       if (!normalizedRow.fullName || normalizedRow.fullName.length < 2 || normalizedRow.fullName.length > 160) {
         errors.push(tx('validation.portal.fullName', { min: 2, max: 160 }));
@@ -1576,15 +1678,46 @@ class AccessService {
         errors.push(tx('validation.portal.email'));
       }
 
+      if (normalizedRow.vehiclePlate && (normalizedRow.vehiclePlate.length < 2 || normalizedRow.vehiclePlate.length > 20)) {
+        errors.push(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }));
+      }
+
+      if (type === 'pass' && normalizedVehiclePlate) {
+        if (seenVehiclePlates.has(normalizedVehiclePlate)) {
+          errors.push(tx('service.vehicleEntry.duplicatePlate'));
+        } else {
+          seenVehiclePlates.add(normalizedVehiclePlate);
+        }
+      }
+
       if (normalizedRow.notes && normalizedRow.notes.length > 3000) {
         errors.push(tx('validation.portal.notes', { max: 3000 }));
       }
 
       return {
         ...normalizedRow,
+        vehiclePlateNormalized: normalizedVehiclePlate,
         errors,
       };
     });
+
+    if (type === 'pass') {
+      for (const row of rows) {
+        if (row.errors.length || !row.vehiclePlateNormalized) {
+          continue;
+        }
+
+        // Prevent ambiguous scanner matches before the user confirms import.
+        const existingRequests = await this.requestRepository.listPassesByVehiclePlate(
+          portal.profile.event_id,
+          row.vehiclePlateNormalized,
+        );
+
+        if (existingRequests.length) {
+          row.errors.push(tx('service.vehicleEntry.duplicatePlate'));
+        }
+      }
+    }
 
     const validRows = rows.filter((row) => row.errors.length === 0);
     const overallErrors = [];
@@ -1612,6 +1745,7 @@ class AccessService {
           phone: row.phone,
           companyName: row.companyName,
           email: row.email,
+          vehiclePlate: row.vehiclePlate,
           notes: row.notes,
         })),
       };
@@ -1620,6 +1754,7 @@ class AccessService {
     return {
       token: canImport ? token : null,
       categoryName: category.category_name,
+      type,
       rows,
       totalRows: rows.length,
       validRows: validRows.length,
@@ -1681,7 +1816,27 @@ class AccessService {
     try {
       await connection.beginTransaction();
 
+      const seenVehiclePlates = new Set();
+
       for (const row of importBatch.rows) {
+        const normalizedVehiclePlate = normalizeVehiclePlate(row.vehiclePlate);
+
+        if (normalizedVehiclePlate) {
+          if (seenVehiclePlates.has(normalizedVehiclePlate)) {
+            throw new AppError(tx('service.vehicleEntry.duplicatePlate'), 409);
+          }
+
+          seenVehiclePlates.add(normalizedVehiclePlate);
+        }
+
+        await this.assertVehiclePlateAvailable(
+          portal.profile.event_id,
+          importBatch.type,
+          normalizedVehiclePlate,
+          null,
+          tx,
+        );
+
         const requestId = await this.requestRepository.create(connection, importBatch.type, {
           eventId: portal.profile.event_id,
           requestProfileId: portal.profile.id,
@@ -1690,6 +1845,8 @@ class AccessService {
           companyName: row.companyName,
           phone: row.phone,
           email: row.email || null,
+          vehiclePlate: row.vehiclePlate || null,
+          vehiclePlateNormalized: normalizeVehiclePlate(row.vehiclePlate),
           notes: row.notes || null,
         });
 
@@ -1732,8 +1889,129 @@ class AccessService {
     };
   }
 
+  async registerVehicleEntry(payload, t, options = {}) {
+    const tx = resolveTranslate(t);
+    const eventId = Number(payload.eventId);
+    const vehiclePlate = formatVehiclePlate(payload.vehiclePlate);
+    const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
+    const direction = payload.direction === 'exit' ? 'exit' : 'entry';
+    const gateName = String(payload.gateName || '').trim() || null;
+    const source = String(payload.source || '').trim() || null;
+    const metadata = payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
+      ? payload.metadata
+      : null;
+
+    if (!vehiclePlateNormalized) {
+      throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    if (options.actorId) {
+      await this.eventService.getEventAccessOrFail(eventId, options.actorId, tx);
+    }
+
+    const matches = await this.requestRepository.listPassesByVehiclePlate(eventId, vehiclePlateNormalized);
+
+    if (!matches.length) {
+      throw new AppError(tx('service.vehicleEntry.notFound'), 404);
+    }
+
+    if (matches.length > 1) {
+      throw new AppError(tx('service.vehicleEntry.multipleMatches'), 409);
+    }
+
+    const existingRequest = matches[0];
+    const alreadyEntered = Boolean(existingRequest.entered_at);
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.requestRepository.registerPassVehicleMovement(connection, existingRequest.id, {
+        eventId,
+        vehiclePlate: existingRequest.vehicle_plate || vehiclePlate,
+        vehiclePlateNormalized,
+        gateName,
+        source,
+        metadata,
+        direction,
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: options.actorId || null,
+          entityType: 'pass_request',
+          entityId: existingRequest.id,
+          action: 'updated',
+          message: translate(
+            DEFAULT_LOCALE,
+            direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+            {
+              plate: existingRequest.vehicle_plate || vehiclePlate,
+              name: existingRequest.full_name,
+            },
+          ),
+          beforeState: {
+            enteredAt: existingRequest.entered_at || null,
+            lastEntryAt: existingRequest.last_entry_at || null,
+            lastExitAt: existingRequest.last_exit_at || null,
+          },
+          afterState: {
+            plate: existingRequest.vehicle_plate || vehiclePlate,
+            direction,
+            gateName,
+            source,
+            alreadyEntered,
+            lockedByEntry: true,
+          },
+          metadata: buildAuditMetadata(
+            direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+            {
+              plate: existingRequest.vehicle_plate || vehiclePlate,
+              name: existingRequest.full_name,
+            },
+          ),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const request = await this.requestRepository.findById('pass', existingRequest.id);
+    const currentPresence = resolveVehiclePresenceStatus(request);
+
+    return {
+      eventId,
+      request,
+      direction,
+      alreadyEntered,
+      currentPresence,
+      performedAt: direction === 'exit' ? request.last_exit_at : request.last_entry_at,
+    };
+  }
+
+  async registerVehicleCheck(actorId, payload, t) {
+    return this.registerVehicleEntry(
+      {
+        ...payload,
+        source: payload.source || 'check-page',
+      },
+      t,
+      { actorId },
+    );
+  }
+
   isPortalRequestEditable(profile, type, request) {
     if (!request || request.status === 'handed_out') {
+      return false;
+    }
+
+    if (type === 'pass' && request.entered_at) {
       return false;
     }
 
@@ -1789,6 +2067,23 @@ class AccessService {
 
     if (usedCount >= Number(targetQuota.quota || 0)) {
       throw new AppError(tx('service.portal.quotaReached'), 409);
+    }
+  }
+
+  async assertVehiclePlateAvailable(eventId, type, vehiclePlateNormalized, excludeRequestId, t) {
+    const tx = resolveTranslate(t);
+
+    if (type !== 'pass' || !vehiclePlateNormalized) {
+      return;
+    }
+
+    const matches = await this.requestRepository.listPassesByVehiclePlate(eventId, vehiclePlateNormalized);
+    const conflictingRequest = matches.find(
+      (request) => Number(request.id) !== Number(excludeRequestId || 0),
+    );
+
+    if (conflictingRequest) {
+      throw new AppError(tx('service.vehicleEntry.duplicatePlate'), 409);
     }
   }
 

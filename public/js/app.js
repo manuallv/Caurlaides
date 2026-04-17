@@ -468,6 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
       statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
       statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
       filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
+      vehiclePlateLabel: workspace.dataset.accessVehiclePlateLabel,
+      entryAtLabel: workspace.dataset.accessEntryAtLabel,
     };
   };
 
@@ -584,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
     updateAccessFilteredCount();
-    updateAccessTypeUsageMetrics();
+    syncAccessTypeUsageMetrics();
   };
 
   const updateAccessSummary = (summary = {}) => {
@@ -634,42 +636,110 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const updateAccessTypeUsageMetrics = () => {
-    const { tableBody, typeTotalNodes, typeHandedNodes } = getAccessElements();
+  const syncAccessTypeUsageMetrics = () => {
+    const { typeTotalNodes, typeHandedNodes } = getAccessElements();
 
-    if (!tableBody || (!typeTotalNodes.length && !typeHandedNodes.length)) {
+    if (!typeTotalNodes.length && !typeHandedNodes.length) {
       return;
     }
 
-    const counts = {};
-
-    [...tableBody.querySelectorAll('[data-request-row-id]')].forEach((row) => {
-      const categoryId = String(row.dataset.requestCategoryId || '');
-
-      if (!categoryId) {
-        return;
-      }
-
-      if (!counts[categoryId]) {
-        counts[categoryId] = { total: 0, handed: 0 };
-      }
-
-      counts[categoryId].total += 1;
-
-      if (row.dataset.requestStatus === 'handed_out') {
-        counts[categoryId].handed += 1;
-      }
-    });
-
     typeTotalNodes.forEach((node) => {
-      const categoryId = String(node.dataset.accessTypeTotal || '');
-      node.textContent = String(counts[categoryId]?.total || 0);
+      node.textContent = String(Number(node.dataset.accessTypeTotalValue || 0));
     });
 
     typeHandedNodes.forEach((node) => {
-      const categoryId = String(node.dataset.accessTypeHanded || '');
-      node.textContent = String(counts[categoryId]?.handed || 0);
+      node.textContent = String(Number(node.dataset.accessTypeHandedValue || 0));
     });
+  };
+
+  const changeAccessTypeUsageNodeValue = (selector, datasetKey, categoryId, delta) => {
+    if (!categoryId || !delta) {
+      return;
+    }
+
+    const node = document.querySelector(`${selector}="${escapeSelector(categoryId)}"]`);
+
+    if (!node) {
+      return;
+    }
+
+    const nextValue = Math.max(Number(node.dataset[datasetKey] || 0) + delta, 0);
+    node.dataset[datasetKey] = String(nextValue);
+    node.textContent = String(nextValue);
+  };
+
+  const hasActiveAccessFilters = () => {
+    const filters = getAccessFilterState();
+
+    return Boolean(
+      filters.query
+      || filters.profileId
+      || filters.categoryId
+      || filters.status
+      || filters.company
+    );
+  };
+
+  const snapshotAccessRequestFromRow = (row) => {
+    if (!row) {
+      return null;
+    }
+
+    const categoryId = String(row.dataset.requestCategoryId || '');
+
+    if (!categoryId) {
+      return null;
+    }
+
+    return {
+      categoryId,
+      status: String(row.dataset.requestStatus || ''),
+    };
+  };
+
+  const snapshotAccessRequest = (request = {}) => {
+    const categoryId = String(request.categoryId || '');
+
+    if (!categoryId) {
+      return null;
+    }
+
+    return {
+      categoryId,
+      status: String(request.status || ''),
+    };
+  };
+
+  const updateAccessTypeUsageMetrics = (previousRequest = null, nextRequest = null) => {
+    const normalize = (request) => {
+      if (!request || !request.categoryId) {
+        return null;
+      }
+
+      return {
+        categoryId: String(request.categoryId),
+        status: String(request.status || ''),
+      };
+    };
+
+    const previous = normalize(previousRequest);
+    const next = normalize(nextRequest);
+
+    if (previous) {
+      changeAccessTypeUsageNodeValue('[data-access-type-total', 'accessTypeTotalValue', previous.categoryId, -1);
+
+      if (previous.status === 'handed_out') {
+        changeAccessTypeUsageNodeValue('[data-access-type-handed', 'accessTypeHandedValue', previous.categoryId, -1);
+      }
+    }
+
+    if (next) {
+      changeAccessTypeUsageNodeValue('[data-access-type-total', 'accessTypeTotalValue', next.categoryId, 1);
+
+      if (next.status === 'handed_out') {
+        changeAccessTypeUsageNodeValue('[data-access-type-handed', 'accessTypeHandedValue', next.categoryId, 1);
+      }
+    }
   };
 
   const getAccessFilterState = () => {
@@ -726,6 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         request.companyName,
         request.phone,
         request.email,
+        request.vehiclePlate,
         request.notes,
         request.profileName,
         request.categoryName,
@@ -749,6 +820,12 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
     const statusToneClass = request.statusTone === 'active' ? 'status-active' : 'status-pending';
+    const personMeta = request.vehiclePlate
+      ? `${escapeHtml(ui.vehiclePlateLabel || 'Vehicle plate')}: ${escapeHtml(request.vehiclePlate)}`
+      : escapeHtml(request.notes || request.email || '');
+    const secondaryUpdatedLabel = request.enteredAtLabel
+      ? `${escapeHtml(ui.entryAtLabel || 'Entered')}: ${escapeHtml(request.enteredAtLabel)}`
+      : '&nbsp;';
 
     row.dataset.requestRowId = request.id;
     row.dataset.requestStatus = request.status || '';
@@ -762,7 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <img src="/public/design-assets/icons/feather/users.svg" alt="" />
             <span>${escapeHtml(request.fullName || '')}</span>
           </div>
-          <p class="access-person-cell__meta">${escapeHtml(request.notes || request.email || '')}</p>
+          <p class="access-person-cell__meta">${personMeta}</p>
         </div>
       </td>
       <td>
@@ -792,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <td>
         <div class="access-data-stack">
           <strong data-request-updated-primary>${escapeHtml(request.createdAtLabel || '')}</strong>
-          <span data-request-updated-by>&nbsp;</span>
+          <span data-request-updated-by>${secondaryUpdatedLabel}</span>
         </div>
       </td>
       <td>
@@ -808,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data-request-company-name="${escapeHtml(request.companyName || '')}"
             data-request-phone="${escapeHtml(request.phone || '')}"
             data-request-email="${escapeHtml(request.email || '')}"
+            data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
             data-request-notes="${escapeHtml(request.notes || '')}"
           >${escapeHtml(ui.editLabel || 'Edit')}</button>
 
@@ -871,6 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
       type: requestType,
     };
     const existingRow = document.querySelector(`[data-request-row-id="${escapeSelector(request.id)}"]`);
+    const previousRequest = snapshotAccessRequestFromRow(existingRow);
     const matchesFilters = matchesAccessRequestFilters(normalizedRequest);
 
     if (!elements.tableBody) {
@@ -878,27 +957,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!matchesFilters) {
+      if (previousRequest) {
+        updateAccessTypeUsageMetrics(previousRequest, snapshotAccessRequest(normalizedRequest));
+      }
+
       if (existingRow) {
         existingRow.remove();
         if (!elements.tableBody.querySelector('[data-request-row-id]')) {
           return false;
         }
         updateAccessFilteredCount();
-        updateAccessTypeUsageMetrics();
         return true;
       }
 
       updateAccessFilteredCount();
-      updateAccessTypeUsageMetrics();
       return true;
     }
 
     const nextRow = buildAccessRequestRow(normalizedRequest);
 
+    if (previousRequest || !hasActiveAccessFilters()) {
+      updateAccessTypeUsageMetrics(previousRequest, snapshotAccessRequest(normalizedRequest));
+    }
+
     if (existingRow) {
       existingRow.replaceWith(nextRow);
       updateAccessFilteredCount();
-      updateAccessTypeUsageMetrics();
       return true;
     }
 
@@ -908,7 +992,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     insertAccessRowSorted(nextRow);
     updateAccessFilteredCount();
-    updateAccessTypeUsageMetrics();
     return true;
   };
 
@@ -929,6 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
+    updateAccessTypeUsageMetrics(snapshotAccessRequestFromRow(row), null);
+
     row.remove();
 
     if (!elements.tableBody?.querySelector('[data-request-row-id]')) {
@@ -936,7 +1021,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateAccessFilteredCount();
-    updateAccessTypeUsageMetrics();
     return true;
   };
 
@@ -1044,6 +1128,9 @@ document.addEventListener('DOMContentLoaded', () => {
     requestForm.elements.companyName.value = trigger?.dataset.requestCompanyName || '';
     requestForm.elements.phone.value = trigger?.dataset.requestPhone || '';
     requestForm.elements.email.value = trigger?.dataset.requestEmail || '';
+    if (requestForm.elements.vehiclePlate) {
+      requestForm.elements.vehiclePlate.value = trigger?.dataset.requestVehiclePlate || '';
+    }
     requestForm.elements.notes.value = trigger?.dataset.requestNotes || '';
 
     if (requestCategory) {
@@ -1108,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     requestSubmitLabel: document.querySelector('[data-portal-request-submit-label]'),
     requestCategorySelect: document.querySelector('[data-portal-category-select]'),
     requestMethodHolder: document.querySelector('[data-portal-method-holder]'),
+    requestPassOnlyFields: [...document.querySelectorAll('[data-portal-pass-only-field]')],
     importPreviewForm: document.querySelector('[data-portal-import-preview-form]'),
     importTypeInput: document.querySelector('[data-portal-import-type]'),
     importCategory: document.querySelector('[data-portal-import-category]'),
@@ -1120,6 +1208,23 @@ document.addEventListener('DOMContentLoaded', () => {
     sortSelect: document.querySelector('[data-portal-table-sort]'),
     sortDirectionLabel: document.querySelector('[data-portal-sort-direction-label]'),
   });
+
+  const syncPortalRequestFormLayout = (type) => {
+    const { requestForm, requestPassOnlyFields } = getPortalElements();
+    const isPass = type === 'pass';
+
+    requestPassOnlyFields.forEach((field) => {
+      field.classList.toggle('hidden', !isPass);
+    });
+
+    if (requestForm?.elements.vehiclePlate) {
+      requestForm.elements.vehiclePlate.disabled = !isPass;
+
+      if (!isPass) {
+        requestForm.elements.vehiclePlate.value = '';
+      }
+    }
+  };
 
   const syncPortalSortControls = () => {
     const { sortSelect, sortDirectionLabel } = getPortalElements();
@@ -1246,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activePortalRequestType = type;
     activePortalRequestMode = mode;
     elements.requestForm.reset();
+    syncPortalRequestFormLayout(type);
     elements.requestForm.action = `/p/${type}`;
     elements.requestSubmitLabel.textContent = mode === 'edit'
       ? (ui.saveRequest || 'Save request')
@@ -1263,6 +1369,9 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.requestForm.companyName.value = request.companyName;
       elements.requestForm.phone.value = request.phone;
       elements.requestForm.email.value = request.email;
+      if (elements.requestForm.vehiclePlate) {
+        elements.requestForm.vehiclePlate.value = request.vehiclePlate || '';
+      }
       elements.requestForm.notes.value = request.notes;
       fillCategoryOptions(elements.requestCategorySelect, type, request.categoryId);
     } else {
@@ -1312,6 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const ui = getPortalUi();
+    const showVehiclePlate = preview.type === 'pass' || (preview.rows || []).some((row) => row.vehiclePlate);
     const overallErrors = (preview.overallErrors || [])
       .map((message) => `<li>${message}</li>`)
       .join('');
@@ -1324,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${row.phone || '-'}</td>
           <td>${row.companyName || '-'}</td>
           <td>${row.email || '-'}</td>
+          ${showVehiclePlate ? `<td>${row.vehiclePlate || '-'}</td>` : ''}
           <td class="portal-preview-validation ${row.errors?.length ? '' : 'is-ok'}">${(row.errors || []).join('<br>') || (ui.previewOk || 'OK')}</td>
         </tr>
       `)
@@ -1345,6 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>${ui.previewPhoneColumn || 'Phone'}</th>
                 <th>${ui.previewCompanyColumn || 'Company'}</th>
                 <th>${ui.previewEmailColumn || 'Email'}</th>
+                ${showVehiclePlate ? `<th>${ui.previewVehiclePlateColumn || 'Vehicle Plate'}</th>` : ''}
                 <th>${ui.previewValidationColumn || 'Validation'}</th>
               </tr>
             </thead>
@@ -1370,6 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncPortalSortControls();
+    syncPortalRequestFormLayout(activePortalRequestType);
     setPortalTab(activePortalTab);
     setPortalWorkspaceView(activePortalWorkspaceView);
     updateImportTemplateLink();
@@ -1553,6 +1666,7 @@ document.addEventListener('DOMContentLoaded', () => {
           companyName: editTrigger.dataset.companyName,
           phone: editTrigger.dataset.phone,
           email: editTrigger.dataset.email,
+          vehiclePlate: editTrigger.dataset.vehiclePlate,
           notes: editTrigger.dataset.notes,
         },
       });

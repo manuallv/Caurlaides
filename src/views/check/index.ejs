@@ -1,0 +1,175 @@
+<section class="mx-auto flex max-w-5xl flex-col gap-6">
+  <div class="shell-card p-6 sm:p-8">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="worldnic-eyebrow"><%= t('nav.vehicleCheck') %></p>
+        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900"><%= t('check.title') %></h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500"><%= t('check.description') %></p>
+      </div>
+    </div>
+
+    <% if (!events.length) { %>
+      <div class="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500">
+        <%= t('check.noEvents') %>
+      </div>
+    <% } else { %>
+      <form action="/check" method="GET" class="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <label class="field-label"><%= t('check.event') %></label>
+          <select name="eventId" class="field-input">
+            <% events.forEach((event) => { %>
+              <option value="<%= event.id %>" <%= Number(selectedEvent?.id || 0) === Number(event.id) ? 'selected' : '' %>><%= event.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="flex items-end">
+          <button type="submit" class="btn-secondary"><%= t('check.openEvent') %></button>
+        </div>
+      </form>
+    <% } %>
+  </div>
+
+  <% if (selectedEvent) { %>
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
+      <div class="shell-card p-6 sm:p-8">
+        <form action="/check" method="POST" class="space-y-5">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="eventId" value="<%= selectedEvent.id %>" />
+
+          <div>
+            <label class="field-label"><%= t('check.vehiclePlate') %></label>
+            <input
+              name="vehiclePlate"
+              type="text"
+              class="field-input text-center text-2xl font-bold uppercase tracking-[0.22em]"
+              placeholder="<%= t('check.vehiclePlatePlaceholder') %>"
+              value="<%= checkFormValues?.vehiclePlate || '' %>"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              autofocus
+              required
+            />
+          </div>
+
+          <div>
+            <label class="field-label"><%= t('check.gateName') %></label>
+            <input
+              name="gateName"
+              type="text"
+              class="field-input"
+              placeholder="<%= t('check.gateNamePlaceholder') %>"
+              value="<%= checkFormValues?.gateName || '' %>"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button type="submit" name="direction" value="entry" class="btn-primary py-4 text-base font-semibold">
+              <%= t('check.entryButton') %>
+            </button>
+            <button type="submit" name="direction" value="exit" class="btn-secondary py-4 text-base font-semibold">
+              <%= t('check.exitButton') %>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="flex flex-col gap-6">
+        <div class="shell-card p-6">
+          <p class="worldnic-eyebrow"><%= t('check.resultTitle') %></p>
+
+          <% if (checkResult) { %>
+            <div class="mt-4 space-y-4">
+              <div>
+                <h2 class="text-xl font-extrabold text-slate-900">
+                  <%= t(checkResult.direction === 'exit' ? 'check.resultDirectionExit' : 'check.resultDirectionEntry') %>
+                </h2>
+                <p class="mt-1 text-sm text-slate-500"><%= checkResult.request.vehicle_plate %></p>
+              </div>
+
+              <div class="grid gap-3 text-sm text-slate-600">
+                <div>
+                  <span class="font-semibold text-slate-900"><%= t('check.resultPerson') %>:</span>
+                  <span><%= checkResult.request.full_name %></span>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-900"><%= t('check.resultCompany') %>:</span>
+                  <span><%= checkResult.request.company_name || t('common.notSet') %></span>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-900"><%= t('check.resultType') %>:</span>
+                  <span><%= checkResult.request.category_name || t('common.notSet') %></span>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-900"><%= t('check.resultPresence') %>:</span>
+                  <span>
+                    <%= t(
+                      checkResult.currentPresence === 'inside'
+                        ? 'check.resultPresenceInside'
+                        : checkResult.currentPresence === 'outside'
+                          ? 'check.resultPresenceOutside'
+                          : 'check.resultPresenceUnknown'
+                    ) %>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-900"><%= t('check.resultPerformedAt') %>:</span>
+                  <span><%= checkResult.performedAt ? helpers.formatDateTime(checkResult.performedAt) : t('common.notSet') %></span>
+                </div>
+              </div>
+
+              <% if (checkResult.direction === 'entry' && checkResult.alreadyEntered) { %>
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <%= t('check.resultAlreadyEntered') %>
+                </div>
+              <% } %>
+            </div>
+          <% } else { %>
+            <p class="mt-4 text-sm text-slate-500"><%= t('check.resultHint') %></p>
+          <% } %>
+        </div>
+
+        <div class="shell-card p-6">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="worldnic-eyebrow"><%= selectedEvent.name %></p>
+              <h2 class="mt-2 text-xl font-bold text-slate-900"><%= t('check.recentTitle') %></h2>
+            </div>
+          </div>
+
+          <% if (!recentMovements.length) { %>
+            <p class="mt-4 text-sm text-slate-500"><%= t('check.recentEmpty') %></p>
+          <% } else { %>
+            <div class="mt-4 space-y-3">
+              <% recentMovements.forEach((movement) => { %>
+                <div class="rounded-2xl border border-slate-200 px-4 py-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-semibold text-slate-900"><%= movement.vehicle_plate %> · <%= movement.full_name %></p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        <%= t('check.recentMeta', {
+                          direction: t(movement.direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
+                          time: helpers.formatDateTime(movement.created_at),
+                        }) %>
+                      </p>
+                      <% if (movement.company_name || movement.category_name || movement.gate_name) { %>
+                        <p class="mt-2 text-xs text-slate-500">
+                          <%= [movement.company_name, movement.category_name, movement.gate_name].filter(Boolean).join(' · ') %>
+                        </p>
+                      <% } %>
+                    </div>
+
+                    <span class="portal-type-pill <%= movement.direction === 'exit' ? '' : 'is-pass' %>">
+                      <%= t(movement.direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry') %>
+                    </span>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% } %>
+</section>

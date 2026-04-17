@@ -1,5 +1,11 @@
 const { validationResult } = require('express-validator');
 
+function wantsJson(req) {
+  return req.get('X-Requested-With') === 'XMLHttpRequest'
+    || req.xhr
+    || req.originalUrl.startsWith('/api/');
+}
+
 function validateRequest(req, res, next) {
   const errors = validationResult(req);
 
@@ -9,7 +15,7 @@ function validateRequest(req, res, next) {
 
   const mappedErrors = errors.array().map((error) => error.msg);
 
-  if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.xhr) {
+  if (wantsJson(req)) {
     return res.status(422).json({
       success: false,
       errors: mappedErrors,

@@ -41,7 +41,14 @@
                 ? 'settings'
                 : ''
       : '';
-    const sidebarLinks = [];
+    const sidebarLinks = [
+      {
+        href: '/check',
+        label: t('nav.vehicleCheck'),
+        icon: 'activity',
+        active: currentPath.startsWith('/check'),
+      },
+    ];
     const primarySidebarLink = {
       href: '/dashboard',
       label: t('nav.sidebar.events'),

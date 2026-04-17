@@ -164,7 +164,7 @@
                       class="portal-request-row"
                       data-request-row
                       data-request-type="<%= request.request_type %>"
-                      data-request-search="<%= [request.full_name, request.category_name, request.company_name || '', request.phone || '', request.email || '', request.notes || ''].join(' ').toLowerCase() %>"
+                      data-request-search="<%= [request.full_name, request.category_name, request.company_name || '', request.phone || '', request.email || '', request.vehicle_plate || '', request.notes || ''].join(' ').toLowerCase() %>"
                       data-sort-name="<%= (request.full_name || '').toLowerCase() %>"
                       data-sort-email="<%= (request.email || '').toLowerCase() %>"
                       data-sort-phone="<%= (request.phone || '').toLowerCase() %>"
@@ -184,6 +184,9 @@
                           <% if (request.email) { %>
                             <p class="portal-person-cell__meta"><%= request.email %></p>
                           <% } %>
+                          <% if (request.request_type === 'pass' && request.vehicle_plate) { %>
+                            <p class="portal-person-cell__meta"><%= t('portal.fields.vehiclePlate') %>: <%= request.vehicle_plate %></p>
+                          <% } %>
                         </div>
                       </td>
                       <td><div class="portal-data-cell"><%= request.category_name %></div></td>
@@ -192,6 +195,9 @@
                       <td>
                         <div class="portal-status-stack">
                           <span class="portal-status-pill <%= request.status === 'handed_out' ? 'is-locked' : 'is-pending' %>"><%= t(`statuses.${request.status}`) %></span>
+                          <% if (request.request_type === 'pass' && request.entered_at) { %>
+                            <span class="text-xs text-slate-500"><%= t('portal.enteredAt') %>: <%= helpers.formatDateTime(request.entered_at) %></span>
+                          <% } %>
                         </div>
                       </td>
                       <td>
@@ -213,6 +219,7 @@
                               data-company-name="<%= request.company_name || '' %>"
                               data-phone="<%= request.phone || '' %>"
                               data-email="<%= request.email || '' %>"
+                              data-vehicle-plate="<%= request.vehicle_plate || '' %>"
                               data-notes="<%= request.notes || '' %>"
                             ><%= t('portal.editRequest') %></button>
 
@@ -258,6 +265,10 @@
               <div>
                 <label class="field-label"><%= t('field.email') %></label>
                 <input name="email" type="email" class="field-input" />
+              </div>
+              <div class="hidden" data-portal-pass-only-field>
+                <label class="field-label"><%= t('portal.fields.vehiclePlate') %></label>
+                <input name="vehiclePlate" type="text" class="field-input" />
               </div>
               <div class="portal-form-grid__full">
                 <label class="field-label"><%= t('portal.fields.notes') %></label>

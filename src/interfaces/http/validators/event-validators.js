@@ -3,6 +3,23 @@ const { EVENT_ROLE_OPTIONS } = require('../../../shared/constants/event-roles');
 
 const EVENT_STATUSES = ['draft', 'active', 'completed', 'archived'];
 
+function buildVehiclePlateValidator(fieldName = 'vehiclePlate') {
+  return body(fieldName)
+    .custom((value, { req }) => {
+      const vehiclePlate = String(value || '').trim();
+
+      if (!vehiclePlate) {
+        return true;
+      }
+
+      if (vehiclePlate.length < 2 || vehiclePlate.length > 20) {
+        throw new Error(req.t('validation.portal.vehiclePlateLength', { min: 2, max: 20 }));
+      }
+
+      return true;
+    });
+}
+
 const eventValidator = [
   body('name')
     .trim()
@@ -169,6 +186,7 @@ const adminRequestEditorValidator = [
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
     .normalizeEmail(),
+  buildVehiclePlateValidator(),
   body('notes')
     .optional({ values: 'falsy' })
     .trim()
@@ -207,11 +225,36 @@ const portalRequestValidator = [
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
     .normalizeEmail(),
+  buildVehiclePlateValidator(),
   body('notes')
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max: 3000 })
     .withMessage((value, { req }) => req.t('validation.portal.notes', { max: 3000 })),
+];
+
+const externalVehicleEntryValidator = [
+  body('eventId')
+    .isInt({ min: 1 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.eventId')),
+  body('vehiclePlate')
+    .trim()
+    .isLength({ min: 2, max: 20 })
+    .withMessage((value, { req }) => req.t('validation.portal.vehiclePlateLength', { min: 2, max: 20 })),
+  body('direction')
+    .optional({ values: 'falsy' })
+    .isIn(['entry', 'exit'])
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.direction')),
+  body('gateName')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.gateName', { max: 120 })),
+  body('source')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 80 })
+    .withMessage((value, { req }) => req.t('validation.vehicleEntry.source', { max: 80 })),
 ];
 
 module.exports = {
@@ -221,6 +264,7 @@ module.exports = {
   categoryValidator,
   categoryUpdateValidator,
   eventValidator,
+  externalVehicleEntryValidator,
   memberRoleValidator,
   memberValidator,
   portalCodeValidator,
