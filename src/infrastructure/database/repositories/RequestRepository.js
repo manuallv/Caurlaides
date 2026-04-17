@@ -559,12 +559,34 @@ class RequestRepository {
         INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
         LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
         WHERE request.event_id = ?
-          AND request.vehicle_plate_normalized = ?
+          AND (
+            request.vehicle_plate_normalized = ?
+            OR REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(UPPER(COALESCE(request.vehicle_plate, '')), ' ', ''),
+                    '-',
+                    ''
+                  ),
+                  '.',
+                  ''
+                ),
+                '/',
+                ''
+              ),
+              '_',
+              ''
+            ) = ?
+          )
           AND request.deleted_at IS NULL
           AND category.deleted_at IS NULL
-        ORDER BY request.created_at DESC, request.id DESC
+        ORDER BY
+          CASE WHEN request.vehicle_plate_normalized = ? THEN 0 ELSE 1 END,
+          request.created_at DESC,
+          request.id DESC
       `,
-      [eventId, vehiclePlateNormalized],
+      [eventId, vehiclePlateNormalized, vehiclePlateNormalized, vehiclePlateNormalized],
     );
 
     return rows;
