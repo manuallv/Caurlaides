@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleAccessEntryWindowsEmptyState();
   };
 
-  const addAccessEntryWindowRow = (values = {}) => {
+  const addAccessEntryWindowRow = (values = {}, { focusStart = false } = {}) => {
     const { entryWindowsList, entryWindowTemplate } = getAccessElements();
 
     if (!entryWindowsList || !entryWindowTemplate?.content) {
@@ -1384,6 +1384,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     entryWindowsList.appendChild(fragment);
     reindexAccessEntryWindowRows();
+
+    if (focusStart && startInput) {
+      window.requestAnimationFrame(() => startInput.focus());
+    }
+
     return row || null;
   };
 
@@ -2784,7 +2789,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessEntryWindowAddTrigger = event.target.closest('[data-access-entry-window-add]');
 
     if (accessEntryWindowAddTrigger) {
-      addAccessEntryWindowRow();
+      addAccessEntryWindowRow({}, { focusStart: true });
       return;
     }
 
