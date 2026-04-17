@@ -156,6 +156,81 @@ function buildAccessRequestDeletePayload(type, requestId, summary = null) {
   };
 }
 
+function buildVehicleCheckMovementPayload(req, res, movement) {
+  const direction = movement.direction === 'exit' ? 'exit' : 'entry';
+
+  return {
+    id: Number(movement.id),
+    direction,
+    directionLabel: req.t(direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
+    vehiclePlate: movement.vehicle_plate || '',
+    fullName: movement.full_name || '',
+    companyName: movement.company_name || '',
+    categoryName: movement.category_name || '',
+    gateName: movement.gate_name || '',
+    createdAt: movement.created_at || null,
+    createdAtLabel: movement.created_at ? res.locals.helpers.formatDateTime(movement.created_at) : '',
+  };
+}
+
+function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
+  const request = result.request || {};
+  const direction = result.direction === 'exit' ? 'exit' : 'entry';
+  const currentPresence = result.currentPresence === 'inside'
+    ? 'inside'
+    : result.currentPresence === 'outside'
+      ? 'outside'
+      : 'unknown';
+
+  return {
+    direction,
+    directionTitle: req.t(direction === 'exit' ? 'check.resultDirectionExit' : 'check.resultDirectionEntry'),
+    alreadyEntered: Boolean(result.alreadyEntered),
+    alreadyEnteredMessage: result.alreadyEntered ? req.t('check.resultAlreadyEntered') : '',
+    currentPresence,
+    currentPresenceLabel: req.t(
+      currentPresence === 'inside'
+        ? 'check.resultPresenceInside'
+        : currentPresence === 'outside'
+          ? 'check.resultPresenceOutside'
+          : 'check.resultPresenceUnknown',
+    ),
+    performedAt: result.performedAt || null,
+    performedAtLabel: result.performedAt
+      ? res.locals.helpers.formatDateTime(result.performedAt)
+      : req.t('common.notSet'),
+    request: {
+      id: Number(request.id || 0),
+      fullName: request.full_name || '',
+      companyName: request.company_name || '',
+      categoryName: request.category_name || '',
+      vehiclePlate: request.vehicle_plate || fallbackPlate,
+      createdAt: request.created_at || null,
+      createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
+      enteredAt: request.entered_at || null,
+      enteredAtLabel: request.entered_at ? res.locals.helpers.formatDateTime(request.entered_at) : '',
+      lastEntryAt: request.last_entry_at || null,
+      lastEntryAtLabel: request.last_entry_at ? res.locals.helpers.formatDateTime(request.last_entry_at) : '',
+      lastExitAt: request.last_exit_at || null,
+      lastExitAtLabel: request.last_exit_at ? res.locals.helpers.formatDateTime(request.last_exit_at) : '',
+    },
+  };
+}
+
+function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fallbackPlate = '') {
+  return {
+    success: true,
+    message: req.t(
+      result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+      {
+        plate: result.request?.vehicle_plate || fallbackPlate || '',
+      },
+    ),
+    result: buildVehicleCheckResultPayload(req, res, result, fallbackPlate),
+    recentMovements: recentMovements.map((movement) => buildVehicleCheckMovementPayload(req, res, movement)),
+  };
+}
+
 function buildAccessController({ categoryService, accessService }) {
   return {
     async showTypePage(req, res) {
@@ -471,6 +546,10 @@ function buildAccessController({ categoryService, accessService }) {
           companyName: result.request.company_name || '',
           categoryName: result.request.category_name || '',
           profileName: result.request.profile_name || '',
+          createdAtLabel: result.request.created_at ? res.locals.helpers.formatDateTime(result.request.created_at) : '',
+          enteredAtLabel: result.request.entered_at ? res.locals.helpers.formatDateTime(result.request.entered_at) : '',
+          lastEntryAtLabel: result.request.last_entry_at ? res.locals.helpers.formatDateTime(result.request.last_entry_at) : '',
+          lastExitAtLabel: result.request.last_exit_at ? res.locals.helpers.formatDateTime(result.request.last_exit_at) : '',
         },
         movements: result.movements.map((movement) => ({
           id: Number(movement.id),
@@ -523,6 +602,28 @@ function buildAccessController({ categoryService, accessService }) {
         req.params.eventId,
         req.t,
       );
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        'pass',
+        result.request,
+        null,
+      );
+
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+
+      if (isAsyncRequest(req)) {
+        return res.json(
+          buildVehicleCheckMutationPayload(
+            req,
+            res,
+            result,
+            data.recentMovements,
+            payload.vehiclePlate,
+          ),
+        );
+      }
 
       return res.render('check/index', {
         pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
@@ -567,6 +668,27 @@ function buildAccessController({ categoryService, accessService }) {
       const payload = normalizeVehicleEntryPayload(req.body);
       const result = await accessService.registerPublicVehicleCheck(req.params.token, payload, req.t);
       const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
+
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+        req,
+        res,
+        'pass',
+        result.request,
+        null,
+      ));
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+
+      if (isAsyncRequest(req)) {
+        return res.json(
+          buildVehicleCheckMutationPayload(
+            req,
+            res,
+            result,
+            data.recentMovements,
+            payload.vehiclePlate,
+          ),
+        );
+      }
 
       return res.render('check/index', {
         pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,

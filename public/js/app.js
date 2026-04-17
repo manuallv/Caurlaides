@@ -247,6 +247,264 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  const getCheckElements = () => ({
+    app: document.querySelector('[data-check-app]'),
+    form: document.querySelector('[data-check-form]'),
+    feedback: document.querySelector('[data-check-feedback]'),
+    vehiclePlateInput: document.querySelector('[data-check-vehicle-plate]'),
+    gateNameInput: document.querySelector('[data-check-gate-name]'),
+    submitButtons: [...document.querySelectorAll('[data-check-submit-button]')],
+    resultCard: document.querySelector('[data-check-result-card]'),
+    resultEmpty: document.querySelector('[data-check-result-empty]'),
+    resultContent: document.querySelector('[data-check-result-content]'),
+    resultTitle: document.querySelector('[data-check-result-title]'),
+    resultPlate: document.querySelector('[data-check-result-plate]'),
+    resultPerson: document.querySelector('[data-check-result-person]'),
+    resultCompany: document.querySelector('[data-check-result-company]'),
+    resultType: document.querySelector('[data-check-result-type]'),
+    resultPresence: document.querySelector('[data-check-result-presence]'),
+    resultPerformedAt: document.querySelector('[data-check-result-performed-at]'),
+    resultNote: document.querySelector('[data-check-result-note]'),
+    recentList: document.querySelector('[data-check-recent-list]'),
+    recentEmpty: document.querySelector('[data-check-recent-empty]'),
+  });
+
+  const getCheckUi = () => {
+    const app = getCheckElements().app;
+
+    if (!app) {
+      return {};
+    }
+
+    return {
+      resultHint: app.dataset.checkResultHint || 'Enter a number plate and choose whether the vehicle is entering or exiting.',
+      recentEmptyLabel: app.dataset.checkRecentEmptyLabel || 'No vehicle movements registered yet for this event.',
+      notSet: app.dataset.checkNotSet || '-',
+    };
+  };
+
+  let checkFeedbackTimer = null;
+  let checkInputToneTimer = null;
+
+  const setCheckFormLoading = (isLoading) => {
+    const { submitButtons } = getCheckElements();
+
+    submitButtons.forEach((button) => {
+      button.disabled = isLoading;
+      button.classList.toggle('is-disabled', isLoading);
+    });
+  };
+
+  const setCheckFeedback = (message = '', tone = 'neutral') => {
+    const { feedback } = getCheckElements();
+
+    if (!feedback) {
+      return;
+    }
+
+    window.clearTimeout(checkFeedbackTimer);
+    feedback.hidden = !message;
+    feedback.textContent = message;
+    feedback.classList.remove('is-success', 'is-error');
+
+    if (!message) {
+      return;
+    }
+
+    if (tone === 'success' || tone === 'error') {
+      feedback.classList.add(`is-${tone}`);
+    }
+
+    checkFeedbackTimer = window.setTimeout(() => {
+      feedback.hidden = true;
+      feedback.textContent = '';
+      feedback.classList.remove('is-success', 'is-error');
+    }, 2600);
+  };
+
+  const pulseCheckVehicleInput = (tone = 'success') => {
+    const { vehiclePlateInput } = getCheckElements();
+
+    if (!vehiclePlateInput) {
+      return;
+    }
+
+    window.clearTimeout(checkInputToneTimer);
+    vehiclePlateInput.classList.remove('is-check-success', 'is-check-error');
+    vehiclePlateInput.classList.add(tone === 'error' ? 'is-check-error' : 'is-check-success');
+
+    checkInputToneTimer = window.setTimeout(() => {
+      vehiclePlateInput.classList.remove('is-check-success', 'is-check-error');
+    }, 1200);
+  };
+
+  const renderCheckRecentItems = (items = []) => items.map((item) => {
+    const detailParts = [
+      item.companyName,
+      item.categoryName,
+      item.gateName,
+    ].filter(Boolean);
+
+    return `
+      <div class="rounded-2xl border border-slate-200 px-4 py-3">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-900">${escapeHtml(item.vehiclePlate || '')} · ${escapeHtml(item.fullName || '')}</p>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.directionLabel || '')} · ${escapeHtml(item.createdAtLabel || '')}</p>
+            ${detailParts.length ? `<p class="mt-2 text-xs text-slate-500">${escapeHtml(detailParts.join(' · '))}</p>` : ''}
+          </div>
+
+          <span class="portal-type-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">
+            ${escapeHtml(item.directionLabel || '')}
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const renderCheckResult = (result) => {
+    const {
+      resultCard,
+      resultEmpty,
+      resultContent,
+      resultTitle,
+      resultPlate,
+      resultPerson,
+      resultCompany,
+      resultType,
+      resultPresence,
+      resultPerformedAt,
+      resultNote,
+    } = getCheckElements();
+    const ui = getCheckUi();
+
+    if (!resultCard || !resultEmpty || !resultContent || !result) {
+      return;
+    }
+
+    resultCard.classList.remove('is-entry', 'is-exit');
+    resultCard.classList.add(result.direction === 'exit' ? 'is-exit' : 'is-entry');
+    resultEmpty.classList.add('hidden');
+    resultContent.classList.remove('hidden');
+
+    if (resultTitle) {
+      resultTitle.textContent = result.directionTitle || '';
+    }
+
+    if (resultPlate) {
+      resultPlate.textContent = result.request?.vehiclePlate || '';
+    }
+
+    if (resultPerson) {
+      resultPerson.textContent = result.request?.fullName || ui.notSet;
+    }
+
+    if (resultCompany) {
+      resultCompany.textContent = result.request?.companyName || ui.notSet;
+    }
+
+    if (resultType) {
+      resultType.textContent = result.request?.categoryName || ui.notSet;
+    }
+
+    if (resultPresence) {
+      resultPresence.textContent = result.currentPresenceLabel || ui.notSet;
+    }
+
+    if (resultPerformedAt) {
+      resultPerformedAt.textContent = result.performedAtLabel || ui.notSet;
+    }
+
+    if (resultNote) {
+      resultNote.textContent = result.alreadyEnteredMessage || '';
+      resultNote.classList.toggle('hidden', !result.alreadyEnteredMessage);
+    }
+  };
+
+  const renderCheckRecentMovements = (items = []) => {
+    const { recentList, recentEmpty } = getCheckElements();
+    const ui = getCheckUi();
+
+    if (recentList) {
+      recentList.innerHTML = items.length ? renderCheckRecentItems(items) : '';
+      recentList.classList.toggle('hidden', !items.length);
+    }
+
+    if (recentEmpty) {
+      recentEmpty.textContent = ui.recentEmptyLabel || recentEmpty.textContent;
+      recentEmpty.classList.toggle('hidden', Boolean(items.length));
+    }
+  };
+
+  const submitCheckForm = async (form, submitter = null) => {
+    const { vehiclePlateInput } = getCheckElements();
+    const direction = submitter?.value === 'exit' ? 'exit' : 'entry';
+    const formData = new FormData(form);
+
+    formData.set('direction', direction);
+    setCheckFormLoading(true);
+    setCheckFeedback('');
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+      });
+
+      let payload = null;
+
+      try {
+        payload = await response.json();
+      } catch (error) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed.');
+      }
+
+      renderCheckResult(payload.result || null);
+      renderCheckRecentMovements(payload.recentMovements || []);
+      setCheckFeedback(payload.message || '', 'success');
+      pulseCheckVehicleInput('success');
+
+      if (vehiclePlateInput) {
+        vehiclePlateInput.value = '';
+        vehiclePlateInput.focus();
+      }
+    } catch (error) {
+      setCheckFeedback(error.message || 'Request failed.', 'error');
+      pulseCheckVehicleInput('error');
+      vehiclePlateInput?.focus?.();
+      vehiclePlateInput?.select?.();
+    } finally {
+      setCheckFormLoading(false);
+    }
+  };
+
+  const initializeCheckUI = () => {
+    const { app, resultContent, resultEmpty, recentList, recentEmpty } = getCheckElements();
+    const ui = getCheckUi();
+
+    if (!app) {
+      return;
+    }
+
+    if (resultEmpty && !resultContent?.classList.contains('hidden')) {
+      resultEmpty.classList.add('hidden');
+    } else if (resultEmpty && resultContent?.classList.contains('hidden')) {
+      resultEmpty.textContent = ui.resultHint || resultEmpty.textContent;
+    }
+
+    if (recentEmpty && recentList) {
+      recentEmpty.classList.toggle('hidden', !recentList.classList.contains('hidden') && recentList.children.length > 0);
+    }
+  };
+
   const copyTextToClipboard = async (value) => {
     const text = String(value || '').trim();
 
@@ -423,6 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
     historyTitle: document.querySelector('[data-access-history-title]'),
     historyEyebrow: document.querySelector('[data-access-history-eyebrow]'),
     historyMeta: document.querySelector('[data-access-history-meta]'),
+    historySummary: document.querySelector('[data-access-history-summary]'),
     historyLoading: document.querySelector('[data-access-history-loading]'),
     historyEmpty: document.querySelector('[data-access-history-empty]'),
     historyList: document.querySelector('[data-access-history-list]'),
@@ -474,6 +733,13 @@ document.addEventListener('DOMContentLoaded', () => {
       historyGateLabel: workspace.dataset.accessHistoryGateLabel,
       historySourceLabel: workspace.dataset.accessHistorySourceLabel,
       historyButtonLabel: workspace.dataset.accessHistoryButtonLabel,
+      historyCompanyLabel: workspace.dataset.accessHistoryCompanyLabel,
+      historyTypeLabel: workspace.dataset.accessHistoryTypeLabel,
+      historyProfileLabel: workspace.dataset.accessHistoryProfileLabel,
+      historyRegisteredLabel: workspace.dataset.accessHistoryRegisteredLabel,
+      historyEntryLabel: workspace.dataset.accessHistoryEntryLabel,
+      historyLastEntryLabel: workspace.dataset.accessHistoryLastEntryLabel,
+      historyLastExitLabel: workspace.dataset.accessHistoryLastExitLabel,
       eventId: workspace.dataset.accessEventId,
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
@@ -599,8 +865,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
-    updateAccessFilteredCount();
     syncAccessTypeUsageMetrics();
+    applyAccessFilters();
   };
 
   const updateAccessSummary = (summary = {}) => {
@@ -826,6 +1092,112 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
+  const readAccessRequestFromRow = (row) => {
+    const ui = getAccessUi();
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      type: ui.pageType,
+      requestProfileId: row.dataset.requestProfileId || '',
+      categoryId: row.dataset.requestCategoryId || '',
+      status: row.dataset.requestStatus || '',
+      companyName: row.dataset.requestCompanyName || '',
+      fullName: row.dataset.requestFullName || '',
+      phone: row.dataset.requestPhone || '',
+      email: row.dataset.requestEmail || '',
+      vehiclePlate: row.dataset.requestVehiclePlate || '',
+      notes: row.dataset.requestNotes || '',
+      profileName: row.dataset.requestProfileName || '',
+      categoryName: row.dataset.requestCategoryName || '',
+      createdAtTs: Number(row.dataset.requestCreatedTs || 0),
+    };
+  };
+
+  const syncAccessEmptyState = (visibleCount) => {
+    const { tableScroll, emptyState } = getAccessElements();
+
+    if (tableScroll) {
+      tableScroll.classList.toggle('hidden', visibleCount === 0);
+    }
+
+    if (emptyState) {
+      emptyState.classList.toggle('hidden', visibleCount > 0);
+    }
+  };
+
+  const syncAccessFilterUrl = () => {
+    const { filterForm } = getAccessElements();
+
+    if (!filterForm) {
+      return;
+    }
+
+    const params = new URLSearchParams();
+    const setParam = (name, value, defaultValue = '') => {
+      const normalizedValue = String(value || '').trim();
+
+      if (!normalizedValue || normalizedValue === defaultValue) {
+        return;
+      }
+
+      params.set(name, normalizedValue);
+    };
+
+    setParam('q', filterForm.elements.q?.value);
+    setParam('profileId', filterForm.elements.profileId?.value);
+    setParam('categoryId', filterForm.elements.categoryId?.value);
+    setParam('status', filterForm.elements.status?.value);
+    setParam('company', filterForm.elements.company?.value);
+    setParam('sort', filterForm.elements.sort?.value, 'newest');
+
+    const nextUrl = params.toString()
+      ? `${filterForm.action}?${params.toString()}`
+      : filterForm.action;
+
+    window.history.replaceState({}, '', `${nextUrl}#requests`);
+  };
+
+  const applyAccessFilters = () => {
+    const { tableBody } = getAccessElements();
+
+    if (!tableBody) {
+      syncAccessEmptyState(0);
+      updateAccessFilteredCount();
+      return;
+    }
+
+    const sortDirection = getAccessFilterState().sort;
+    const rows = [...tableBody.querySelectorAll('[data-request-row-id]')];
+    const visibleRows = [];
+    const hiddenRows = [];
+
+    rows.forEach((row) => {
+      const matches = matchesAccessRequestFilters(readAccessRequestFromRow(row));
+
+      row.style.display = matches ? '' : 'none';
+      (matches ? visibleRows : hiddenRows).push(row);
+    });
+
+    visibleRows.sort((leftRow, rightRow) => {
+      const leftCreatedTs = Number(leftRow.dataset.requestCreatedTs || 0);
+      const rightCreatedTs = Number(rightRow.dataset.requestCreatedTs || 0);
+
+      return sortDirection === 'oldest'
+        ? leftCreatedTs - rightCreatedTs
+        : rightCreatedTs - leftCreatedTs;
+    });
+
+    [...visibleRows, ...hiddenRows].forEach((row) => {
+      tableBody.appendChild(row);
+    });
+
+    syncAccessEmptyState(visibleRows.length);
+    updateAccessFilteredCount();
+  };
+
   const buildAccessRequestRow = (request = {}) => {
     const ui = getAccessUi();
     const row = document.createElement('tr');
@@ -844,6 +1216,15 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.requestStatus = request.status || '';
     row.dataset.requestCreatedTs = request.createdAtTs || 0;
     row.dataset.requestCategoryId = request.categoryId || '';
+    row.dataset.requestProfileId = request.requestProfileId || '';
+    row.dataset.requestFullName = request.fullName || '';
+    row.dataset.requestCompanyName = request.companyName || '';
+    row.dataset.requestPhone = request.phone || '';
+    row.dataset.requestEmail = request.email || '';
+    row.dataset.requestVehiclePlate = request.vehiclePlate || '';
+    row.dataset.requestNotes = request.notes || '';
+    row.dataset.requestProfileName = request.profileName || '';
+    row.dataset.requestCategoryName = request.categoryName || '';
 
     row.innerHTML = `
       <td>
@@ -928,9 +1309,9 @@ document.addEventListener('DOMContentLoaded', () => {
             title="${escapeHtml(ui.editLabel || 'Edit')}"
             aria-label="${escapeHtml(ui.editLabel || 'Edit')}"
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M13.9 4.6a1.5 1.5 0 0 1 2.1 2.1l-7.5 7.5-3.1.9.9-3.1 7.6-7.4"></path>
-              <path d="M12.5 6l1.5 1.5"></path>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
             </svg>
           </button>
 
@@ -1008,14 +1389,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (existingRow) {
         existingRow.remove();
-        if (!elements.tableBody.querySelector('[data-request-row-id]')) {
-          return false;
-        }
-        updateAccessFilteredCount();
+        applyAccessFilters();
         return true;
       }
 
-      updateAccessFilteredCount();
+      applyAccessFilters();
       return true;
     }
 
@@ -1027,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (existingRow) {
       existingRow.replaceWith(nextRow);
-      updateAccessFilteredCount();
+      applyAccessFilters();
       return true;
     }
 
@@ -1036,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     insertAccessRowSorted(nextRow);
-    updateAccessFilteredCount();
+    applyAccessFilters();
     return true;
   };
 
@@ -1060,12 +1438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAccessTypeUsageMetrics(snapshotAccessRequestFromRow(row), null);
 
     row.remove();
-
-    if (!elements.tableBody?.querySelector('[data-request-row-id]')) {
-      return false;
-    }
-
-    updateAccessFilteredCount();
+    applyAccessFilters();
     return true;
   };
 
@@ -1116,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
       historyTitle,
       historyEyebrow,
       historyMeta,
+      historySummary,
       historyLoading,
       historyEmpty,
       historyList,
@@ -1141,6 +1515,11 @@ document.addEventListener('DOMContentLoaded', () => {
       historyMeta.textContent = '';
     }
 
+    if (historySummary) {
+      historySummary.innerHTML = '';
+      historySummary.hidden = true;
+    }
+
     if (historyLoading) {
       historyLoading.textContent = ui.historyLoading || 'Loading history...';
       historyLoading.hidden = false;
@@ -1154,6 +1533,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (historyList) {
       historyList.innerHTML = '';
     }
+  };
+
+  const renderAccessHistorySummary = (request = {}) => {
+    const ui = getAccessUi();
+    const notSet = ui.notSet || '-';
+    const entries = [
+      [ui.vehiclePlateLabel || 'Vehicle plate', request.vehiclePlate || notSet],
+      [ui.historyCompanyLabel || 'Company', request.companyName || notSet],
+      [ui.historyTypeLabel || 'Pass type', request.categoryName || notSet],
+      [ui.historyProfileLabel || 'Profile', request.profileName || notSet],
+      [ui.historyRegisteredLabel || 'Registered', request.createdAtLabel || notSet],
+      [ui.historyEntryLabel || 'Entered', request.enteredAtLabel || notSet],
+      [ui.historyLastEntryLabel || 'Last entry', request.lastEntryAtLabel || notSet],
+      [ui.historyLastExitLabel || 'Last exit', request.lastExitAtLabel || notSet],
+    ];
+
+    return entries.map(([label, value]) => `
+      <div class="access-history-summary__item">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join('');
   };
 
   const renderAccessHistoryItems = (items = []) => {
@@ -1185,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', () => {
       historyTitle,
       historyEyebrow,
       historyMeta,
+      historySummary,
       historyLoading,
       historyEmpty,
       historyList,
@@ -1233,6 +1635,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (historyMeta) {
         historyMeta.textContent = payload.request?.vehiclePlate || '';
+      }
+
+      if (historySummary) {
+        historySummary.innerHTML = renderAccessHistorySummary(payload.request || {});
+        historySummary.hidden = false;
       }
 
       if (historyLoading) {
@@ -1829,13 +2236,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (liveFilterResetTrigger) {
       window.clearTimeout(liveFilterTimer);
       const resetUrl = liveFilterResetTrigger.dataset.filterResetUrl || window.location.pathname;
-      window.history.replaceState({}, '', `${resetUrl}#requests`);
-      activeAccessView = 'requests';
+      const accessFilterForm = liveFilterResetTrigger.closest('[data-live-filter-form]');
 
-      try {
-        await refreshLiveSections(`${window.location.origin}${resetUrl}`, { abortPrevious: true });
-      } catch (error) {
-        window.location.href = resetUrl;
+      if (accessFilterForm && getAccessElements().workspace) {
+        accessFilterForm.reset();
+
+        if (accessFilterForm.elements.sort) {
+          accessFilterForm.elements.sort.value = 'newest';
+        }
+
+        window.history.replaceState({}, '', `${resetUrl}#requests`);
+        activeAccessView = 'requests';
+        applyAccessFilters();
+      } else {
+        window.history.replaceState({}, '', `${resetUrl}#requests`);
+        activeAccessView = 'requests';
+
+        try {
+          await refreshLiveSections(`${window.location.origin}${resetUrl}`, { abortPrevious: true });
+        } catch (error) {
+          window.location.href = resetUrl;
+        }
       }
 
       return;
@@ -1940,8 +2361,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
 
-    if (liveFilterForm && event.target.matches('select, input')) {
-      submitLiveFilterForm(liveFilterForm);
+    if (liveFilterForm && getAccessElements().workspace && event.target.matches('select, input')) {
+      activeAccessView = 'requests';
+      syncAccessFilterUrl();
+      applyAccessFilters();
     }
   });
 
@@ -1955,10 +2378,23 @@ document.addEventListener('DOMContentLoaded', () => {
       filterPortalRows();
     }
 
+    if (event.target.matches('[data-check-vehicle-plate], [data-check-gate-name]')) {
+      setCheckFeedback('');
+    }
+
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
 
-    if (liveFilterForm && event.target.matches('input[type="search"], input[type="text"], input:not([type])')) {
-      submitLiveFilterForm(liveFilterForm, { delay: 260 });
+    if (
+      liveFilterForm
+      && getAccessElements().workspace
+      && event.target.matches('input[type="search"], input[type="text"], input:not([type])')
+    ) {
+      window.clearTimeout(liveFilterTimer);
+      liveFilterTimer = window.setTimeout(() => {
+        activeAccessView = 'requests';
+        syncAccessFilterUrl();
+        applyAccessFilters();
+      }, 180);
     }
   });
 
@@ -1970,9 +2406,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (form.matches('[data-check-form]')) {
+      event.preventDefault();
+      await submitCheckForm(form, event.submitter);
+      return;
+    }
+
     if (form.matches('[data-live-filter-form]')) {
       event.preventDefault();
-      await submitLiveFilterForm(form);
+      if (getAccessElements().workspace) {
+        activeAccessView = 'requests';
+        syncAccessFilterUrl();
+        applyAccessFilters();
+      }
 
       return;
     }
@@ -2074,12 +2520,14 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessRequestModal();
     closeAccessExportModal();
     initializeAccessUI();
+    initializeCheckUI();
     initializePortalUI();
     initializeRequestProfileUI();
     initializeSystemEmailSettings();
   });
 
   initializeAccessUI();
+  initializeCheckUI();
   initializePortalUI();
   initializeRequestProfileUI();
   initializeSystemEmailSettings();

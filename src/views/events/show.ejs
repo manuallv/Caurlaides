@@ -24,26 +24,47 @@
 
   <div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
     <div class="space-y-6">
-      <div class="shell-card overflow-hidden" data-live-section="event-dashboard-activity">
-        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-          <h2 class="text-xl font-bold text-slate-900"><%= t('event.operationalSummary') %></h2>
-          <p class="mt-1 text-sm text-slate-500"><%= t('event.operationalSummaryDescription') %></p>
+      <% if (canManage) { %>
+        <div class="shell-card overflow-hidden" id="vehicle-check-link" data-live-section="event-dashboard-vehicle-check-link">
+          <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+            <h2 class="text-xl font-bold text-slate-900"><%= t('event.vehicleCheckLinkTitle') %></h2>
+            <p class="mt-1 text-sm text-slate-500"><%= t('event.vehicleCheckLinkDescription') %></p>
+          </div>
+
+          <div class="space-y-4 px-5 py-5 sm:px-6">
+            <% if (vehicleCheckLink) { %>
+              <div>
+                <label class="field-label"><%= t('event.vehicleCheckLinkField') %></label>
+                <input type="text" class="field-input" value="<%= vehicleCheckLink %>" readonly onclick="this.select()" />
+              </div>
+
+              <p class="text-xs text-slate-500">
+                <%= t('event.vehicleCheckLinkGeneratedAt', {
+                  time: helpers.formatDateTime(activeEvent.vehicle_check_token_created_at),
+                }) %>
+              </p>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <a href="<%= vehicleCheckLink %>" target="_blank" rel="noreferrer" class="btn-secondary">
+                  <%= t('event.vehicleCheckLinkOpen') %>
+                </a>
+
+                <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkRegenerate') %></button>
+                </form>
+              </div>
+            <% } else { %>
+              <p class="text-sm text-slate-500"><%= t('event.vehicleCheckLinkEmpty') %></p>
+
+              <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkGenerate') %></button>
+              </form>
+            <% } %>
+          </div>
         </div>
-        <div class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-2">
-          <div class="panel">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.passDeadline') %></p>
-            <p class="mt-2 text-sm font-semibold text-slate-900"><%= helpers.formatDateTime(activeEvent.pass_request_deadline) %></p>
-          </div>
-          <div class="panel">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.wristbandDeadline') %></p>
-            <p class="mt-2 text-sm font-semibold text-slate-900"><%= helpers.formatDateTime(activeEvent.wristband_request_deadline) %></p>
-          </div>
-          <div class="panel md:col-span-2">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.descriptionLabel') %></p>
-            <p class="mt-2 text-sm leading-6 text-slate-600"><%= activeEvent.description || t('common.noDescription') %></p>
-          </div>
-        </div>
-      </div>
+      <% } %>
 
       <div class="shell-card overflow-hidden" data-live-section="event-dashboard-team">
         <div class="flex items-center justify-between border-b border-slate-200/80 px-5 py-5 sm:px-6">
@@ -106,47 +127,26 @@
         </div>
       </div>
 
-      <% if (canManage) { %>
-        <div class="shell-card overflow-hidden" id="vehicle-check-link" data-live-section="event-dashboard-vehicle-check-link">
-          <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-            <h2 class="text-xl font-bold text-slate-900"><%= t('event.vehicleCheckLinkTitle') %></h2>
-            <p class="mt-1 text-sm text-slate-500"><%= t('event.vehicleCheckLinkDescription') %></p>
+      <div class="shell-card overflow-hidden" data-live-section="event-dashboard-activity">
+        <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+          <h2 class="text-xl font-bold text-slate-900"><%= t('event.operationalSummary') %></h2>
+          <p class="mt-1 text-sm text-slate-500"><%= t('event.operationalSummaryDescription') %></p>
+        </div>
+        <div class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-2">
+          <div class="panel">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.passDeadline') %></p>
+            <p class="mt-2 text-sm font-semibold text-slate-900"><%= helpers.formatDateTime(activeEvent.pass_request_deadline) %></p>
           </div>
-
-          <div class="space-y-4 px-5 py-5 sm:px-6">
-            <% if (vehicleCheckLink) { %>
-              <div>
-                <label class="field-label"><%= t('event.vehicleCheckLinkField') %></label>
-                <input type="text" class="field-input" value="<%= vehicleCheckLink %>" readonly onclick="this.select()" />
-              </div>
-
-              <p class="text-xs text-slate-500">
-                <%= t('event.vehicleCheckLinkGeneratedAt', {
-                  time: helpers.formatDateTime(activeEvent.vehicle_check_token_created_at),
-                }) %>
-              </p>
-
-              <div class="grid gap-3 sm:grid-cols-2">
-                <a href="<%= vehicleCheckLink %>" target="_blank" rel="noreferrer" class="btn-secondary">
-                  <%= t('event.vehicleCheckLinkOpen') %>
-                </a>
-
-                <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                  <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkRegenerate') %></button>
-                </form>
-              </div>
-            <% } else { %>
-              <p class="text-sm text-slate-500"><%= t('event.vehicleCheckLinkEmpty') %></p>
-
-              <form action="/events/<%= activeEvent.id %>/vehicle-check-link" method="POST">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                <button type="submit" class="btn-primary w-full"><%= t('event.vehicleCheckLinkGenerate') %></button>
-              </form>
-            <% } %>
+          <div class="panel">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.wristbandDeadline') %></p>
+            <p class="mt-2 text-sm font-semibold text-slate-900"><%= helpers.formatDateTime(activeEvent.wristband_request_deadline) %></p>
+          </div>
+          <div class="panel md:col-span-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.descriptionLabel') %></p>
+            <p class="mt-2 text-sm leading-6 text-slate-600"><%= activeEvent.description || t('common.noDescription') %></p>
           </div>
         </div>
-      <% } %>
+      </div>
     </div>
   </div>
 </section>

@@ -61,6 +61,13 @@
     data-access-history-gate-label="<%= t('access.history.gate') %>"
     data-access-history-source-label="<%= t('access.history.source') %>"
     data-access-history-button-label="<%= t('access.actions.viewHistory') %>"
+    data-access-history-company-label="<%= t('check.resultCompany') %>"
+    data-access-history-type-label="<%= t('check.resultType') %>"
+    data-access-history-profile-label="<%= t('access.workspace.profile') %>"
+    data-access-history-registered-label="<%= t('access.history.registeredAt') %>"
+    data-access-history-entry-label="<%= t('access.entryAt') %>"
+    data-access-history-last-entry-label="<%= t('access.history.lastEntryAt') %>"
+    data-access-history-last-exit-label="<%= t('access.history.lastExitAt') %>"
   >
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -141,35 +148,43 @@
         <div class="access-table-frame__meta">
           <span class="toolbar-chip toolbar-chip-active" data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
         </div>
-        <% if (!requests.length) { %>
-          <div class="px-5 py-12 text-center sm:px-6" data-access-empty-state>
-            <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
-          </div>
-        <% } else { %>
-          <div class="access-table-scroll" data-access-table-scroll>
-            <table class="access-admin-table" data-access-requests-table>
-              <thead>
-                <tr>
-                  <th><%= t('access.workspace.person') %></th>
-                  <% if (isPass) { %>
-                    <th><%= t('access.fields.vehiclePlate') %></th>
-                  <% } %>
-                  <th><%= t('access.fields.type') %></th>
-                  <th><%= t('access.workspace.profile') %></th>
-                  <th><%= t('access.workspace.contact') %></th>
-                  <th><%= t('access.workspace.status') %></th>
-                  <th><%= t('access.workspace.updated') %></th>
-                  <th><%= t('access.workspace.actions') %></th>
-                </tr>
-              </thead>
-              <tbody data-access-requests-body>
-                <% requests.forEach((request) => { %>
-                  <tr
-                    data-request-row-id="<%= request.id %>"
-                    data-request-status="<%= request.status %>"
-                    data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
-                    data-request-category-id="<%= request.category_id %>"
-                  >
+        <div class="px-5 py-12 text-center sm:px-6 <%= requests.length ? 'hidden' : '' %>" data-access-empty-state>
+          <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
+        </div>
+
+        <div class="access-table-scroll <%= requests.length ? '' : 'hidden' %>" data-access-table-scroll>
+          <table class="access-admin-table" data-access-requests-table>
+            <thead>
+              <tr>
+                <th><%= t('access.workspace.person') %></th>
+                <% if (isPass) { %>
+                  <th><%= t('access.fields.vehiclePlate') %></th>
+                <% } %>
+                <th><%= t('access.fields.type') %></th>
+                <th><%= t('access.workspace.profile') %></th>
+                <th><%= t('access.workspace.contact') %></th>
+                <th><%= t('access.workspace.status') %></th>
+                <th><%= t('access.workspace.updated') %></th>
+                <th><%= t('access.workspace.actions') %></th>
+              </tr>
+            </thead>
+            <tbody data-access-requests-body>
+              <% requests.forEach((request) => { %>
+                <tr
+                  data-request-row-id="<%= request.id %>"
+                  data-request-status="<%= request.status %>"
+                  data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
+                  data-request-category-id="<%= request.category_id %>"
+                  data-request-profile-id="<%= request.request_profile_id || '' %>"
+                  data-request-full-name="<%= request.full_name %>"
+                  data-request-company-name="<%= request.company_name || '' %>"
+                  data-request-phone="<%= request.phone || '' %>"
+                  data-request-email="<%= request.email || '' %>"
+                  data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
+                  data-request-notes="<%= request.notes || '' %>"
+                  data-request-profile-name="<%= request.profile_name || '' %>"
+                  data-request-category-name="<%= request.category_name || '' %>"
+                >
                     <td>
                       <div class="access-person-cell">
                         <div class="access-person-cell__title">
@@ -270,9 +285,9 @@
                           title="<%= t('access.actions.editRequest') %>"
                           aria-label="<%= t('access.actions.editRequest') %>"
                         >
-                          <svg viewBox="0 0 20 20" aria-hidden="true">
-                            <path d="M13.9 4.6a1.5 1.5 0 0 1 2.1 2.1l-7.5 7.5-3.1.9.9-3.1 7.6-7.4Z" />
-                            <path d="M12.5 6l1.5 1.5" />
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5" />
                           </svg>
                         </button>
 
@@ -289,11 +304,10 @@
                       </div>
                     </td>
                   </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-        <% } %>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
 
         <div class="access-table-footer">
           <span data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
@@ -318,6 +332,7 @@
           </div>
 
           <div class="access-history-shell">
+            <div class="access-history-summary" data-access-history-summary hidden></div>
             <p class="text-sm text-slate-500" data-access-history-loading><%= t('access.history.loading') %></p>
             <p class="text-sm text-slate-500" data-access-history-empty hidden><%= t('access.history.empty') %></p>
             <div class="access-history-list" data-access-history-list></div>
