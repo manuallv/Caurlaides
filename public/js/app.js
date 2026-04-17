@@ -450,17 +450,22 @@ document.addEventListener('DOMContentLoaded', () => {
         ? 'entry'
         : 'check';
     const formData = new FormData(form);
+    const body = new URLSearchParams();
 
-    formData.set('direction', direction);
+    formData.forEach((value, key) => {
+      body.append(key, value);
+    });
+    body.set('direction', direction);
     setCheckFormLoading(true);
     setCheckFeedback('');
 
     try {
       const response = await fetch(form.action, {
         method: 'POST',
-        body: formData,
+        body,
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         },
         credentials: 'same-origin',
       });
