@@ -2492,6 +2492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tabButtons: [...document.querySelectorAll('[data-portal-tab]')],
     sortSelect: document.querySelector('[data-portal-table-sort]'),
     sortDirectionLabel: document.querySelector('[data-portal-sort-direction-label]'),
+    summaryCards: [...document.querySelectorAll('[data-portal-summary-card]')],
   });
 
   const syncPortalRequestFormLayout = (type) => {
@@ -2524,6 +2525,61 @@ document.addEventListener('DOMContentLoaded', () => {
         ? (ui.sortDirectionAsc || 'Ascending')
         : (ui.sortDirectionDesc || 'Newest first');
     }
+  };
+
+  const setPortalSummaryCardState = (card, expanded) => {
+    const { app } = getPortalElements();
+    const toggle = card?.querySelector('[data-portal-summary-toggle]');
+    const content = card?.querySelector('[data-portal-summary-content]');
+    const isMobile = window.innerWidth <= 767;
+    const expandLabel = app?.dataset.portalSummaryExpandLabel || 'Show details';
+    const collapseLabel = app?.dataset.portalSummaryCollapseLabel || 'Hide details';
+
+    if (!card || !toggle || !content) {
+      return;
+    }
+
+    if (!isMobile) {
+      card.dataset.expanded = 'true';
+      card.classList.add('is-expanded');
+      card.classList.remove('is-collapsed');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', collapseLabel);
+      content.hidden = false;
+      return;
+    }
+
+    card.dataset.expanded = expanded ? 'true' : 'false';
+    card.classList.toggle('is-expanded', expanded);
+    card.classList.toggle('is-collapsed', !expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? collapseLabel : expandLabel);
+    content.hidden = !expanded;
+  };
+
+  const syncPortalSummaryCards = () => {
+    const { summaryCards } = getPortalElements();
+    const isMobile = window.innerWidth <= 767;
+
+    summaryCards.forEach((card) => {
+      const expanded = !isMobile || card.dataset.expanded === 'true';
+      setPortalSummaryCardState(card, expanded);
+    });
+  };
+
+  const togglePortalSummaryCard = (card) => {
+    const { summaryCards } = getPortalElements();
+    const isMobile = window.innerWidth <= 767;
+
+    if (!card || !isMobile) {
+      return;
+    }
+
+    const willExpand = card.dataset.expanded !== 'true';
+
+    summaryCards.forEach((summaryCard) => {
+      setPortalSummaryCardState(summaryCard, summaryCard === card ? willExpand : false);
+    });
   };
 
   const setPortalTab = (tab) => {
@@ -2767,6 +2823,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncPortalSortControls();
+    syncPortalSummaryCards();
     syncPortalRequestFormLayout(activePortalRequestType);
     setPortalTab(activePortalTab);
     setPortalWorkspaceView(activePortalWorkspaceView);
@@ -2785,6 +2842,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.innerWidth >= 1024) {
       closeSidebar();
     }
+
+    syncPortalSummaryCards();
   });
 
   document.addEventListener('keydown', (event) => {
@@ -2888,6 +2947,13 @@ document.addEventListener('DOMContentLoaded', () => {
       portalTableSortDirection = portalTableSortDirection === 'asc' ? 'desc' : 'asc';
       syncPortalSortControls();
       filterPortalRows();
+      return;
+    }
+
+    const portalSummaryToggle = event.target.closest('[data-portal-summary-toggle]');
+
+    if (portalSummaryToggle) {
+      togglePortalSummaryCard(portalSummaryToggle.closest('[data-portal-summary-card]'));
       return;
     }
 

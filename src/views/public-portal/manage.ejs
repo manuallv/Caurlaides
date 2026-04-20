@@ -5,74 +5,122 @@
   data-portal-table-description="<%= t('portal.tableDescription') %>"
   data-portal-request-description="<%= t('portal.manage.description') %>"
   data-portal-import-description="<%= t('portal.manage.description') %>"
+  data-portal-summary-expand-label="<%= t('portal.summaryExpand') %>"
+  data-portal-summary-collapse-label="<%= t('portal.summaryCollapse') %>"
 >
   <script id="portal-state" type="application/json"><%- JSON.stringify(portalClientState) %></script>
 
   <div class="portal-page-stack">
     <section class="portal-summary-grid" data-live-section="portal-summary">
-      <article class="portal-access-card panel">
-        <div class="portal-access-card__head">
-          <div class="portal-access-card__copy">
+      <article class="portal-access-card panel" data-portal-summary-card data-portal-summary-type="wristband">
+        <div class="portal-access-card__mobile-bar">
+          <div class="portal-access-card__mobile-copy">
             <h2><%= t('nav.wristbands') %></h2>
-            <p><%= t('portal.sectionDescriptionWristbands') %></p>
           </div>
-          <span class="portal-state-pill <%= wristbandPortalOpen ? 'is-open' : 'is-closed' %>">
-            <%= wristbandPortalOpen ? t('portal.openForChanges') : t('portal.closedForChanges') %>
-          </span>
+          <div class="portal-access-card__mobile-actions">
+            <button type="button" class="btn-primary portal-access-card__mobile-primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
+            <button
+              type="button"
+              class="portal-access-card__mobile-toggle"
+              data-portal-summary-toggle
+              aria-expanded="false"
+              aria-controls="portal-summary-wristband"
+              aria-label="<%= t('portal.summaryExpand') %>"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m5.4 7.7 4.6 4.6 4.6-4.6 1.1 1.1-5.7 5.7-5.7-5.7z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div class="portal-quota-list">
-          <% if (!wristbandQuotaUsage.length) { %>
-            <p class="portal-empty-copy"><%= t('portal.noWristbandQuota') %></p>
-          <% } %>
-          <% wristbandQuotaUsage.forEach((quota) => { %>
-            <span class="portal-quota-chip">
-              <% if (quota.is_unlimited) { %>
-                <%= quota.category_name %>: <%= quota.used_count %> · <%= t('requestProfiles.unlimited') %>
-              <% } else { %>
-                <%= quota.category_name %>: <%= quota.used_count %>/<%= quota.quota %> · <%= t('requestProfiles.remaining', { count: quota.remaining_count }) %>
-              <% } %>
+        <div class="portal-access-card__content" id="portal-summary-wristband" data-portal-summary-content>
+          <div class="portal-access-card__head">
+            <div class="portal-access-card__copy">
+              <h2><%= t('nav.wristbands') %></h2>
+              <p><%= t('portal.sectionDescriptionWristbands') %></p>
+            </div>
+            <span class="portal-state-pill <%= wristbandPortalOpen ? 'is-open' : 'is-closed' %>">
+              <%= wristbandPortalOpen ? t('portal.openForChanges') : t('portal.closedForChanges') %>
             </span>
-          <% }) %>
-        </div>
+          </div>
 
-        <div class="portal-card-actions">
-          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-set-tab data-tab="wristband"><%= t('portal.manageWristbandButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
+          <div class="portal-quota-list">
+            <% if (!wristbandQuotaUsage.length) { %>
+              <p class="portal-empty-copy"><%= t('portal.noWristbandQuota') %></p>
+            <% } %>
+            <% wristbandQuotaUsage.forEach((quota) => { %>
+              <span class="portal-quota-chip">
+                <% if (quota.is_unlimited) { %>
+                  <%= quota.category_name %>: <%= quota.used_count %> · <%= t('requestProfiles.unlimited') %>
+                <% } else { %>
+                  <%= quota.category_name %>: <%= quota.used_count %>/<%= quota.quota %> · <%= t('requestProfiles.remaining', { count: quota.remaining_count }) %>
+                <% } %>
+              </span>
+            <% }) %>
+          </div>
+
+          <div class="portal-card-actions">
+            <button type="button" class="btn-primary portal-card-actions__primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
+            <button type="button" class="btn-secondary" data-portal-set-tab data-tab="wristband"><%= t('portal.manageWristbandButton') %></button>
+            <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
+          </div>
         </div>
       </article>
 
-      <article class="portal-access-card panel">
-        <div class="portal-access-card__head">
-          <div class="portal-access-card__copy">
+      <article class="portal-access-card panel" data-portal-summary-card data-portal-summary-type="pass">
+        <div class="portal-access-card__mobile-bar">
+          <div class="portal-access-card__mobile-copy">
             <h2><%= t('nav.passes') %></h2>
-            <p><%= t('portal.sectionDescriptionPasses') %></p>
           </div>
-          <span class="portal-state-pill <%= passPortalOpen ? 'is-open' : 'is-closed' %>">
-            <%= passPortalOpen ? t('portal.openForChanges') : t('portal.closedForChanges') %>
-          </span>
+          <div class="portal-access-card__mobile-actions">
+            <button type="button" class="btn-primary portal-access-card__mobile-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
+            <button
+              type="button"
+              class="portal-access-card__mobile-toggle"
+              data-portal-summary-toggle
+              aria-expanded="false"
+              aria-controls="portal-summary-pass"
+              aria-label="<%= t('portal.summaryExpand') %>"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m5.4 7.7 4.6 4.6 4.6-4.6 1.1 1.1-5.7 5.7-5.7-5.7z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div class="portal-quota-list">
-          <% if (!passQuotaUsage.length) { %>
-            <p class="portal-empty-copy"><%= t('portal.noPassQuota') %></p>
-          <% } %>
-          <% passQuotaUsage.forEach((quota) => { %>
-            <span class="portal-quota-chip">
-              <% if (quota.is_unlimited) { %>
-                <%= quota.category_name %>: <%= quota.used_count %> · <%= t('requestProfiles.unlimited') %>
-              <% } else { %>
-                <%= quota.category_name %>: <%= quota.used_count %>/<%= quota.quota %> · <%= t('requestProfiles.remaining', { count: quota.remaining_count }) %>
-              <% } %>
+        <div class="portal-access-card__content" id="portal-summary-pass" data-portal-summary-content>
+          <div class="portal-access-card__head">
+            <div class="portal-access-card__copy">
+              <h2><%= t('nav.passes') %></h2>
+              <p><%= t('portal.sectionDescriptionPasses') %></p>
+            </div>
+            <span class="portal-state-pill <%= passPortalOpen ? 'is-open' : 'is-closed' %>">
+              <%= passPortalOpen ? t('portal.openForChanges') : t('portal.closedForChanges') %>
             </span>
-          <% }) %>
-        </div>
+          </div>
 
-        <div class="portal-card-actions">
-          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-set-tab data-tab="pass"><%= t('portal.managePassButton') %></button>
-          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
+          <div class="portal-quota-list">
+            <% if (!passQuotaUsage.length) { %>
+              <p class="portal-empty-copy"><%= t('portal.noPassQuota') %></p>
+            <% } %>
+            <% passQuotaUsage.forEach((quota) => { %>
+              <span class="portal-quota-chip">
+                <% if (quota.is_unlimited) { %>
+                  <%= quota.category_name %>: <%= quota.used_count %> · <%= t('requestProfiles.unlimited') %>
+                <% } else { %>
+                  <%= quota.category_name %>: <%= quota.used_count %>/<%= quota.quota %> · <%= t('requestProfiles.remaining', { count: quota.remaining_count }) %>
+                <% } %>
+              </span>
+            <% }) %>
+          </div>
+
+          <div class="portal-card-actions">
+            <button type="button" class="btn-primary portal-card-actions__primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
+            <button type="button" class="btn-secondary" data-portal-set-tab data-tab="pass"><%= t('portal.managePassButton') %></button>
+            <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
+          </div>
         </div>
       </article>
     </section>
