@@ -3407,6 +3407,18 @@ body.portal-modal-open {
     font-size: 14px;
   }
 
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea,
+  .field-input {
+    font-size: 16px !important;
+  }
+
+  .check-vehicle-input {
+    font-size: 1.5rem !important;
+    line-height: 1.2;
+  }
+
   .request-profile-editor,
   .request-profile-table-card__head,
   .request-profile-table-scroll {
@@ -3492,6 +3504,13 @@ body.portal-modal-open {
   .portal-table-controls {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .portal-table-sort-card {
+    min-width: 0;
+    width: 100%;
+    flex: none;
   }
 
   .portal-access-card {
