@@ -556,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rotateFieldButton: document.querySelector('[data-pass-print-rotate-field]'),
       backgroundInput: document.querySelector('[data-pass-print-background-input]'),
       removeBackgroundInput: document.querySelector('[data-pass-print-remove-background]'),
+      removeBackgroundButton: document.querySelector('[data-pass-print-remove-background-button]'),
       rotateBackgroundButton: document.querySelector('[data-pass-print-rotate-background]'),
       backgroundRotationValue: document.querySelector('[data-pass-print-background-rotation-value]'),
     };
@@ -568,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedId: '',
     activeTab: 'editor',
     currentBackgroundUrl: '',
+    currentBackgroundRotation: 0,
     backgroundRotation: 0,
     uploadedBackgroundUrl: '',
     drag: null,
@@ -691,17 +693,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const syncPassPrintBackgroundPreview = () => {
     const {
+      app,
       page,
       backgroundLayer,
       removeBackgroundInput,
       rotateBackgroundButton,
       backgroundRotationValue,
+      removeBackgroundButton,
     } = getPassPrintElements();
 
     if (!page || !backgroundLayer) {
       return;
     }
 
+    const hasCurrentBackground = Boolean(passPrintEditorState.currentBackgroundUrl);
+    const hasUploadedBackground = Boolean(passPrintEditorState.uploadedBackgroundUrl);
+    const removeMarked = Boolean(removeBackgroundInput?.checked) && hasCurrentBackground && !hasUploadedBackground;
     const backgroundUrl = removeBackgroundInput?.checked
       ? ''
       : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
@@ -723,6 +730,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (rotateBackgroundButton) {
       rotateBackgroundButton.disabled = !passPrintEditorState.canManage || !backgroundUrl;
+    }
+
+    if (removeBackgroundButton) {
+      const removeLabel = app?.dataset.passPrintRemoveBackgroundLabel || 'Remove current background';
+      const restoreLabel = app?.dataset.passPrintRestoreBackgroundLabel || 'Restore background';
+      const canRemoveBackground = hasCurrentBackground || hasUploadedBackground;
+
+      removeBackgroundButton.textContent = removeMarked ? restoreLabel : removeLabel;
+      removeBackgroundButton.disabled = !passPrintEditorState.canManage || !canRemoveBackground;
+      removeBackgroundButton.classList.toggle('btn-danger', !removeMarked && canRemoveBackground);
+      removeBackgroundButton.classList.toggle('btn-secondary', removeMarked || !canRemoveBackground);
     }
 
     syncPassPrintFieldsInput();
@@ -959,8 +977,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handlePassPrintBackgroundChange = (file) => {
+    const { backgroundInput, removeBackgroundInput } = getPassPrintElements();
+
     if (!file) {
       passPrintEditorState.uploadedBackgroundUrl = '';
+
+      if (backgroundInput) {
+        backgroundInput.value = '';
+      }
+
       syncPassPrintBackgroundPreview();
       return;
     }
@@ -969,7 +994,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     reader.onload = () => {
       passPrintEditorState.uploadedBackgroundUrl = String(reader.result || '');
-      const { removeBackgroundInput } = getPassPrintElements();
 
       if (removeBackgroundInput) {
         removeBackgroundInput.checked = false;
@@ -1013,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedId: nextState.fields[0]?.id || '',
       activeTab: nextState.activeTab || 'editor',
       currentBackgroundUrl: nextState.currentBackgroundUrl || '',
+      currentBackgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
       backgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
       uploadedBackgroundUrl: '',
       drag: null,
@@ -2818,6 +2843,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (passPrintRotateBackgroundTrigger) {
       passPrintEditorState.backgroundRotation = (normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation) + 90) % 360;
+      syncPassPrintBackgroundPreview();
+      return;
+    }
+
+    const passPrintRemoveBackgroundTrigger = event.target.closest('[data-pass-print-remove-background-button]');
+
+    if (passPrintRemoveBackgroundTrigger) {
+      const { backgroundInput, removeBackgroundInput } = getPassPrintElements();
+      const hasUploadedBackground = Boolean(passPrintEditorState.uploadedBackgroundUrl);
+      const hasCurrentBackground = Boolean(passPrintEditorState.currentBackgroundUrl);
+
+      if (hasUploadedBackground) {
+        passPrintEditorState.uploadedBackgroundUrl = '';
+        passPrintEditorState.backgroundRotation = hasCurrentBackground
+          ? passPrintEditorState.currentBackgroundRotation
+          : 0;
+
+        if (backgroundInput) {
+          backgroundInput.value = '';
+        }
+
+        if (removeBackgroundInput) {
+          removeBackgroundInput.checked = false;
+        }
+      } else if (hasCurrentBackground && removeBackgroundInput) {
+        removeBackgroundInput.checked = !removeBackgroundInput.checked;
+      }
+
       syncPassPrintBackgroundPreview();
       return;
     }

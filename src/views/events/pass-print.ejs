@@ -58,6 +58,8 @@
   data-pass-print-selected-title="<%= t('passPrint.editor.selectedField') %>"
   data-pass-print-no-selection="<%= t('passPrint.editor.noSelection') %>"
   data-pass-print-preview-title="<%= t('passPrint.editor.previewTitle') %>"
+  data-pass-print-remove-background-label="<%= t('passPrint.editor.removeBackground') %>"
+  data-pass-print-restore-background-label="<%= t('passPrint.editor.restoreBackground') %>"
 >
   <div class="shell-card overflow-hidden">
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
@@ -121,14 +123,14 @@
               />
             </div>
 
-            <label class="pass-print-remove-toggle">
-              <input type="checkbox" name="removeBackground" value="1" data-pass-print-remove-background <%= canManage ? '' : 'disabled' %> />
-              <span><%= t('passPrint.editor.removeBackground') %></span>
-            </label>
+            <input type="checkbox" name="removeBackground" value="1" class="sr-only" data-pass-print-remove-background <%= canManage ? '' : 'disabled' %> />
 
             <div class="pass-print-toolbar__background-controls">
               <button type="button" class="btn-secondary w-full" data-pass-print-rotate-background <%= canManage ? '' : 'disabled' %>>
                 <%= t('passPrint.editor.rotateBackground90') %>
+              </button>
+              <button type="button" class="btn-secondary w-full" data-pass-print-remove-background-button <%= canManage ? '' : 'disabled' %>>
+                <%= t('passPrint.editor.removeBackground') %>
               </button>
               <span class="pass-print-toolbar__rotation-chip" data-pass-print-background-rotation-value><%= backgroundRotation %>°</span>
             </div>
@@ -237,18 +239,18 @@
                     </div>
                   </div>
 
-                  <div class="grid gap-3 sm:grid-cols-3">
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('passPrint.editor.positionX') %></span>
-                      <p class="mt-2 text-sm font-semibold text-slate-900" data-pass-print-field-position-x>0%</p>
+                  <div class="pass-print-inspector-metrics">
+                    <div class="pass-print-inspector-metric">
+                      <span class="pass-print-inspector-metric__label"><%= t('passPrint.editor.positionX') %></span>
+                      <p class="pass-print-inspector-metric__value" data-pass-print-field-position-x>0%</p>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('passPrint.editor.positionY') %></span>
-                      <p class="mt-2 text-sm font-semibold text-slate-900" data-pass-print-field-position-y>0%</p>
+                    <div class="pass-print-inspector-metric">
+                      <span class="pass-print-inspector-metric__label"><%= t('passPrint.editor.positionY') %></span>
+                      <p class="pass-print-inspector-metric__value" data-pass-print-field-position-y>0%</p>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('passPrint.editor.rotation') %></span>
-                      <p class="mt-2 text-sm font-semibold text-slate-900" data-pass-print-field-rotation>0°</p>
+                    <div class="pass-print-inspector-metric">
+                      <span class="pass-print-inspector-metric__label"><%= t('passPrint.editor.rotation') %></span>
+                      <p class="pass-print-inspector-metric__value" data-pass-print-field-rotation>0°</p>
                     </div>
                   </div>
 
