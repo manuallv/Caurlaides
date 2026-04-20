@@ -46,21 +46,25 @@
               </p>
             </div>
 
-            <% if (canChangeRoles && member.role !== 'owner') { %>
+            <% if ((canChangeRoles && member.role !== 'owner') || (canRemoveMembers && member.role !== 'owner' && Number(member.user_id) !== Number(currentUser.id))) { %>
               <div class="flex flex-col gap-3 sm:flex-row">
-                <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=PUT" method="POST" class="flex gap-2">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                  <select name="role" class="field-input min-w-[140px]">
-                    <option value="admin" <%= member.role === 'admin' ? 'selected' : '' %>><%= t('roles.admin') %></option>
-                    <option value="staff" <%= member.role === 'staff' ? 'selected' : '' %>><%= t('roles.staff') %></option>
-                  </select>
-                  <button type="submit" class="btn-secondary"><%= t('members.save') %></button>
-                </form>
+                <% if (canChangeRoles && member.role !== 'owner') { %>
+                  <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=PUT" method="POST" class="flex gap-2">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <select name="role" class="field-input min-w-[140px]">
+                      <option value="admin" <%= member.role === 'admin' ? 'selected' : '' %>><%= t('roles.admin') %></option>
+                      <option value="staff" <%= member.role === 'staff' ? 'selected' : '' %>><%= t('roles.staff') %></option>
+                    </select>
+                    <button type="submit" class="btn-secondary"><%= t('members.save') %></button>
+                  </form>
+                <% } %>
 
-                <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=DELETE" method="POST">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                  <button type="submit" class="btn-danger"><%= t('members.remove') %></button>
-                </form>
+                <% if (canRemoveMembers && member.role !== 'owner' && Number(member.user_id) !== Number(currentUser.id)) { %>
+                  <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=DELETE" method="POST">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <button type="submit" class="btn-danger"><%= t('members.remove') %></button>
+                  </form>
+                <% } %>
               </div>
             <% } %>
           </div>

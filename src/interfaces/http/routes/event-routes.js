@@ -172,6 +172,11 @@ function buildEventRoutes({ eventController, accessController }) {
     validateRequest,
     asyncHandler(accessController.updateRequestStatus),
   );
+  router.post(
+    '/events/:eventId/pass/requests/:requestId/movement',
+    requireAuth,
+    asyncHandler(accessController.registerRequestMovement),
+  );
 
   router.get('/events/:eventId/activity', requireAuth, asyncHandler(eventController.showAuditLog));
   router.post('/events/:eventId/activity/:auditId/restore', requireAuth, asyncHandler(accessController.restoreAuditEntry));

@@ -106,6 +106,7 @@ function buildEventController({ eventService, auditLogService }) {
         members: data.members,
         canManageMembers: MANAGEMENT_ROLES.includes(data.event.role),
         canChangeRoles: data.event.role === EVENT_ROLES.OWNER,
+        canRemoveMembers: MANAGEMENT_ROLES.includes(data.event.role),
       });
     },
 

@@ -1539,6 +1539,102 @@ class AccessService {
     };
   }
 
+  async registerPassRequestMovement(eventId, requestId, actorId, direction, t) {
+    const tx = resolveTranslate(t);
+    await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const existingRequest = await this.requestRepository.findById('pass', requestId);
+    const normalizedDirection = direction === 'exit' ? 'exit' : 'entry';
+
+    if (!existingRequest || Number(existingRequest.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    const vehiclePlate = formatVehiclePlate(existingRequest.vehicle_plate);
+    const vehiclePlateNormalized = normalizeVehiclePlate(vehiclePlate);
+
+    if (!vehiclePlateNormalized) {
+      throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+      existingRequest.category_id,
+      normalizedDirection,
+      tx,
+    );
+
+    if (!entryWindowDecision.allowed) {
+      throw new AppError(entryWindowDecision.message, 409);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.requestRepository.registerPassVehicleMovement(connection, existingRequest.id, {
+        eventId: Number(eventId),
+        vehiclePlate,
+        vehiclePlateNormalized,
+        gateName: null,
+        source: 'admin-table',
+        metadata: null,
+        direction: normalizedDirection,
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'pass_request',
+          entityId: existingRequest.id,
+          action: 'updated',
+          message: translate(
+            DEFAULT_LOCALE,
+            normalizedDirection === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+            {
+              plate: vehiclePlate,
+              name: existingRequest.full_name,
+            },
+          ),
+          beforeState: {
+            enteredAt: existingRequest.entered_at || null,
+            lastEntryAt: existingRequest.last_entry_at || null,
+            lastExitAt: existingRequest.last_exit_at || null,
+          },
+          afterState: {
+            plate: vehiclePlate,
+            direction: normalizedDirection,
+            source: 'admin-table',
+          },
+          metadata: buildAuditMetadata(
+            normalizedDirection === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+            {
+              plate: vehiclePlate,
+              name: existingRequest.full_name,
+            },
+          ),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const request = await this.requestRepository.findById('pass', existingRequest.id);
+
+    return {
+      eventId: Number(eventId),
+      request,
+      direction: normalizedDirection,
+      currentPresence: resolveVehiclePresenceStatus(request),
+      performedAt: normalizedDirection === 'exit' ? request.last_exit_at : request.last_entry_at,
+    };
+  }
+
   async createAdminRequest(eventId, actorId, type, payload, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
@@ -2731,11 +2827,15 @@ class AccessService {
   }
 
   isPortalRequestEditable(profile, type, request) {
-    if (!request || request.status === 'handed_out') {
+    if (!request) {
       return false;
     }
 
-    if (type === 'pass' && request.entered_at) {
+    if (type === 'wristband' && request.status === 'handed_out') {
+      return false;
+    }
+
+    if (type === 'pass' && resolveVehiclePresenceStatus(request) === 'inside') {
       return false;
     }
 

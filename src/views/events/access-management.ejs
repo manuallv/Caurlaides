@@ -42,6 +42,8 @@
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
     data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
     data-access-entry-at-label="<%= t('access.entryAt') %>"
+    data-access-entry-button-label="<%= t('check.direction.entry') %>"
+    data-access-exit-button-label="<%= t('check.direction.exit') %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -170,6 +172,23 @@
             </thead>
             <tbody data-access-requests-body>
               <% requests.forEach((request) => { %>
+                <%
+                  const requestLastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+                  const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
+                  const requestPresence = !requestLastEntryTs && !requestLastExitTs
+                    ? 'unknown'
+                    : requestLastEntryTs > requestLastExitTs
+                      ? 'inside'
+                      : 'outside';
+                  const hasVehicleMovement = isPass && Boolean(request.vehicle_plate);
+                  const updatedMovementLabel = requestLastExitTs && requestLastExitTs >= requestLastEntryTs
+                    ? `${t('check.direction.exit')}: ${helpers.formatDateTime(request.last_exit_at)}`
+                    : request.last_entry_at
+                      ? `${t('access.entryAt')}: ${helpers.formatDateTime(request.last_entry_at)}`
+                      : request.entered_at
+                        ? `${t('access.entryAt')}: ${helpers.formatDateTime(request.entered_at)}`
+                        : '';
+                %>
                 <tr
                   data-request-row-id="<%= request.id %>"
                   data-request-status="<%= request.status %>"
@@ -241,8 +260,8 @@
                     <td>
                       <div class="access-data-stack">
                         <strong data-request-updated-primary><%= helpers.formatDateTime(request.created_at) %></strong>
-                        <% if (isPass && request.entered_at) { %>
-                          <span data-request-updated-by><%= t('access.entryAt') %>: <%= helpers.formatDateTime(request.entered_at) %></span>
+                        <% if (updatedMovementLabel) { %>
+                          <span data-request-updated-by><%= updatedMovementLabel %></span>
                         <% } else { %>
                           <span data-request-updated-by>&nbsp;</span>
                         <% } %>
@@ -301,6 +320,26 @@
                             <button type="submit" class="access-mini-button access-mini-button--primary" data-request-status-button><%= t('statuses.handed_out') %></button>
                           <% } %>
                         </form>
+
+                        <% if (hasVehicleMovement) { %>
+                          <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                            <input type="hidden" name="direction" value="entry" />
+                            <button
+                              type="submit"
+                              class="access-mini-button <%= requestPresence === 'inside' ? 'access-mini-button--secondary' : 'access-mini-button--primary' %>"
+                            ><%= t('check.direction.entry') %></button>
+                          </form>
+
+                          <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                            <input type="hidden" name="direction" value="exit" />
+                            <button
+                              type="submit"
+                              class="access-mini-button <%= requestPresence === 'inside' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
+                            ><%= t('check.direction.exit') %></button>
+                          </form>
+                        <% } %>
                       </div>
                     </td>
                   </tr>
@@ -438,15 +477,15 @@
           </div>
 
           <div class="access-export-grid">
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=xlsx">
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=xlsx" data-access-export-download>
               <strong><%= t('access.export.formats.xlsx') %></strong>
               <span><%= t('access.export.formats.xlsxDescription') %></span>
             </a>
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=csv">
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=csv" data-access-export-download>
               <strong><%= t('access.export.formats.csv') %></strong>
               <span><%= t('access.export.formats.csvDescription') %></span>
             </a>
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=pdf">
+            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=pdf" data-access-export-download>
               <strong><%= t('access.export.formats.pdf') %></strong>
               <span><%= t('access.export.formats.pdfDescription') %></span>
             </a>

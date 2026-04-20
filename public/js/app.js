@@ -168,7 +168,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const submitLiveForm = async (form) => {
+  const setLiveSubmitterState = (submitter, isLoading) => {
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    submitter.classList.toggle('is-loading', isLoading);
+    submitter.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+
+    if ('disabled' in submitter) {
+      submitter.disabled = isLoading;
+    }
+  };
+
+  const submitLiveForm = async (form, submitter = null) => {
     const formData = new FormData(form);
     const body = new URLSearchParams();
 
@@ -176,44 +189,50 @@ document.addEventListener('DOMContentLoaded', () => {
       body.append(key, value);
     });
 
-    const response = await fetch(form.action, {
-      method: (form.method || 'POST').toUpperCase(),
-      body,
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      credentials: 'same-origin',
-    });
+    setLiveSubmitterState(submitter, true);
 
-    const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json') ? await response.json() : null;
+    try {
+      const response = await fetch(form.action, {
+        method: (form.method || 'POST').toUpperCase(),
+        body,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+      });
 
-    if (!response.ok) {
-      throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed');
-    }
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : null;
 
-    if (payload?.redirectTo) {
-      window.location.href = payload.redirectTo;
-      return;
-    }
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed');
+      }
 
-    if (payload?.message) {
-      showLiveNotice(payload.message, 'success');
-    }
-
-    if (
-      payload?.liveRequestUpsert
-      && form.matches('[data-request-status-form], [data-access-request-form]')
-    ) {
-      const handled = applyAccessRequestUpsert(payload.liveRequestUpsert);
-      suppressSocketRefreshUntil = Date.now() + 1800;
-
-      if (handled) {
+      if (payload?.redirectTo) {
+        window.location.href = payload.redirectTo;
         return;
       }
-    }
 
-    await refreshLiveSections();
+      if (payload?.message) {
+        showLiveNotice(payload.message, 'success');
+      }
+
+      if (
+        payload?.liveRequestUpsert
+        && form.matches('[data-request-status-form], [data-access-request-form], [data-request-movement-form]')
+      ) {
+        const handled = applyAccessRequestUpsert(payload.liveRequestUpsert);
+        suppressSocketRefreshUntil = Date.now() + 1800;
+
+        if (handled) {
+          return;
+        }
+      }
+
+      await refreshLiveSections();
+    } finally {
+      setLiveSubmitterState(submitter, false);
+    }
   };
 
   const getPortalState = () => {
@@ -1105,7 +1124,73 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
+  const parseContentDispositionFilename = (headerValue = '') => {
+    if (!headerValue) {
+      return '';
+    }
+
+    const utfMatch = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+
+    if (utfMatch?.[1]) {
+      try {
+        return decodeURIComponent(utfMatch[1]);
+      } catch (error) {
+        return utfMatch[1];
+      }
+    }
+
+    const plainMatch = headerValue.match(/filename=\"?([^\";]+)\"?/i);
+    return plainMatch?.[1] || '';
+  };
+
+  const downloadBlobResponse = async (response, fallbackUrl = '') => {
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const fallbackFileName = fallbackUrl.split('/').pop()?.split('?')[0] || 'export';
+
+    downloadLink.href = objectUrl;
+    downloadLink.download = parseContentDispositionFilename(contentDisposition) || fallbackFileName;
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(objectUrl);
+    }, 1000);
+  };
+
+  const triggerAccessExportDownload = async (url) => {
+    if (!url) {
+      return;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const payload = await response.json();
+        throw new Error(payload?.error || 'Export failed');
+      }
+
+      const message = await response.text();
+      throw new Error(message || 'Export failed');
+    }
+
+    await downloadBlobResponse(response, url);
+  };
+
   const getRequestProfileElements = () => ({
+    form: document.querySelector('[data-request-profile-form]'),
     searchInput: document.querySelector('[data-request-profile-search]'),
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
@@ -1152,6 +1237,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const initializeRequestProfileUI = () => {
     const {
+      form,
       unlimitedToggle,
       quotaPanels,
       quotaInputs,
@@ -1177,6 +1263,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (unlimitedToggle) {
       unlimitedToggle.onchange = syncUnlimitedQuotaMode;
       syncUnlimitedQuotaMode();
+    }
+
+    if (form) {
+      form.onsubmit = (event) => {
+        const isUnlimited = Boolean(unlimitedToggle?.checked);
+
+        if (isUnlimited) {
+          return;
+        }
+
+        const hasQuota = quotaInputs.some((input) => Number(input.value || 0) > 0);
+
+        if (hasQuota) {
+          return;
+        }
+
+        event.preventDefault();
+        showLiveNotice(
+          form.dataset.requestProfileQuotaRequiredMessage || 'Assign at least one pass or wristband quota before saving the profile.',
+          'error',
+        );
+        quotaInputs[0]?.focus();
+      };
     }
 
     filterRequestProfileRows();
@@ -1329,6 +1438,8 @@ document.addEventListener('DOMContentLoaded', () => {
       filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
       vehiclePlateLabel: workspace.dataset.accessVehiclePlateLabel,
       entryAtLabel: workspace.dataset.accessEntryAtLabel,
+      entryButtonLabel: workspace.dataset.accessEntryButtonLabel,
+      exitButtonLabel: workspace.dataset.accessExitButtonLabel,
     };
   };
 
@@ -1883,14 +1994,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = document.createElement('tr');
     const notSet = ui.notSet || '-';
     const isPass = ui.pageType === 'pass';
+    const hasVehicleMovement = isPass && Boolean(request.vehiclePlate);
+    const currentPresence = request.currentPresence || 'unknown';
     const buttonToneClass = request.nextStatusTone === 'primary'
+      ? 'access-mini-button--primary'
+      : 'access-mini-button--secondary';
+    const entryButtonToneClass = currentPresence === 'inside'
+      ? 'access-mini-button--secondary'
+      : 'access-mini-button--primary';
+    const exitButtonToneClass = currentPresence === 'inside'
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
     const statusToneClass = request.statusTone === 'active' ? 'status-active' : 'status-pending';
     const personMeta = escapeHtml(request.notes || request.email || request.phone || '');
-    const secondaryUpdatedLabel = request.enteredAtLabel
-      ? `${escapeHtml(ui.entryAtLabel || 'Entered')}: ${escapeHtml(request.enteredAtLabel)}`
-      : '&nbsp;';
+    const secondaryUpdatedLabel = request.lastExitAtLabel && Number(request.lastExitAtTs || 0) >= Number(request.lastEntryAtTs || 0)
+      ? `${escapeHtml(ui.exitButtonLabel || 'Exited')}: ${escapeHtml(request.lastExitAtLabel)}`
+      : request.lastEntryAtLabel
+        ? `${escapeHtml(ui.entryAtLabel || 'Entered')}: ${escapeHtml(request.lastEntryAtLabel)}`
+        : request.enteredAtLabel
+          ? `${escapeHtml(ui.entryAtLabel || 'Entered')}: ${escapeHtml(request.enteredAtLabel)}`
+          : '&nbsp;';
+    const csrfValue = escapeHtml(document.querySelector('[data-access-request-form] input[name="_csrf"]')?.value || '');
 
     row.dataset.requestRowId = request.id;
     row.dataset.requestStatus = request.status || '';
@@ -1996,10 +2120,22 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
 
           <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-            <input type="hidden" name="_csrf" value="${escapeHtml(document.querySelector('[data-access-request-form] input[name=\"_csrf\"]')?.value || '')}" />
+            <input type="hidden" name="_csrf" value="${csrfValue}" />
             <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
             <button type="submit" class="access-mini-button ${buttonToneClass}" data-request-status-button>${escapeHtml(request.nextStatusLabel || '')}</button>
           </form>
+          ${hasVehicleMovement ? `
+            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+              <input type="hidden" name="_csrf" value="${csrfValue}" />
+              <input type="hidden" name="direction" value="entry" />
+              <button type="submit" class="access-mini-button ${entryButtonToneClass}">${escapeHtml(ui.entryButtonLabel || 'Enter')}</button>
+            </form>
+            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+              <input type="hidden" name="_csrf" value="${csrfValue}" />
+              <input type="hidden" name="direction" value="exit" />
+              <button type="submit" class="access-mini-button ${exitButtonToneClass}">${escapeHtml(ui.exitButtonLabel || 'Exit')}</button>
+            </form>
+          ` : ''}
         </div>
       </td>
     `;
@@ -3041,6 +3177,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const accessExportDownloadTrigger = event.target.closest('[data-access-export-download]');
+
+    if (accessExportDownloadTrigger) {
+      event.preventDefault();
+
+      try {
+        await triggerAccessExportDownload(accessExportDownloadTrigger.href);
+        closeAccessExportModal();
+      } catch (error) {
+        showLiveNotice(error.message || 'Export failed', 'error');
+      }
+      return;
+    }
+
     const accessExportTrigger = event.target.closest('[data-access-export-open]');
 
     if (accessExportTrigger) {
@@ -3363,7 +3513,7 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
 
       try {
-        await submitLiveForm(form);
+        await submitLiveForm(form, event.submitter);
         if (form.matches('[data-access-request-form]')) {
           closeAccessRequestModal();
         }

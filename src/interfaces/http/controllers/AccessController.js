@@ -158,12 +158,24 @@ function saveSession(req) {
   });
 }
 
+function resolveRequestPresence(request = {}) {
+  const lastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+  const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
+
+  if (!lastEntryTs && !lastExitTs) {
+    return 'unknown';
+  }
+
+  return lastEntryTs > lastExitTs ? 'inside' : 'outside';
+}
+
 function buildAccessRequestLivePayload(req, res, type, request, summary = null) {
   if (!request) {
     return null;
   }
 
   const status = request.status || 'pending';
+  const currentPresence = type === 'pass' ? resolveRequestPresence(request) : 'unknown';
 
   return {
     requestType: type,
@@ -191,11 +203,14 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       enteredAtTs: request.entered_at ? new Date(request.entered_at).getTime() : 0,
       lastEntryAtLabel: request.last_entry_at ? res.locals.helpers.formatDateTime(request.last_entry_at) : '',
       lastEntryAtTs: request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0,
+      lastExitAtLabel: request.last_exit_at ? res.locals.helpers.formatDateTime(request.last_exit_at) : '',
+      lastExitAtTs: request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0,
       createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
       createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
       nextStatus: status === 'handed_out' ? 'pending' : 'handed_out',
       nextStatusLabel: req.t(`statuses.${status === 'handed_out' ? 'pending' : 'handed_out'}`),
       nextStatusTone: status === 'handed_out' ? 'secondary' : 'primary',
+      currentPresence,
     },
     summary,
   };
@@ -547,34 +562,52 @@ function buildAccessController({ categoryService, accessService }) {
     },
 
     async createRequestProfile(req, res) {
-      const result = await accessService.createRequestProfile(
-        req.params.eventId,
-        req.currentUser.id,
-        normalizeRequestProfilePayload(req.body),
-        req.t,
-      );
+      try {
+        const result = await accessService.createRequestProfile(
+          req.params.eventId,
+          req.currentUser.id,
+          normalizeRequestProfilePayload(req.body),
+          req.t,
+        );
 
-      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
-        eventId: req.params.eventId,
-      });
-      req.flash('success', req.t('flash.requestProfileCreated', { code: result.accessCode }));
-      return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+        emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+          eventId: req.params.eventId,
+        });
+        req.flash('success', req.t('flash.requestProfileCreated', { code: result.accessCode }));
+        return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles/new`);
+        }
+
+        throw error;
+      }
     },
 
     async updateRequestProfile(req, res) {
-      await accessService.updateRequestProfile(
-        req.params.eventId,
-        req.params.profileId,
-        req.currentUser.id,
-        normalizeRequestProfilePayload(req.body),
-        req.t,
-      );
+      try {
+        await accessService.updateRequestProfile(
+          req.params.eventId,
+          req.params.profileId,
+          req.currentUser.id,
+          normalizeRequestProfilePayload(req.body),
+          req.t,
+        );
 
-      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
-        eventId: req.params.eventId,
-      });
-      req.flash('success', req.t('flash.requestProfileUpdated'));
-      return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+        emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+          eventId: req.params.eventId,
+        });
+        req.flash('success', req.t('flash.requestProfileUpdated'));
+        return res.redirect(`/events/${req.params.eventId}/request-profiles`);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles/${req.params.profileId}/edit`);
+        }
+
+        throw error;
+      }
     },
 
     async destroyRequestProfile(req, res) {
@@ -709,6 +742,41 @@ function buildAccessController({ categoryService, accessService }) {
       return sendMutationResponse(req, res, {
         redirectTo: `/events/${result.event.id}/${type === 'pass' ? 'passes' : 'wristbands'}`,
         message: req.t('flash.requestStatusUpdated'),
+        payload: {
+          liveRequestUpsert,
+        },
+      });
+    },
+
+    async registerRequestMovement(req, res) {
+      const result = await accessService.registerPassRequestMovement(
+        req.params.eventId,
+        req.params.requestId,
+        req.currentUser.id,
+        req.body.direction,
+        req.t,
+      );
+
+      const liveRequestUpsert = buildAccessRequestLivePayload(
+        req,
+        res,
+        'pass',
+        result.request,
+        null,
+      );
+
+      emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', liveRequestUpsert);
+      emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', {
+        eventId: result.eventId,
+      });
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${result.eventId}/passes`,
+        message: req.t(
+          result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+          {
+            plate: result.request?.vehicle_plate || '',
+          },
+        ),
         payload: {
           liveRequestUpsert,
         },

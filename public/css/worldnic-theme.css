@@ -1115,6 +1115,7 @@ body.is-access-fullscreen {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.38rem;
   min-height: 2rem;
   padding: 0.42rem 0.68rem;
   border-radius: 0.8rem;
@@ -1122,6 +1123,22 @@ body.is-access-fullscreen {
   font-weight: 700;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.access-mini-button.is-loading {
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+.access-mini-button.is-loading::after {
+  content: '';
+  width: 0.78rem;
+  height: 0.78rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: wn-button-spin 0.7s linear infinite;
 }
 
 .access-mini-button--primary {
@@ -1145,6 +1162,12 @@ body.is-access-fullscreen {
   flex-wrap: wrap;
   gap: 0.45rem;
   align-items: center;
+}
+
+@keyframes wn-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .access-export-grid {

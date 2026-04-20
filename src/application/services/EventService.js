@@ -595,8 +595,12 @@ class EventService {
     const tx = resolveTranslate(t);
     const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
-    if (event.role !== EVENT_ROLES.OWNER) {
-      throw new AppError(tx('service.event.ownerRemovesMembers'), 403);
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.manageCollaborators'), 403);
+    }
+
+    if (Number(targetUserId) === Number(actorId)) {
+      throw new AppError(tx('service.event.cannotRemoveSelf'), 400);
     }
 
     const existingMember = await this.eventRepository.findMember(eventId, targetUserId);

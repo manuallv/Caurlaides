@@ -20,7 +20,14 @@
       </span>
     </div>
 
-    <form id="request-profile-form" action="<%= formAction %>" method="POST" class="request-profile-editor__form">
+    <form
+      id="request-profile-form"
+      action="<%= formAction %>"
+      method="POST"
+      class="request-profile-editor__form"
+      data-request-profile-form
+      data-request-profile-quota-required-message="<%= t('service.requestProfile.quotaRequired') %>"
+    >
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
       <div class="request-profile-editor__fields request-profile-editor__fields--compact">
