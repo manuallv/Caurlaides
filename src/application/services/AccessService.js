@@ -46,6 +46,10 @@ function normalizeQuotaEntries(input = {}) {
     .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);
 }
 
+function hasAssignedRequestProfileQuota(passQuotas = [], wristbandQuotas = []) {
+  return passQuotas.length > 0 || wristbandQuotas.length > 0;
+}
+
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase() || null;
 }
@@ -1158,7 +1162,7 @@ class AccessService {
       (entry) => validWristbandIds.has(Number(entry.categoryId)),
     );
 
-    if (!isUnlimitedQuota && !sanitizedPassQuotas.length && !sanitizedWristbandQuotas.length) {
+    if (!isUnlimitedQuota && !hasAssignedRequestProfileQuota(sanitizedPassQuotas, sanitizedWristbandQuotas)) {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
@@ -1299,7 +1303,7 @@ class AccessService {
       (entry) => validWristbandIds.has(Number(entry.categoryId)),
     );
 
-    if (!isUnlimitedQuota && !sanitizedPassQuotas.length && !sanitizedWristbandQuotas.length) {
+    if (!isUnlimitedQuota && !hasAssignedRequestProfileQuota(sanitizedPassQuotas, sanitizedWristbandQuotas)) {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 

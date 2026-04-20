@@ -1,3 +1,12 @@
+<%
+  const hasWristbandAccess = wristbandQuotaUsage.length > 0;
+  const hasPassAccess = passQuotaUsage.length > 0;
+  const visibleCombinedRequests = combinedRequests.filter((request) => (
+    (request.request_type === 'pass' && hasPassAccess)
+    || (request.request_type === 'wristband' && hasWristbandAccess)
+  ));
+%>
+
 <section
   class="portal-page portal-page-workspace"
   data-portal-app
@@ -7,11 +16,14 @@
   data-portal-import-description="<%= t('portal.manage.description') %>"
   data-portal-summary-expand-label="<%= t('portal.summaryExpand') %>"
   data-portal-summary-collapse-label="<%= t('portal.summaryCollapse') %>"
+  data-portal-has-pass-access="<%= hasPassAccess ? 'true' : 'false' %>"
+  data-portal-has-wristband-access="<%= hasWristbandAccess ? 'true' : 'false' %>"
 >
   <script id="portal-state" type="application/json"><%- JSON.stringify(portalClientState) %></script>
 
   <div class="portal-page-stack">
     <section class="portal-summary-grid" data-live-section="portal-summary">
+      <% if (hasWristbandAccess) { %>
       <article class="portal-access-card panel" data-portal-summary-card data-portal-summary-type="wristband">
         <div class="portal-access-card__mobile-bar">
           <div class="portal-access-card__mobile-copy">
@@ -67,7 +79,9 @@
           </div>
         </div>
       </article>
+      <% } %>
 
+      <% if (hasPassAccess) { %>
       <article class="portal-access-card panel" data-portal-summary-card data-portal-summary-type="pass">
         <div class="portal-access-card__mobile-bar">
           <div class="portal-access-card__mobile-copy">
@@ -123,6 +137,7 @@
           </div>
         </div>
       </article>
+      <% } %>
     </section>
 
     <section class="shell-card portal-workspace-card">
@@ -172,14 +187,18 @@
               </div>
               <div class="portal-table-tabs">
                 <button type="button" class="portal-tab-button" data-portal-tab data-tab="all"><%= t('portal.tabs.all') %></button>
+                <% if (hasWristbandAccess) { %>
                 <button type="button" class="portal-tab-button" data-portal-tab data-tab="wristband"><%= t('portal.tabs.wristbands') %></button>
+                <% } %>
+                <% if (hasPassAccess) { %>
                 <button type="button" class="portal-tab-button" data-portal-tab data-tab="pass"><%= t('portal.tabs.passes') %></button>
+                <% } %>
               </div>
             </div>
           </div>
 
           <div class="portal-table-scroll">
-            <% if (!combinedRequests.length) { %>
+            <% if (!visibleCombinedRequests.length) { %>
               <p class="portal-empty-copy portal-empty-copy-table"><%= t('portal.noRequestsCombined') %></p>
             <% } else { %>
               <table class="portal-requests-table" data-portal-table>
@@ -206,7 +225,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <% combinedRequests.forEach((request) => { %>
+                  <% visibleCombinedRequests.forEach((request) => { %>
                     <%
                       const statusToneClass = request.isEditable ? 'is-pending' : 'is-locked';
                       const requestLastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;

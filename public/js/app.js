@@ -266,6 +266,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  const getPortalAvailability = () => {
+    const app = document.querySelector('[data-portal-app]');
+
+    return {
+      hasPassAccess: app?.dataset.portalHasPassAccess === 'true',
+      hasWristbandAccess: app?.dataset.portalHasWristbandAccess === 'true',
+    };
+  };
+
   const getCheckElements = () => ({
     app: document.querySelector('[data-check-app]'),
     form: document.querySelector('[data-check-form]'),
@@ -1273,7 +1282,11 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        const hasQuota = quotaInputs.some((input) => Number(input.value || 0) > 0);
+        const passQuotaInputs = quotaInputs.filter((input) => String(input.name || '').startsWith('passQuota['));
+        const wristbandQuotaInputs = quotaInputs.filter((input) => String(input.name || '').startsWith('wristbandQuota['));
+        const hasPassQuota = passQuotaInputs.some((input) => Number(input.value || 0) > 0);
+        const hasWristbandQuota = wristbandQuotaInputs.some((input) => Number(input.value || 0) > 0);
+        const hasQuota = hasPassQuota || hasWristbandQuota;
 
         if (hasQuota) {
           return;
@@ -1284,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
           form.dataset.requestProfileQuotaRequiredMessage || 'Assign at least one pass or wristband quota before saving the profile.',
           'error',
         );
-        quotaInputs[0]?.focus();
+        (passQuotaInputs[0] || wristbandQuotaInputs[0] || quotaInputs[0])?.focus();
       };
     }
 
@@ -2719,11 +2732,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setPortalTab = (tab) => {
-    activePortalTab = tab;
     const { tabButtons } = getPortalElements();
+    const availableTabs = tabButtons.map((button) => button.dataset.tab).filter(Boolean);
+    const nextTab = availableTabs.includes(tab)
+      ? tab
+      : availableTabs.includes('all')
+        ? 'all'
+        : availableTabs[0] || 'all';
+
+    activePortalTab = nextTab;
 
     tabButtons.forEach((button) => {
-      const isActive = button.dataset.tab === tab;
+      const isActive = button.dataset.tab === nextTab;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
@@ -2950,6 +2970,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const initializePortalUI = () => {
     if (!document.querySelector('[data-portal-app]')) {
       return;
+    }
+
+    const availability = getPortalAvailability();
+
+    if (!availability.hasPassAccess && availability.hasWristbandAccess) {
+      activePortalRequestType = 'wristband';
+      activePortalImportType = 'wristband';
+    }
+
+    if (!availability.hasWristbandAccess && availability.hasPassAccess) {
+      activePortalRequestType = 'pass';
+      activePortalImportType = 'pass';
     }
 
     const searchInput = document.querySelector('[data-portal-table-search]');
