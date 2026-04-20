@@ -583,9 +583,44 @@ document.addEventListener('DOMContentLoaded', () => {
     return ((((Math.round(numericValue / 90) * 90) % 360) + 360) % 360);
   };
 
-  const getPassPrintBackgroundScale = (rotation) => (
-    normalizePassPrintQuarterTurn(rotation) % 180 === 0 ? 1 : (297 / 210)
-  );
+  const getPassPrintBackgroundFrame = (rotation) => {
+    const normalizedRotation = normalizePassPrintQuarterTurn(rotation);
+
+    switch (normalizedRotation) {
+      case 90:
+        return {
+          left: '100%',
+          top: '0%',
+          width: `${(297 / 210) * 100}%`,
+          height: `${(210 / 297) * 100}%`,
+          rotation: '90deg',
+        };
+      case 180:
+        return {
+          left: '100%',
+          top: '100%',
+          width: '100%',
+          height: '100%',
+          rotation: '180deg',
+        };
+      case 270:
+        return {
+          left: '0%',
+          top: '100%',
+          width: `${(297 / 210) * 100}%`,
+          height: `${(210 / 297) * 100}%`,
+          rotation: '270deg',
+        };
+      default:
+        return {
+          left: '0%',
+          top: '0%',
+          width: '100%',
+          height: '100%',
+          rotation: '0deg',
+        };
+    }
+  };
 
   const parsePassPrintState = () => {
     const { app, stateScript } = getPassPrintElements();
@@ -671,12 +706,16 @@ document.addEventListener('DOMContentLoaded', () => {
       ? ''
       : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
     const rotation = normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation);
+    const frame = getPassPrintBackgroundFrame(rotation);
 
     page.classList.toggle('has-background', Boolean(backgroundUrl));
     backgroundLayer.classList.toggle('is-active', Boolean(backgroundUrl));
     backgroundLayer.style.backgroundImage = backgroundUrl ? `url("${backgroundUrl.replace(/"/g, '\\"')}")` : '';
-    backgroundLayer.style.setProperty('--pass-print-background-rotation', `${rotation}deg`);
-    backgroundLayer.style.setProperty('--pass-print-background-scale', String(getPassPrintBackgroundScale(rotation)));
+    backgroundLayer.style.setProperty('--pass-print-background-rotation', frame.rotation);
+    backgroundLayer.style.setProperty('--pass-print-background-left', frame.left);
+    backgroundLayer.style.setProperty('--pass-print-background-top', frame.top);
+    backgroundLayer.style.setProperty('--pass-print-background-width', frame.width);
+    backgroundLayer.style.setProperty('--pass-print-background-height', frame.height);
 
     if (backgroundRotationValue) {
       backgroundRotationValue.textContent = `${rotation}°`;

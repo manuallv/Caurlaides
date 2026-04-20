@@ -3639,14 +3639,17 @@ body.portal-modal-open {
 
 .pass-print-page__background {
   position: absolute;
-  inset: 0;
+  left: var(--pass-print-background-left, 0%);
+  top: var(--pass-print-background-top, 0%);
+  width: var(--pass-print-background-width, 100%);
+  height: var(--pass-print-background-height, 100%);
   z-index: 0;
   pointer-events: none;
   background-position: center;
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  transform: rotate(var(--pass-print-background-rotation, 0deg)) scale(var(--pass-print-background-scale, 1));
-  transform-origin: center;
+  transform: rotate(var(--pass-print-background-rotation, 0deg));
+  transform-origin: top left;
   opacity: 0;
 }
 
