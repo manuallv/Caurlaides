@@ -92,6 +92,22 @@ function resolveVehiclePresenceStatus(request = {}) {
   return lastEntryTs > lastExitTs ? 'inside' : 'outside';
 }
 
+function resolveVehicleGateScanDirection(configuredMode, currentPresence) {
+  if (!['entry', 'exit'].includes(configuredMode)) {
+    return 'decision';
+  }
+
+  if (currentPresence === 'inside') {
+    return 'exit';
+  }
+
+  if (currentPresence === 'outside') {
+    return 'entry';
+  }
+
+  return configuredMode;
+}
+
 function shouldEnforceEntryWindow(direction) {
   return direction !== 'exit';
 }
@@ -2701,28 +2717,152 @@ class AccessService {
     const configuredMode = ['entry', 'exit'].includes(event.vehicle_gate_api_mode)
       ? event.vehicle_gate_api_mode
       : 'decision';
-    const requestedDirection = payload.direction === 'entry' || payload.direction === 'exit'
+    const explicitDirection = payload.direction === 'entry' || payload.direction === 'exit'
       ? payload.direction
-      : configuredMode;
-    const decisionResult = await this.checkVehicleAccess(
-      {
+      : null;
+    const requestedMode = explicitDirection || configuredMode;
+
+    if (!explicitDirection && configuredMode === 'decision') {
+      const decisionResult = await this.checkVehicleAccess(
+        {
+          eventId: Number(event.id),
+          vehiclePlate: payload.vehiclePlate,
+          direction: 'check',
+        },
+        tx,
+      );
+
+      return {
+        ...decisionResult,
         eventId: Number(event.id),
-        vehiclePlate: payload.vehiclePlate,
-        direction: requestedDirection,
-      },
+        movement: {
+          mode: 'decision',
+          configuredMode,
+          direction: null,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched: false,
+          explicitDirection: false,
+        },
+      };
+    }
+
+    const vehiclePlate = formatVehiclePlate(payload.vehiclePlate);
+    const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
+
+    if (!vehiclePlateNormalized) {
+      throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    const matches = await this.requestRepository.listPassesByVehiclePlate(Number(event.id), vehiclePlateNormalized);
+
+    if (!matches.length) {
+      return {
+        eventId: Number(event.id),
+        allowed: false,
+        decision: 'denied',
+        reason: 'not_found',
+        checkedPlate: vehiclePlate,
+        message: tx('service.vehicleEntry.notFound'),
+        request: null,
+        currentPresence: 'unknown',
+        movement: {
+          mode: requestedMode,
+          configuredMode,
+          direction: requestedMode === 'decision' ? null : requestedMode,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched: false,
+          explicitDirection: Boolean(explicitDirection),
+        },
+      };
+    }
+
+    if (matches.length > 1) {
+      return {
+        eventId: Number(event.id),
+        allowed: false,
+        decision: 'denied',
+        reason: 'multiple_matches',
+        checkedPlate: vehiclePlate,
+        message: tx('service.vehicleEntry.multipleMatches'),
+        request: null,
+        currentPresence: 'unknown',
+        movement: {
+          mode: requestedMode,
+          configuredMode,
+          direction: requestedMode === 'decision' ? null : requestedMode,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched: false,
+          explicitDirection: Boolean(explicitDirection),
+        },
+      };
+    }
+
+    const request = await this.requestRepository.findById('pass', matches[0].id);
+    const initialPresence = resolveVehiclePresenceStatus(request);
+    const resolvedDirection = explicitDirection || resolveVehicleGateScanDirection(configuredMode, initialPresence);
+    const autoSwitched = !explicitDirection
+      && ['entry', 'exit'].includes(configuredMode)
+      && resolvedDirection !== configuredMode;
+    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+      request?.category_id,
+      resolvedDirection,
       tx,
     );
-    const shouldRecordMovement = decisionResult.allowed && ['entry', 'exit'].includes(requestedDirection);
+
+    if (!entryWindowDecision.allowed) {
+      return {
+        eventId: Number(event.id),
+        allowed: false,
+        decision: 'denied',
+        reason: 'outside_entry_window',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: entryWindowDecision.message,
+        request,
+        currentPresence: initialPresence,
+        movement: {
+          mode: requestedMode,
+          configuredMode,
+          direction: resolvedDirection,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched,
+          explicitDirection: Boolean(explicitDirection),
+        },
+      };
+    }
+
+    const decisionResult = {
+      eventId: Number(event.id),
+      allowed: true,
+      decision: 'success',
+      reason: null,
+      checkedPlate: request?.vehicle_plate || vehiclePlate,
+      message: tx('service.vehicleEntry.allowed'),
+      request,
+      currentPresence: initialPresence,
+    };
+    const shouldRecordMovement = decisionResult.allowed && ['entry', 'exit'].includes(resolvedDirection);
 
     if (!shouldRecordMovement || !decisionResult.request) {
       return {
         ...decisionResult,
         eventId: Number(event.id),
         movement: {
-          mode: requestedDirection,
+          mode: requestedMode,
+          configuredMode,
+          direction: resolvedDirection === 'decision' ? null : resolvedDirection,
           recorded: false,
           deduplicated: false,
           performedAt: null,
+          autoSwitched,
+          explicitDirection: Boolean(explicitDirection),
         },
       };
     }
@@ -2732,7 +2872,7 @@ class AccessService {
     const latestMovementTs = latestMovement?.created_at ? new Date(latestMovement.created_at).getTime() : 0;
     const shouldDeduplicate = Boolean(
       latestMovement
-      && latestMovement.direction === requestedDirection
+      && latestMovement.direction === resolvedDirection
       && dedupeSeconds > 0
       && latestMovementTs > 0
       && (Date.now() - latestMovementTs) < dedupeSeconds * 1000
@@ -2743,10 +2883,14 @@ class AccessService {
         ...decisionResult,
         eventId: Number(event.id),
         movement: {
-          mode: requestedDirection,
+          mode: requestedMode,
+          configuredMode,
+          direction: resolvedDirection,
           recorded: false,
           deduplicated: true,
           performedAt: latestMovement.created_at || null,
+          autoSwitched,
+          explicitDirection: Boolean(explicitDirection),
         },
       };
     }
@@ -2755,7 +2899,7 @@ class AccessService {
       {
         eventId: Number(event.id),
         vehiclePlate: decisionResult.checkedPlate,
-        direction: requestedDirection,
+        direction: resolvedDirection,
         gateName: payload.gateName,
         source: payload.source || 'external-gate-api',
         metadata: payload.metadata,
@@ -2769,10 +2913,14 @@ class AccessService {
       request: entryResult.request,
       currentPresence: entryResult.currentPresence,
       movement: {
-        mode: requestedDirection,
+        mode: requestedMode,
+        configuredMode,
+        direction: resolvedDirection,
         recorded: true,
         deduplicated: false,
         performedAt: entryResult.performedAt || null,
+        autoSwitched,
+        explicitDirection: Boolean(explicitDirection),
       },
     };
   }

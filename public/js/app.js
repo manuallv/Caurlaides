@@ -307,6 +307,13 @@ document.addEventListener('DOMContentLoaded', () => {
     app: document.querySelector('[data-event-dashboard-app]'),
     tabButtons: [...document.querySelectorAll('[data-event-dashboard-tab]')],
     panels: [...document.querySelectorAll('[data-event-dashboard-panel]')],
+    vehicleGateApiPreview: document.querySelector('[data-vehicle-gate-api-preview]'),
+    vehicleGateApiModeInput: document.querySelector('[data-vehicle-gate-api-mode-input]'),
+    vehicleGateApiModeHelperTitle: document.querySelector('[data-vehicle-gate-api-mode-helper-title]'),
+    vehicleGateApiModeHelperBody: document.querySelector('[data-vehicle-gate-api-mode-helper-body]'),
+    vehicleGateApiRequestExample: document.querySelector('[data-vehicle-gate-api-request-example]'),
+    vehicleGateApiSuccessExample: document.querySelector('[data-vehicle-gate-api-success-example]'),
+    vehicleGateApiDeniedExample: document.querySelector('[data-vehicle-gate-api-denied-example]'),
   });
 
   const setEventDashboardTab = (tab, { updateHash = true } = {}) => {
@@ -347,6 +354,125 @@ document.addEventListener('DOMContentLoaded', () => {
           : '';
       const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
       window.history.replaceState({}, '', nextUrl);
+    }
+  };
+
+  const buildVehicleGateApiExamples = (mode, previewRoot) => {
+    const resolvedMode = ['entry', 'exit'].includes(mode) ? mode : 'decision';
+    const resolvedDirection = resolvedMode === 'decision' ? null : resolvedMode;
+    const currentPresence = resolvedDirection === 'exit' ? 'outside' : 'inside';
+    const allowedMessage = previewRoot?.dataset.vehicleGateApiAllowedMessage || 'Allowed';
+    const notFoundMessage = previewRoot?.dataset.vehicleGateApiNotFoundMessage || 'Vehicle not found';
+
+    return {
+      request: {
+        plate: 'AB-1234',
+        normalized_plate: 'AB1234',
+        seen_at: '2026-04-17T12:30:00+03:00',
+        camera_name: 'Gate A',
+        confidence: 0.98,
+        vehicle_confidence: 0.97,
+      },
+      success: {
+        success: true,
+        decision: 'success',
+        allowed: true,
+        reason: null,
+        message: allowedMessage,
+        checkedPlate: 'AB-1234',
+        currentPresence,
+        movement: {
+          mode: resolvedMode,
+          configuredMode: resolvedMode,
+          direction: resolvedDirection,
+          recorded: resolvedDirection !== null,
+          deduplicated: false,
+          autoSwitched: false,
+          explicitDirection: false,
+        },
+        request: {
+          id: 128,
+          fullName: 'Janis Berzins',
+          companyName: 'Acme Logistics',
+          categoryName: 'VIP Parking',
+          profileName: 'Partners',
+          vehiclePlate: 'AB-1234',
+          createdAt: '2026-04-17T09:30:00.000Z',
+          enteredAt: null,
+          lastEntryAt: '2026-04-17T11:00:00.000Z',
+          lastExitAt: '2026-04-17T11:35:00.000Z',
+        },
+      },
+      denied: {
+        success: true,
+        decision: 'denied',
+        allowed: false,
+        reason: 'not_found',
+        message: notFoundMessage,
+        checkedPlate: 'ZZ-9999',
+        currentPresence: 'unknown',
+        movement: {
+          mode: resolvedMode,
+          configuredMode: resolvedMode,
+          direction: resolvedDirection,
+          recorded: false,
+          deduplicated: false,
+          autoSwitched: false,
+          explicitDirection: false,
+        },
+        request: null,
+      },
+    };
+  };
+
+  const syncVehicleGateApiPreview = () => {
+    const {
+      vehicleGateApiPreview,
+      vehicleGateApiModeInput,
+      vehicleGateApiModeHelperTitle,
+      vehicleGateApiModeHelperBody,
+      vehicleGateApiRequestExample,
+      vehicleGateApiSuccessExample,
+      vehicleGateApiDeniedExample,
+    } = getEventDashboardElements();
+
+    if (!vehicleGateApiPreview || !vehicleGateApiModeInput) {
+      return;
+    }
+
+    const mode = ['entry', 'exit'].includes(vehicleGateApiModeInput.value)
+      ? vehicleGateApiModeInput.value
+      : 'decision';
+    const labelMap = {
+      decision: vehicleGateApiPreview.dataset.vehicleGateApiModeDecisionLabel || 'Decision only',
+      entry: vehicleGateApiPreview.dataset.vehicleGateApiModeEntryLabel || 'Auto register entry',
+      exit: vehicleGateApiPreview.dataset.vehicleGateApiModeExitLabel || 'Auto register exit',
+    };
+    const hintMap = {
+      decision: vehicleGateApiPreview.dataset.vehicleGateApiModeDecisionHint || '',
+      entry: vehicleGateApiPreview.dataset.vehicleGateApiModeEntryHint || '',
+      exit: vehicleGateApiPreview.dataset.vehicleGateApiModeExitHint || '',
+    };
+    const examples = buildVehicleGateApiExamples(mode, vehicleGateApiPreview);
+
+    if (vehicleGateApiModeHelperTitle) {
+      vehicleGateApiModeHelperTitle.textContent = labelMap[mode] || labelMap.decision;
+    }
+
+    if (vehicleGateApiModeHelperBody) {
+      vehicleGateApiModeHelperBody.textContent = hintMap[mode] || hintMap.decision;
+    }
+
+    if (vehicleGateApiRequestExample) {
+      vehicleGateApiRequestExample.textContent = JSON.stringify(examples.request, null, 2);
+    }
+
+    if (vehicleGateApiSuccessExample) {
+      vehicleGateApiSuccessExample.textContent = JSON.stringify(examples.success, null, 2);
+    }
+
+    if (vehicleGateApiDeniedExample) {
+      vehicleGateApiDeniedExample.textContent = JSON.stringify(examples.denied, null, 2);
     }
   };
 
@@ -3133,6 +3259,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setEventDashboardTab(activeEventDashboardTab, {
       updateHash: activeEventDashboardTab === 'api',
     });
+    syncVehicleGateApiPreview();
   };
 
   sidebarToggles.forEach((toggle) => {
@@ -3568,6 +3695,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target.matches('[data-portal-table-sort]')) {
       portalTableSortField = event.target.value || 'updated';
       filterPortalRows();
+      return;
+    }
+
+    if (event.target.matches('[data-vehicle-gate-api-mode-input]')) {
+      syncVehicleGateApiPreview();
       return;
     }
 

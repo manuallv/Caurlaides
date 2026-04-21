@@ -393,10 +393,14 @@ function buildVehicleGateDecisionPayload(req, res, result) {
     ...base,
     movement: {
       mode: movement.mode || 'decision',
+      configuredMode: movement.configuredMode || movement.mode || 'decision',
+      direction: movement.direction || null,
       recorded: Boolean(movement.recorded),
       deduplicated: Boolean(movement.deduplicated),
       performedAt: movement.performedAt || null,
       performedAtLabel: movement.performedAt ? res.locals.helpers.formatDateTime(movement.performedAt) : '',
+      autoSwitched: Boolean(movement.autoSwitched),
+      explicitDirection: Boolean(movement.explicitDirection),
     },
   };
 }

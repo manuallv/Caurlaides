@@ -1021,6 +1021,37 @@ select.field-input {
   align-items: end;
 }
 
+.event-dashboard-api-mode-helper {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(0, 116, 255, 0.12);
+  border-radius: 1.15rem;
+  background: linear-gradient(135deg, rgba(0, 116, 255, 0.08), rgba(24, 184, 212, 0.04));
+}
+
+.event-dashboard-api-mode-helper__label {
+  margin: 0;
+  color: #6b7d92;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.event-dashboard-api-mode-helper__title {
+  color: var(--wn-text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.event-dashboard-api-mode-helper__body {
+  margin: 0;
+  color: #5d6f85;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
 .event-dashboard-api-examples {
   display: grid;
   gap: 1rem;

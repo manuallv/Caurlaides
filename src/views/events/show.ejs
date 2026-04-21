@@ -5,6 +5,9 @@
     ? activeEvent.vehicle_gate_api_mode
     : 'decision';
   const vehicleGateApiDedupeSeconds = Number(activeEvent.vehicle_gate_api_dedupe_seconds || 180);
+  const vehicleGateApiExampleDirection = ['entry', 'exit'].includes(vehicleGateApiMode)
+    ? vehicleGateApiMode
+    : null;
   const vehicleCheckApiRequestExample = JSON.stringify({
     plate: 'AB-1234',
     normalized_plate: 'AB1234',
@@ -20,11 +23,15 @@
     reason: null,
     message: t('service.vehicleEntry.allowed'),
     checkedPlate: 'AB-1234',
-    currentPresence: vehicleGateApiMode === 'exit' ? 'outside' : 'inside',
+    currentPresence: vehicleGateApiExampleDirection === 'exit' ? 'outside' : 'inside',
     movement: {
       mode: vehicleGateApiMode,
-      recorded: vehicleGateApiMode !== 'decision',
+      configuredMode: vehicleGateApiMode,
+      direction: vehicleGateApiExampleDirection,
+      recorded: vehicleGateApiExampleDirection !== null,
       deduplicated: false,
+      autoSwitched: false,
+      explicitDirection: false,
     },
     request: {
       id: 128,
@@ -49,8 +56,12 @@
     currentPresence: 'unknown',
     movement: {
       mode: vehicleGateApiMode,
+      configuredMode: vehicleGateApiMode,
+      direction: vehicleGateApiExampleDirection,
       recorded: false,
       deduplicated: false,
+      autoSwitched: false,
+      explicitDirection: false,
     },
     request: null,
   }, null, 2);
@@ -253,7 +264,18 @@
             </div>
           </div>
 
-          <div class="event-dashboard-api-body px-5 py-5 sm:px-6">
+          <div
+            class="event-dashboard-api-body px-5 py-5 sm:px-6"
+            data-vehicle-gate-api-preview
+            data-vehicle-gate-api-allowed-message="<%= t('service.vehicleEntry.allowed') %>"
+            data-vehicle-gate-api-not-found-message="<%= t('service.vehicleEntry.notFound') %>"
+            data-vehicle-gate-api-mode-decision-label="<%= t('event.vehicleCheckApiModeDecision') %>"
+            data-vehicle-gate-api-mode-entry-label="<%= t('event.vehicleCheckApiModeEntry') %>"
+            data-vehicle-gate-api-mode-exit-label="<%= t('event.vehicleCheckApiModeExit') %>"
+            data-vehicle-gate-api-mode-decision-hint="<%= t('event.vehicleCheckApiModeDecisionHint') %>"
+            data-vehicle-gate-api-mode-entry-hint="<%= t('event.vehicleCheckApiModeEntryHint') %>"
+            data-vehicle-gate-api-mode-exit-hint="<%= t('event.vehicleCheckApiModeExitHint') %>"
+          >
             <section class="event-dashboard-api-section">
               <div class="event-dashboard-api-section__head">
                 <h3><%= t('event.vehicleCheckApiAccessTitle') %></h3>
@@ -335,7 +357,7 @@
 
                 <div>
                   <label class="field-label" for="vehicle-gate-api-mode"><%= t('event.vehicleCheckApiMode') %></label>
-                  <select id="vehicle-gate-api-mode" name="mode" class="field-input">
+                  <select id="vehicle-gate-api-mode" name="mode" class="field-input" data-vehicle-gate-api-mode-input>
                     <option value="decision" <%= vehicleGateApiMode === 'decision' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeDecision') %></option>
                     <option value="entry" <%= vehicleGateApiMode === 'entry' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeEntry') %></option>
                     <option value="exit" <%= vehicleGateApiMode === 'exit' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeExit') %></option>
@@ -362,6 +384,28 @@
                   </button>
                 </div>
               </form>
+
+              <div class="event-dashboard-api-mode-helper" data-vehicle-gate-api-mode-helper>
+                <p class="event-dashboard-api-mode-helper__label"><%= t('event.vehicleCheckApiModeHelperTitle') %></p>
+                <strong class="event-dashboard-api-mode-helper__title" data-vehicle-gate-api-mode-helper-title>
+                  <%= t(
+                    vehicleGateApiMode === 'entry'
+                      ? 'event.vehicleCheckApiModeEntry'
+                      : vehicleGateApiMode === 'exit'
+                        ? 'event.vehicleCheckApiModeExit'
+                        : 'event.vehicleCheckApiModeDecision'
+                  ) %>
+                </strong>
+                <p class="event-dashboard-api-mode-helper__body" data-vehicle-gate-api-mode-helper-body>
+                  <%= t(
+                    vehicleGateApiMode === 'entry'
+                      ? 'event.vehicleCheckApiModeEntryHint'
+                      : vehicleGateApiMode === 'exit'
+                        ? 'event.vehicleCheckApiModeExitHint'
+                        : 'event.vehicleCheckApiModeDecisionHint'
+                  ) %>
+                </p>
+              </div>
             </section>
 
             <section class="event-dashboard-api-section">
@@ -372,17 +416,17 @@
               <div class="event-dashboard-api-examples">
                 <div class="event-dashboard-api-code-card">
                   <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiRequest') %></p>
-                  <pre><%= vehicleCheckApiRequestExample %></pre>
+                  <pre data-vehicle-gate-api-request-example><%= vehicleCheckApiRequestExample %></pre>
                 </div>
 
                 <div class="event-dashboard-api-code-card">
                   <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiSuccess') %></p>
-                  <pre><%= vehicleCheckApiSuccessExample %></pre>
+                  <pre data-vehicle-gate-api-success-example><%= vehicleCheckApiSuccessExample %></pre>
                 </div>
 
                 <div class="event-dashboard-api-code-card">
                   <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiDenied') %></p>
-                  <pre><%= vehicleCheckApiDeniedExample %></pre>
+                  <pre data-vehicle-gate-api-denied-example><%= vehicleCheckApiDeniedExample %></pre>
                 </div>
               </div>
             </div>
