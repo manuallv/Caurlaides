@@ -20,6 +20,21 @@ function buildVehiclePlateValidator(fieldName = 'vehiclePlate') {
     });
 }
 
+function buildPassVehiclePlateRequiredValidator(fieldName = 'vehiclePlate') {
+  return body(fieldName)
+    .custom((value, { req }) => {
+      if (req.params.type !== 'pass') {
+        return true;
+      }
+
+      if (!String(value || '').trim()) {
+        throw new Error(req.t('validation.portal.vehiclePlateRequired'));
+      }
+
+      return true;
+    });
+}
+
 const eventValidator = [
   body('name')
     .trim()
@@ -200,6 +215,7 @@ const adminRequestEditorValidator = [
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
     .normalizeEmail(),
+  buildPassVehiclePlateRequiredValidator(),
   buildVehiclePlateValidator(),
   body('notes')
     .optional({ values: 'falsy' })
@@ -239,18 +255,7 @@ const portalRequestValidator = [
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
     .normalizeEmail(),
-  body('vehiclePlate')
-    .custom((value, { req }) => {
-      if (req.params.type !== 'pass') {
-        return true;
-      }
-
-      if (!String(value || '').trim()) {
-        throw new Error(req.t('validation.portal.vehiclePlateRequired'));
-      }
-
-      return true;
-    }),
+  buildPassVehiclePlateRequiredValidator(),
   buildVehiclePlateValidator(),
   body('notes')
     .optional({ values: 'falsy' })

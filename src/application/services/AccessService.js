@@ -463,7 +463,7 @@ function buildRequestPayload(body, fallbackCompanyName = null) {
   };
 }
 
-function assertPortalPassVehiclePlateRequired(type, vehiclePlateNormalized, t) {
+function assertPassVehiclePlateRequired(type, vehiclePlateNormalized, t) {
   if (type === 'pass' && !vehiclePlateNormalized) {
     throw new AppError(t('validation.portal.vehiclePlateRequired'), 422);
   }
@@ -1770,12 +1770,16 @@ class AccessService {
   async createAdminRequest(eventId, actorId, type, payload, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+    const normalizedPayload = {
+      ...buildRequestPayload(payload),
+      requestProfileId: payload.requestProfileId ? Number(payload.requestProfileId) : null,
+    };
 
     if (!MANAGEMENT_ROLES.includes(event.role)) {
       throw new AppError(tx('service.request.manage'), 403);
     }
 
-    const category = await this.categoryRepository.findById(type, payload.categoryId);
+    const category = await this.categoryRepository.findById(type, normalizedPayload.categoryId);
 
     if (!category || Number(category.event_id) !== Number(eventId)) {
       throw new AppError(tx('service.request.typeInvalid'), 422);
@@ -1783,15 +1787,16 @@ class AccessService {
 
     let profile = null;
 
-    if (payload.requestProfileId) {
-      profile = await this.requestProfileRepository.findById(payload.requestProfileId);
+    if (normalizedPayload.requestProfileId) {
+      profile = await this.requestProfileRepository.findById(normalizedPayload.requestProfileId);
 
       if (!profile || Number(profile.event_id) !== Number(eventId)) {
         throw new AppError(tx('service.request.profileInvalid'), 422);
       }
     }
 
-    await this.assertVehiclePlateAvailable(eventId, type, payload.vehiclePlateNormalized, null, tx);
+    assertPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
+    await this.assertVehiclePlateAvailable(eventId, type, normalizedPayload.vehiclePlateNormalized, null, tx);
 
     let requestId = null;
     const connection = await this.pool.getConnection();
@@ -1801,15 +1806,15 @@ class AccessService {
 
       requestId = await this.requestRepository.create(connection, type, {
         eventId,
-        requestProfileId: payload.requestProfileId || null,
-        categoryId: payload.categoryId,
-        fullName: payload.fullName,
-        companyName: payload.companyName,
-        phone: payload.phone,
-        email: payload.email,
-        vehiclePlate: payload.vehiclePlate,
-        vehiclePlateNormalized: payload.vehiclePlateNormalized,
-        notes: payload.notes,
+        requestProfileId: normalizedPayload.requestProfileId || null,
+        categoryId: normalizedPayload.categoryId,
+        fullName: normalizedPayload.fullName,
+        companyName: normalizedPayload.companyName,
+        phone: normalizedPayload.phone,
+        email: normalizedPayload.email,
+        vehiclePlate: normalizedPayload.vehiclePlate,
+        vehiclePlateNormalized: normalizedPayload.vehiclePlateNormalized,
+        notes: normalizedPayload.notes,
       });
 
       await this.auditLogService.record(
@@ -1821,16 +1826,16 @@ class AccessService {
           action: 'created',
           message: translate(DEFAULT_LOCALE, 'audit.message.portalRequestCreated', {
             type: translate(DEFAULT_LOCALE, `accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
           afterState: {
-            ...payload,
+            ...normalizedPayload,
             categoryName: category.name,
             profileName: profile?.name || null,
           },
           metadata: buildAuditMetadata('audit.message.portalRequestCreated', {
             type: tx(`accessType.${type}`),
-            name: payload.fullName,
+            name: normalizedPayload.fullName,
           }),
         },
         connection,
@@ -1860,8 +1865,8 @@ class AccessService {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
     const normalizedPayload = {
-      ...payload,
-      requestProfileId: payload.requestProfileId || null,
+      ...buildRequestPayload(payload),
+      requestProfileId: payload.requestProfileId ? Number(payload.requestProfileId) : null,
     };
 
     if (!MANAGEMENT_ROLES.includes(event.role)) {
@@ -1890,6 +1895,7 @@ class AccessService {
       }
     }
 
+    assertPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
     await this.assertVehiclePlateAvailable(
       eventId,
       type,
@@ -2114,7 +2120,7 @@ class AccessService {
     const portal = await this.getPublicPortal(session, tx);
     const payload = buildRequestPayload(body, portal.profile.name);
 
-    assertPortalPassVehiclePlateRequired(type, payload.vehiclePlateNormalized, tx);
+    assertPassVehiclePlateRequired(type, payload.vehiclePlateNormalized, tx);
     await this.assertVehiclePlateAvailable(
       portal.profile.event_id,
       type,
@@ -2194,7 +2200,7 @@ class AccessService {
       ...payload,
       requestProfileId: portal.profile.id,
     };
-    assertPortalPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
+    assertPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
     await this.assertVehiclePlateAvailable(
       portal.profile.event_id,
       type,
@@ -2547,7 +2553,7 @@ class AccessService {
       for (const row of importBatch.rows) {
         const normalizedVehiclePlate = normalizeVehiclePlate(row.vehiclePlate);
 
-        assertPortalPassVehiclePlateRequired(importBatch.type, normalizedVehiclePlate, tx);
+        assertPassVehiclePlateRequired(importBatch.type, normalizedVehiclePlate, tx);
 
         if (normalizedVehiclePlate) {
           if (seenVehiclePlates.has(normalizedVehiclePlate)) {
