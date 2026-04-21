@@ -5,14 +5,15 @@
     ? activeEvent.vehicle_gate_api_mode
     : 'decision';
   const vehicleGateApiDedupeSeconds = Number(activeEvent.vehicle_gate_api_dedupe_seconds || 180);
-  const vehicleGateApiExampleDirection = ['entry', 'exit'].includes(vehicleGateApiMode)
-    ? vehicleGateApiMode
-    : null;
+  const vehicleGateApiExampleDirection = vehicleGateApiMode === 'decision'
+    ? null
+    : 'entry';
   const vehicleCheckApiRequestExample = JSON.stringify({
     plate: 'AB-1234',
     normalized_plate: 'AB1234',
     seen_at: '2026-04-17T12:30:00+03:00',
     camera_name: 'Gate A',
+    ...(vehicleGateApiMode === 'exit' ? { direction: 'entry' } : {}),
     confidence: 0.98,
     vehicle_confidence: 0.97,
   }, null, 2);
@@ -23,7 +24,7 @@
     reason: null,
     message: t('service.vehicleEntry.allowed'),
     checkedPlate: 'AB-1234',
-    currentPresence: vehicleGateApiExampleDirection === 'exit' ? 'outside' : 'inside',
+    currentPresence: vehicleGateApiExampleDirection === 'exit' ? 'outside' : vehicleGateApiExampleDirection === 'entry' ? 'inside' : 'unknown',
     movement: {
       mode: vehicleGateApiMode,
       configuredMode: vehicleGateApiMode,
@@ -31,7 +32,7 @@
       recorded: vehicleGateApiExampleDirection !== null,
       deduplicated: false,
       autoSwitched: false,
-      explicitDirection: false,
+      explicitDirection: vehicleGateApiMode === 'exit',
     },
     request: {
       id: 128,
@@ -61,7 +62,7 @@
       recorded: false,
       deduplicated: false,
       autoSwitched: false,
-      explicitDirection: false,
+      explicitDirection: vehicleGateApiMode === 'exit',
     },
     request: null,
   }, null, 2);

@@ -2921,12 +2921,17 @@ class AccessService {
     const configuredMode = ['entry', 'exit'].includes(event.vehicle_gate_api_mode)
       ? event.vehicle_gate_api_mode
       : 'decision';
+    const isDecisionMode = configuredMode === 'decision';
+    const isToggleMode = configuredMode === 'entry';
+    const isCameraDirectedMode = configuredMode === 'exit';
     const explicitDirection = payload.direction === 'entry' || payload.direction === 'exit'
       ? payload.direction
       : null;
-    const requestedMode = explicitDirection || configuredMode;
+    const requestedMode = isCameraDirectedMode
+      ? (explicitDirection || configuredMode)
+      : configuredMode;
 
-    if (!explicitDirection && configuredMode === 'decision') {
+    if (isDecisionMode) {
       const decisionResult = await this.checkVehicleAccess(
         {
           eventId: Number(event.id),
@@ -2957,6 +2962,29 @@ class AccessService {
 
     if (!vehiclePlateNormalized) {
       throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    if (isCameraDirectedMode && !explicitDirection) {
+      return {
+        eventId: Number(event.id),
+        allowed: false,
+        decision: 'denied',
+        reason: 'direction_required',
+        checkedPlate: vehiclePlate,
+        message: tx('service.vehicleEntry.directionRequired'),
+        request: null,
+        currentPresence: 'unknown',
+        movement: {
+          mode: configuredMode,
+          configuredMode,
+          direction: null,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched: false,
+          explicitDirection: false,
+        },
+      };
     }
 
     const matches = await this.requestRepository.listPassesByVehiclePlate(Number(event.id), vehiclePlateNormalized);
@@ -3033,9 +3061,10 @@ class AccessService {
     }
 
     const initialPresence = resolveVehiclePresenceStatus(request);
-    const resolvedDirection = explicitDirection || resolveVehicleGateScanDirection(configuredMode, initialPresence);
-    const autoSwitched = !explicitDirection
-      && ['entry', 'exit'].includes(configuredMode)
+    const resolvedDirection = isCameraDirectedMode
+      ? explicitDirection
+      : resolveVehicleGateScanDirection(configuredMode, initialPresence);
+    const autoSwitched = isToggleMode
       && resolvedDirection !== configuredMode;
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       request?.category_id,

@@ -359,8 +359,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const buildVehicleGateApiExamples = (mode, previewRoot) => {
     const resolvedMode = ['entry', 'exit'].includes(mode) ? mode : 'decision';
-    const resolvedDirection = resolvedMode === 'decision' ? null : resolvedMode;
-    const currentPresence = resolvedDirection === 'exit' ? 'outside' : 'inside';
+    const resolvedDirection = resolvedMode === 'decision' ? null : 'entry';
+    const currentPresence = resolvedDirection === 'exit' ? 'outside' : resolvedDirection === 'entry' ? 'inside' : 'unknown';
     const allowedMessage = previewRoot?.dataset.vehicleGateApiAllowedMessage || 'Allowed';
     const notFoundMessage = previewRoot?.dataset.vehicleGateApiNotFoundMessage || 'Vehicle not found';
 
@@ -370,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         normalized_plate: 'AB1234',
         seen_at: '2026-04-17T12:30:00+03:00',
         camera_name: 'Gate A',
+        ...(resolvedMode === 'exit' ? { direction: 'entry' } : {}),
         confidence: 0.98,
         vehicle_confidence: 0.97,
       },
@@ -388,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
           recorded: resolvedDirection !== null,
           deduplicated: false,
           autoSwitched: false,
-          explicitDirection: false,
+          explicitDirection: resolvedMode === 'exit',
         },
         request: {
           id: 128,
@@ -418,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
           recorded: false,
           deduplicated: false,
           autoSwitched: false,
-          explicitDirection: false,
+          explicitDirection: resolvedMode === 'exit',
         },
         request: null,
       },
@@ -444,9 +445,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? vehicleGateApiModeInput.value
       : 'decision';
     const labelMap = {
-      decision: vehicleGateApiPreview.dataset.vehicleGateApiModeDecisionLabel || 'Decision only',
-      entry: vehicleGateApiPreview.dataset.vehicleGateApiModeEntryLabel || 'Auto register entry',
-      exit: vehicleGateApiPreview.dataset.vehicleGateApiModeExitLabel || 'Auto register exit',
+      decision: vehicleGateApiPreview.dataset.vehicleGateApiModeDecisionLabel || 'Check only',
+      entry: vehicleGateApiPreview.dataset.vehicleGateApiModeEntryLabel || 'Entry and exit toggle mode',
+      exit: vehicleGateApiPreview.dataset.vehicleGateApiModeExitLabel || 'Two cameras for entry and exit',
     };
     const hintMap = {
       decision: vehicleGateApiPreview.dataset.vehicleGateApiModeDecisionHint || '',
