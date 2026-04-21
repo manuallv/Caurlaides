@@ -3321,7 +3321,7 @@ body.portal-modal-open {
 .portal-modal {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 260;
   display: none;
   align-items: center;
   justify-content: center;
@@ -3342,10 +3342,16 @@ body.portal-modal-open {
 .portal-modal__dialog {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   width: min(100%, 760px);
   padding: 1.45rem;
   max-height: calc(100vh - 2.4rem);
   overflow: auto;
+}
+
+[data-access-modal-root] {
+  position: relative;
+  z-index: 260;
 }
 
 .portal-modal__dialog-wide {

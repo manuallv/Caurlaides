@@ -30,6 +30,7 @@ function createApp() {
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
   app.set('layout', 'layout');
+  app.locals.assetVersion = process.env.APP_ASSET_VERSION || String(Date.now());
 
   app.use(expressLayouts);
   app.use(helmet({ contentSecurityPolicy: false }));

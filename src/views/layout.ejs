@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= pageTitle ? `${pageTitle} | ${t('app.titleSuffix')}` : t('app.titleSuffix') %></title>
-    <link rel="stylesheet" href="/public/css/app.css" />
-    <link rel="stylesheet" href="/public/css/worldnic-theme.css" />
+    <link rel="stylesheet" href="/public/css/app.css?v=<%= assetVersion %>" />
+    <link rel="stylesheet" href="/public/css/worldnic-theme.css?v=<%= assetVersion %>" />
   </head>
   <%
     const hasEvent = Boolean(activeEvent);
@@ -402,6 +402,6 @@
     <% } %>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/public/js/app.js"></script>
+    <script src="/public/js/app.js?v=<%= assetVersion %>"></script>
   </body>
 </html>
