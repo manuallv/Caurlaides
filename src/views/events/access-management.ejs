@@ -550,7 +550,20 @@
 
                             <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types/<%= category.id %>?_method=DELETE" method="POST" data-live-form data-confirm-message="<%= t('common.confirmDelete') %>">
                               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                              <button type="submit" class="access-mini-button access-mini-button--danger"><%= t('access.deleteType') %></button>
+                              <button
+                                type="submit"
+                                class="table-icon-button table-icon-button--danger"
+                                title="<%= t('access.deleteType') %>"
+                                aria-label="<%= t('access.deleteType') %>"
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M3 6h18"></path>
+                                  <path d="M8 6V4h8v2"></path>
+                                  <path d="M19 6l-1 14H6L5 6"></path>
+                                  <path d="M10 11v6"></path>
+                                  <path d="M14 11v6"></path>
+                                </svg>
+                              </button>
                             </form>
                           <% } %>
                         </div>

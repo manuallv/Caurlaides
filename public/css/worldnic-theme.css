@@ -2556,6 +2556,18 @@ body.portal-modal-open {
   border-color: rgba(0, 116, 255, 0.22);
 }
 
+.table-icon-button--danger {
+  color: #b42318;
+  border-color: rgba(244, 63, 94, 0.2);
+  background: rgba(255, 241, 242, 0.98);
+}
+
+.table-icon-button--danger:hover {
+  color: #fff;
+  border-color: #dc2626;
+  background: #dc2626;
+}
+
 .request-profile-empty {
   padding: 1rem 0;
   color: var(--wn-muted);
