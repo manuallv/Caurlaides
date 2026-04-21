@@ -52,8 +52,8 @@ class EventRepository {
         WHERE eu.user_id = ?
           AND e.deleted_at IS NULL
         ORDER BY
-          FIELD(e.status, 'active', 'draft', 'completed', 'archived'),
-          e.start_date ASC
+          e.created_at DESC,
+          e.id DESC
       `,
       [userId],
     );
