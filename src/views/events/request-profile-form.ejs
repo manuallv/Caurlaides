@@ -42,8 +42,8 @@
           </div>
 
           <div class="request-profile-editor__fields request-profile-editor__fields--stacked">
-            <div class="request-profile-form-grid">
-              <div>
+            <div class="request-profile-form-grid request-profile-form-grid--profile">
+              <div class="request-profile-form-grid__full">
                 <label class="field-label" for="request-profile-name"><%= t('requestProfiles.fields.name') %></label>
                 <input
                   id="request-profile-name"
@@ -55,7 +55,7 @@
                 />
               </div>
 
-              <div>
+              <div class="request-profile-form-grid__span-6">
                 <label class="field-label" for="request-profile-contact-email"><%= t('field.email') %></label>
                 <input
                   id="request-profile-contact-email"
@@ -66,7 +66,7 @@
                 />
               </div>
 
-              <div>
+              <div class="request-profile-form-grid__span-6">
                 <label class="field-label" for="request-profile-contact-phone"><%= t('portal.fields.phone') %></label>
                 <input
                   id="request-profile-contact-phone"
@@ -76,20 +76,15 @@
                   value="<%= editingProfile?.contact_phone || '' %>"
                 />
               </div>
-
-              <div class="request-profile-form-grid__full">
-                <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
-                <textarea id="request-profile-notes" name="notes" rows="2" class="field-input"><%= editingProfile?.notes || '' %></textarea>
-              </div>
             </div>
 
-            <div class="request-profile-toggle-grid">
-              <label class="request-profile-toggle">
+            <div class="request-profile-toggle-grid request-profile-toggle-grid--profile">
+              <label class="request-profile-toggle request-profile-toggle--half">
                 <input type="checkbox" name="isActive" <%= !isEditMode || editingProfile.is_active ? 'checked' : '' %> />
                 <span><%= t('requestProfiles.fields.active') %></span>
               </label>
 
-              <label class="request-profile-toggle">
+              <label class="request-profile-toggle request-profile-toggle--half">
                 <input type="checkbox" name="notifyContactOnCreate" <%= !isEditMode || editingProfile?.notify_contact_on_create ? 'checked' : '' %> />
                 <span><%= t('requestProfiles.fields.sendInvite') %></span>
               </label>
@@ -137,15 +132,6 @@
               </div>
             <% } %>
 
-            <div class="request-profile-help panel">
-              <p class="request-profile-help__title"><%= t('requestProfiles.helpTitle') %></p>
-              <p class="request-profile-help__body"><%= t('requestProfiles.editorFooter') %></p>
-            </div>
-
-            <div class="request-profile-help panel hidden" data-request-profile-unlimited-note>
-              <p class="request-profile-help__title"><%= t('requestProfiles.unlimited') %></p>
-              <p class="request-profile-help__body"><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></p>
-            </div>
           </div>
         </section>
 
@@ -220,10 +206,8 @@
     </form>
 
     <div class="request-profile-editor__actions request-profile-editor__actions--stacked">
-      <div class="request-profile-editor__actions-right">
-        <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.backToList') %></a>
-
-        <% if (isEditMode) { %>
+      <% if (isEditMode) { %>
+        <div class="request-profile-editor__actions-right">
           <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>/regenerate-code" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <button type="submit" class="btn-secondary"><%= t('requestProfiles.regenerateCode') %></button>
@@ -233,12 +217,16 @@
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <button type="submit" class="btn-danger"><%= t('requestProfiles.deleteButton') %></button>
           </form>
-        <% } %>
-      </div>
+        </div>
+      <% } %>
 
-      <button type="submit" form="request-profile-form" class="btn-primary request-profile-editor__submit">
-        <%= isEditMode ? t('requestProfiles.saveButton') : t('requestProfiles.createButton') %>
-      </button>
+      <div class="request-profile-editor__actions-grid">
+        <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary request-profile-editor__action-back"><%= t('requestProfiles.backToList') %></a>
+
+        <button type="submit" form="request-profile-form" class="btn-primary request-profile-editor__submit">
+          <%= isEditMode ? t('requestProfiles.saveButton') : t('requestProfiles.createButton') %>
+        </button>
+      </div>
     </div>
   </section>
 </section>

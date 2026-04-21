@@ -1828,11 +1828,11 @@ body.portal-modal-open {
 }
 
 .request-profile-page--form {
-  justify-items: center;
+  justify-items: stretch;
 }
 
 .request-profile-page--form .request-profile-editor {
-  width: min(100%, 1120px);
+  width: 100%;
 }
 
 .request-profile-editor__head,
@@ -1884,6 +1884,8 @@ body.portal-modal-open {
 .request-profile-editor__stack {
   display: grid;
   gap: 1rem;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.94fr) minmax(0, 0.94fr);
+  align-items: start;
 }
 
 .request-profile-editor__fields {
@@ -1965,8 +1967,16 @@ body.portal-modal-open {
   gap: 0.95rem;
 }
 
+.request-profile-form-grid--profile {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
 .request-profile-form-grid__full {
   grid-column: 1 / -1;
+}
+
+.request-profile-form-grid__span-6 {
+  grid-column: span 6;
 }
 
 .request-profile-toggle-grid {
@@ -1974,6 +1984,10 @@ body.portal-modal-open {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8rem;
   align-items: stretch;
+}
+
+.request-profile-toggle-grid--profile {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .request-profile-toggle {
@@ -1995,7 +2009,12 @@ body.portal-modal-open {
   height: 1rem;
 }
 
+.request-profile-toggle--half {
+  grid-column: span 6;
+}
+
 .request-profile-toggle--wide {
+  grid-column: 1 / -1;
   width: 100%;
   justify-content: flex-start;
 }
@@ -2156,7 +2175,21 @@ body.portal-modal-open {
   margin-top: 1.3rem;
 }
 
+.request-profile-editor__actions-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.95rem;
+  align-items: stretch;
+}
+
+.request-profile-editor__action-back {
+  grid-column: span 3;
+  width: 100%;
+  justify-content: center;
+}
+
 .request-profile-editor__submit {
+  grid-column: span 9;
   width: 100%;
   min-height: 3.3rem;
   border-radius: 1.15rem;
@@ -3622,6 +3655,20 @@ body.portal-modal-open {
 
   .request-profile-form-section__head {
     grid-template-columns: 1fr;
+  }
+
+  .request-profile-editor__stack,
+  .request-profile-form-grid--profile,
+  .request-profile-toggle-grid--profile,
+  .request-profile-editor__actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .request-profile-form-grid__span-6,
+  .request-profile-toggle--half,
+  .request-profile-editor__action-back,
+  .request-profile-editor__submit {
+    grid-column: auto;
   }
 
   .request-profile-inline-input,
