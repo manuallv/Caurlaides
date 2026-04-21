@@ -84,6 +84,9 @@
       <button type="button" class="event-dashboard-tab is-active" data-event-dashboard-tab="summary" aria-pressed="true">
         <%= t('event.dashboardTabSummary') %>
       </button>
+      <button type="button" class="event-dashboard-tab" data-event-dashboard-tab="link" aria-pressed="false">
+        <%= t('event.dashboardTabLink') %>
+      </button>
       <button type="button" class="event-dashboard-tab" data-event-dashboard-tab="api" aria-pressed="false">
         <%= t('event.dashboardTabApi') %>
       </button>
@@ -180,8 +183,8 @@
   </div>
 
   <% if (canManage) { %>
-    <div class="event-dashboard-panel" data-event-dashboard-panel="api" hidden>
-      <div class="grid gap-6 xl:grid-cols-[0.86fr_1.14fr]">
+    <div class="event-dashboard-panel" data-event-dashboard-panel="link" hidden>
+      <div class="event-dashboard-link-layout">
         <div class="shell-card overflow-hidden" id="vehicle-check-link" data-live-section="event-dashboard-vehicle-check-link">
           <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
             <h2 class="text-xl font-bold text-slate-900"><%= t('event.vehicleCheckLinkTitle') %></h2>
@@ -221,7 +224,11 @@
             <% } %>
           </div>
         </div>
+      </div>
+    </div>
 
+    <div class="event-dashboard-panel" data-event-dashboard-panel="api" hidden>
+      <div class="event-dashboard-api-layout">
         <div class="shell-card overflow-hidden" id="vehicle-check-api">
           <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -246,118 +253,137 @@
             </div>
           </div>
 
-          <div class="space-y-4 px-5 py-5 sm:px-6">
-            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
-              <div>
-                <label class="field-label"><%= t('event.vehicleCheckApiEndpoint') %></label>
-                <input
-                  type="text"
-                  class="field-input font-mono text-[0.76rem]"
-                  value="<%= vehicleCheckApiUrl || '' %>"
-                  placeholder="<%= t('event.vehicleCheckApiEndpointEmpty') %>"
-                  readonly
-                  onclick="this.select()"
-                />
+          <div class="event-dashboard-api-body px-5 py-5 sm:px-6">
+            <section class="event-dashboard-api-section">
+              <div class="event-dashboard-api-section__head">
+                <h3><%= t('event.vehicleCheckApiAccessTitle') %></h3>
               </div>
 
-              <% if (vehicleCheckApiUrl) { %>
-                <form action="/events/<%= activeEvent.id %>/vehicle-gate-api/regenerate" method="POST" class="flex items-end">
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                  <button type="submit" class="btn-secondary w-full sm:w-auto"><%= t('event.vehicleCheckApiRegenerate') %></button>
-                </form>
+              <div class="event-dashboard-api-grid">
+                <div class="event-dashboard-api-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiEndpoint') %></p>
+                  <div>
+                    <input
+                      type="text"
+                      class="field-input font-mono text-[0.76rem]"
+                      value="<%= vehicleCheckApiUrl || '' %>"
+                      placeholder="<%= t('event.vehicleCheckApiEndpointEmpty') %>"
+                      readonly
+                      onclick="this.select()"
+                    />
+                  </div>
+                  <% if (vehicleCheckApiUrl) { %>
+                    <div class="event-dashboard-api-card__actions">
+                      <form action="/events/<%= activeEvent.id %>/vehicle-gate-api/regenerate" method="POST">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                        <button type="submit" class="btn-secondary"><%= t('event.vehicleCheckApiRegenerate') %></button>
+                      </form>
+                    </div>
+                  <% } %>
+                </div>
+
+                <div class="event-dashboard-api-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiAuth') %></p>
+                  <% if (vehicleGateApiAuthMode === 'none') { %>
+                    <div class="event-dashboard-api-card__value"><%= t('event.vehicleCheckApiNoAuthTitle') %></div>
+                    <p class="text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiNoAuthHint') %></p>
+                  <% } else { %>
+                    <div class="event-dashboard-api-card__value event-dashboard-api-card__value--mono">X-API-Key: <%= vehicleGateApiKey || 'YOUR_EVENT_API_KEY' %></div>
+                    <div class="event-dashboard-api-card__value event-dashboard-api-card__value--mono">Authorization: Bearer <%= vehicleGateApiKey || 'YOUR_EVENT_API_KEY' %></div>
+                    <p class="text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiAuthHint') %></p>
+                  <% } %>
+                </div>
+
+                <div class="event-dashboard-api-card">
+                  <p class="event-dashboard-api-card__label">POST</p>
+                  <div class="event-dashboard-api-card__value event-dashboard-api-card__value--mono">/api/external/events/{token}/vehicle-decisions</div>
+                  <p class="text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiConfigHint') %></p>
+                </div>
+              </div>
+            </section>
+
+            <section class="event-dashboard-api-section">
+              <div class="event-dashboard-api-section__head">
+                <h3><%= t('event.vehicleCheckApiSettingsTitle') %></h3>
+              </div>
+
+              <% if (vehicleGateApiAuthMode === 'api_key') { %>
+                <div class="event-dashboard-api-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiKey') %></p>
+                  <input
+                    type="text"
+                    class="field-input font-mono text-[0.8rem]"
+                    value="<%= vehicleGateApiKey %>"
+                    placeholder="<%= t('event.vehicleCheckApiKeyEmpty') %>"
+                    readonly
+                    onclick="this.select()"
+                  />
+                  <p class="text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiKeyHint') %></p>
+                </div>
               <% } %>
-            </div>
 
-            <% if (vehicleGateApiAuthMode === 'api_key') { %>
-              <div>
-                <label class="field-label"><%= t('event.vehicleCheckApiKey') %></label>
-                <input
-                  type="text"
-                  class="field-input font-mono text-[0.8rem]"
-                  value="<%= vehicleGateApiKey %>"
-                  placeholder="<%= t('event.vehicleCheckApiKeyEmpty') %>"
-                  readonly
-                  onclick="this.select()"
-                />
-                <p class="mt-2 text-xs text-slate-500"><%= t('event.vehicleCheckApiKeyHint') %></p>
-              </div>
-            <% } %>
+              <form action="/events/<%= activeEvent.id %>/vehicle-gate-api" method="POST" class="event-dashboard-api-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-            <form action="/events/<%= activeEvent.id %>/vehicle-gate-api" method="POST" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto]">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <div>
+                  <label class="field-label" for="vehicle-gate-api-auth-mode"><%= t('event.vehicleCheckApiAuthMode') %></label>
+                  <select id="vehicle-gate-api-auth-mode" name="authMode" class="field-input">
+                    <option value="api_key" <%= vehicleGateApiAuthMode === 'api_key' ? 'selected' : '' %>><%= t('event.vehicleCheckApiAuthModeApiKey') %></option>
+                    <option value="none" <%= vehicleGateApiAuthMode === 'none' ? 'selected' : '' %>><%= t('event.vehicleCheckApiAuthModeNone') %></option>
+                  </select>
+                </div>
 
-              <div>
-                <label class="field-label" for="vehicle-gate-api-auth-mode"><%= t('event.vehicleCheckApiAuthMode') %></label>
-                <select id="vehicle-gate-api-auth-mode" name="authMode" class="field-input">
-                  <option value="api_key" <%= vehicleGateApiAuthMode === 'api_key' ? 'selected' : '' %>><%= t('event.vehicleCheckApiAuthModeApiKey') %></option>
-                  <option value="none" <%= vehicleGateApiAuthMode === 'none' ? 'selected' : '' %>><%= t('event.vehicleCheckApiAuthModeNone') %></option>
-                </select>
-              </div>
+                <div>
+                  <label class="field-label" for="vehicle-gate-api-mode"><%= t('event.vehicleCheckApiMode') %></label>
+                  <select id="vehicle-gate-api-mode" name="mode" class="field-input">
+                    <option value="decision" <%= vehicleGateApiMode === 'decision' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeDecision') %></option>
+                    <option value="entry" <%= vehicleGateApiMode === 'entry' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeEntry') %></option>
+                    <option value="exit" <%= vehicleGateApiMode === 'exit' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeExit') %></option>
+                  </select>
+                </div>
 
-              <div>
-                <label class="field-label" for="vehicle-gate-api-mode"><%= t('event.vehicleCheckApiMode') %></label>
-                <select id="vehicle-gate-api-mode" name="mode" class="field-input">
-                  <option value="decision" <%= vehicleGateApiMode === 'decision' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeDecision') %></option>
-                  <option value="entry" <%= vehicleGateApiMode === 'entry' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeEntry') %></option>
-                  <option value="exit" <%= vehicleGateApiMode === 'exit' ? 'selected' : '' %>><%= t('event.vehicleCheckApiModeExit') %></option>
-                </select>
-              </div>
+                <div>
+                  <label class="field-label" for="vehicle-gate-api-dedupe"><%= t('event.vehicleCheckApiDedupe') %></label>
+                  <input
+                    id="vehicle-gate-api-dedupe"
+                    name="dedupeSeconds"
+                    type="number"
+                    min="0"
+                    max="3600"
+                    step="1"
+                    class="field-input"
+                    value="<%= vehicleGateApiDedupeSeconds %>"
+                  />
+                </div>
 
-              <div>
-                <label class="field-label" for="vehicle-gate-api-dedupe"><%= t('event.vehicleCheckApiDedupe') %></label>
-                <input
-                  id="vehicle-gate-api-dedupe"
-                  name="dedupeSeconds"
-                  type="number"
-                  min="0"
-                  max="3600"
-                  step="1"
-                  class="field-input"
-                  value="<%= vehicleGateApiDedupeSeconds %>"
-                />
+                <div class="flex items-end">
+                  <button type="submit" class="btn-primary w-full sm:w-auto">
+                    <%= t(vehicleCheckApiUrl ? 'event.vehicleCheckApiSave' : 'event.vehicleCheckApiGenerate') %>
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section class="event-dashboard-api-section">
+              <div class="event-dashboard-api-section__head">
+                <h3><%= t('event.vehicleCheckApiExamplesTitle') %></h3>
               </div>
 
-              <div class="flex items-end">
-                <button type="submit" class="btn-primary w-full sm:w-auto">
-                  <%= t(vehicleCheckApiUrl ? 'event.vehicleCheckApiSave' : 'event.vehicleCheckApiGenerate') %>
-                </button>
-              </div>
-            </form>
+              <div class="event-dashboard-api-examples">
+                <div class="event-dashboard-api-code-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiRequest') %></p>
+                  <pre><%= vehicleCheckApiRequestExample %></pre>
+                </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
-              <div class="panel">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiAuth') %></p>
-                <% if (vehicleGateApiAuthMode === 'none') { %>
-                  <p class="mt-2 text-sm font-semibold text-slate-900"><%= t('event.vehicleCheckApiNoAuthTitle') %></p>
-                  <p class="mt-2 text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiNoAuthHint') %></p>
-                <% } else { %>
-                  <p class="mt-2 break-all font-mono text-xs text-slate-700">X-API-Key: <%= vehicleGateApiKey || 'YOUR_EVENT_API_KEY' %></p>
-                  <p class="mt-1 break-all font-mono text-xs text-slate-500">Authorization: Bearer <%= vehicleGateApiKey || 'YOUR_EVENT_API_KEY' %></p>
-                  <p class="mt-2 text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiAuthHint') %></p>
-                <% } %>
-              </div>
+                <div class="event-dashboard-api-code-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiSuccess') %></p>
+                  <pre><%= vehicleCheckApiSuccessExample %></pre>
+                </div>
 
-              <div class="panel">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">POST</p>
-                <p class="mt-2 text-sm font-semibold text-slate-900">/api/external/events/{token}/vehicle-decisions</p>
-                <p class="mt-2 text-xs leading-5 text-slate-500"><%= t('event.vehicleCheckApiConfigHint') %></p>
-              </div>
-            </div>
-
-            <div class="grid gap-4 xl:grid-cols-3">
-              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiRequest') %></p>
-                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiRequestExample %></pre>
-              </div>
-
-              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiSuccess') %></p>
-                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiSuccessExample %></pre>
-              </div>
-
-              <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= t('event.vehicleCheckApiDenied') %></p>
-                <pre class="mt-3 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-700"><%= vehicleCheckApiDeniedExample %></pre>
+                <div class="event-dashboard-api-code-card">
+                  <p class="event-dashboard-api-card__label"><%= t('event.vehicleCheckApiDenied') %></p>
+                  <pre><%= vehicleCheckApiDeniedExample %></pre>
+                </div>
               </div>
             </div>
           </div>

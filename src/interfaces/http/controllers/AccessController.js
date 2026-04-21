@@ -28,6 +28,10 @@ function resolveAccessType(req) {
 function normalizeBracketMap(body, prefix) {
   const nestedValue = body[prefix];
 
+  if (Array.isArray(nestedValue)) {
+    return nestedValue;
+  }
+
   if (nestedValue && typeof nestedValue === 'object' && !Array.isArray(nestedValue)) {
     return nestedValue;
   }

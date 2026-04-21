@@ -46,6 +46,19 @@ function normalizeQuotaEntries(input = {}) {
     .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);
 }
 
+function normalizeQuotaEntriesForCategories(input = {}, categories = []) {
+  if (Array.isArray(input)) {
+    return input
+      .map((quota, index) => ({
+        categoryId: Number(categories[index]?.id),
+        quota: Number(quota || 0),
+      }))
+      .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);
+  }
+
+  return normalizeQuotaEntries(input);
+}
+
 function hasAssignedRequestProfileQuota(passQuotas = [], wristbandQuotas = []) {
   return passQuotas.length > 0 || wristbandQuotas.length > 0;
 }
@@ -1151,10 +1164,13 @@ class AccessService {
     }
 
     const isUnlimitedQuota = Boolean(payload.unlimitedQuota);
-    const passQuotas = normalizeQuotaEntries(payload.passQuota);
-    const wristbandQuotas = normalizeQuotaEntries(payload.wristbandQuota);
     const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
     const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
+    const passQuotas = normalizeQuotaEntriesForCategories(payload.passQuota, passCategories);
+    const wristbandQuotas = normalizeQuotaEntriesForCategories(
+      payload.wristbandQuota,
+      wristbandCategories,
+    );
     const validPassIds = new Set(passCategories.map((category) => Number(category.id)));
     const validWristbandIds = new Set(wristbandCategories.map((category) => Number(category.id)));
     const sanitizedPassQuotas = passQuotas.filter((entry) => validPassIds.has(Number(entry.categoryId)));
@@ -1292,10 +1308,13 @@ class AccessService {
     }
 
     const isUnlimitedQuota = Boolean(payload.unlimitedQuota);
-    const passQuotas = normalizeQuotaEntries(payload.passQuota);
-    const wristbandQuotas = normalizeQuotaEntries(payload.wristbandQuota);
     const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
     const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
+    const passQuotas = normalizeQuotaEntriesForCategories(payload.passQuota, passCategories);
+    const wristbandQuotas = normalizeQuotaEntriesForCategories(
+      payload.wristbandQuota,
+      wristbandCategories,
+    );
     const validPassIds = new Set(passCategories.map((category) => Number(category.id)));
     const validWristbandIds = new Set(wristbandCategories.map((category) => Number(category.id)));
     const sanitizedPassQuotas = passQuotas.filter((entry) => validPassIds.has(Number(entry.categoryId)));

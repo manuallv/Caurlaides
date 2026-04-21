@@ -5,12 +5,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuButton = document.querySelector('[data-mobile-menu-toggle]');
   const menuPanel = document.querySelector('[data-mobile-menu]');
   const eventRoom = document.body.dataset.eventRoom;
+  const resolveInitialEventDashboardTab = () => {
+    const hash = window.location.hash;
+
+    if (hash === '#check-link' || hash === '#public-link' || hash === '#vehicle-check-link') {
+      return 'link';
+    }
+
+    if (hash === '#api') {
+      return 'api';
+    }
+
+    return 'summary';
+  };
   let activePortalTab = 'all';
   let activePortalWorkspaceView = 'table';
   let activePortalRequestType = 'pass';
   let activePortalRequestMode = 'create';
   let activePortalImportType = 'pass';
-  let activeEventDashboardTab = window.location.hash === '#api' ? 'api' : 'summary';
+  let activeEventDashboardTab = resolveInitialEventDashboardTab();
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
   let refreshInProgress = false;
@@ -327,7 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (updateHash) {
-      const nextHash = nextTab === 'api' ? '#api' : '';
+      const nextHash = nextTab === 'api'
+        ? '#api'
+        : nextTab === 'link'
+          ? '#check-link'
+          : '';
       const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
       window.history.replaceState({}, '', nextUrl);
     }
