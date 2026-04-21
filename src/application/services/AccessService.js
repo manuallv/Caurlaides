@@ -954,16 +954,29 @@ class AccessService {
 
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
-    const [categories, overview, profiles, requests] = await Promise.all([
+    const pageSize = 50;
+    const requestedPage = Math.max(Number(filters?.page) || 1, 1);
+    const [categories, overview, profiles, totalFilteredRequests] = await Promise.all([
       this.categoryRepository.listByEvent(eventId, type),
       this.requestRepository.getAdminOverview(eventId, type),
       this.requestProfileRepository.listOptionsByEvent(eventId),
-      this.requestRepository.listAdminRequests(eventId, type, filters),
+      this.requestRepository.countAdminRequests(eventId, type, filters),
     ]);
+    const totalPages = Math.max(1, Math.ceil(totalFilteredRequests / pageSize));
+    const currentPage = Math.min(requestedPage, totalPages);
+    const offset = (currentPage - 1) * pageSize;
+    const requests = await this.requestRepository.listAdminRequests(eventId, type, filters, {
+      limit: pageSize,
+      offset,
+    });
     const categoryCountMap = overview.categoryCounts.reduce((map, entry) => {
       map[entry.category_id] = entry;
       return map;
     }, {});
+    const normalizedFilters = {
+      ...(filters || {}),
+      page: currentPage,
+    };
 
     return {
       event,
@@ -985,6 +998,17 @@ class AccessService {
       })),
       summary: overview.summary,
       canManage: MANAGEMENT_ROLES.includes(event.role),
+      filters: normalizedFilters,
+      pagination: {
+        currentPage,
+        pageSize,
+        totalItems: totalFilteredRequests,
+        totalPages,
+        startItem: totalFilteredRequests ? offset + 1 : 0,
+        endItem: totalFilteredRequests ? offset + requests.length : 0,
+        hasPrev: currentPage > 1,
+        hasNext: currentPage < totalPages,
+      },
       type,
     };
   }

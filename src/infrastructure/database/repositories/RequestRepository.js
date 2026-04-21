@@ -37,6 +37,81 @@ function buildVehiclePlateSelect(config, alias = 'request') {
   `;
 }
 
+function buildAdminRequestQuerySpec(config, type, eventId, filters = {}) {
+  const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
+  const params = [eventId];
+  const passEntryAtExpression = 'COALESCE(request.last_entry_at, request.entered_at)';
+  const searchColumns = [
+    'request.full_name',
+    'request.phone',
+    'request.email',
+    'request.company_name',
+    'request.notes',
+    'profile.name',
+    'category.name',
+  ];
+
+  if (config.supportsVehiclePlate) {
+    searchColumns.push('request.vehicle_plate');
+  }
+
+  if (filters.status) {
+    if (type === 'pass') {
+      switch (filters.status) {
+        case 'handed_out':
+          where.push("request.status = 'handed_out'");
+          break;
+        case 'entered':
+          where.push(`request.status != 'handed_out'`);
+          where.push(`${passEntryAtExpression} IS NOT NULL`);
+          where.push(`(request.last_exit_at IS NULL OR ${passEntryAtExpression} > request.last_exit_at)`);
+          break;
+        case 'exited':
+          where.push(`request.status != 'handed_out'`);
+          where.push('request.last_exit_at IS NOT NULL');
+          where.push(`(${passEntryAtExpression} IS NULL OR request.last_exit_at >= ${passEntryAtExpression})`);
+          break;
+        case 'pending':
+          where.push(`request.status = 'pending'`);
+          where.push(`${passEntryAtExpression} IS NULL`);
+          where.push('request.last_exit_at IS NULL');
+          break;
+        default:
+          break;
+      }
+    } else {
+      where.push('request.status = ?');
+      params.push(filters.status);
+    }
+  }
+
+  if (filters.categoryId) {
+    where.push(`request.${config.categoryIdField} = ?`);
+    params.push(filters.categoryId);
+  }
+
+  if (filters.profileId) {
+    where.push('request.request_profile_id = ?');
+    params.push(filters.profileId);
+  }
+
+  if (filters.company) {
+    where.push('request.company_name LIKE ?');
+    params.push(`%${filters.company}%`);
+  }
+
+  if (filters.query) {
+    where.push(`(${searchColumns.map((column) => `${column} LIKE ?`).join(' OR ')})`);
+    const like = `%${filters.query}%`;
+    params.push(...searchColumns.map(() => like));
+  }
+
+  return {
+    whereSql: where.join(' AND '),
+    params,
+  };
+}
+
 class RequestRepository {
   constructor(pool) {
     this.pool = pool;
@@ -52,76 +127,21 @@ class RequestRepository {
     return config;
   }
 
-  async listAdminRequests(eventId, type, filters = {}) {
+  async listAdminRequests(eventId, type, filters = {}, options = {}) {
     const config = this.resolveConfig(type);
-    const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
-    const params = [eventId];
     const orderDirection = filters.sort === 'oldest' ? 'ASC' : 'DESC';
-    const passEntryAtExpression = 'COALESCE(request.last_entry_at, request.entered_at)';
-    const searchColumns = [
-      'request.full_name',
-      'request.phone',
-      'request.email',
-      'request.company_name',
-      'request.notes',
-      'profile.name',
-      'category.name',
-    ];
+    const { whereSql, params } = buildAdminRequestQuerySpec(config, type, eventId, filters);
+    const queryParams = [...params];
+    const limit = Number.isInteger(Number(options.limit)) && Number(options.limit) > 0
+      ? Number(options.limit)
+      : null;
+    const offset = limit && Number.isInteger(Number(options.offset)) && Number(options.offset) > 0
+      ? Number(options.offset)
+      : 0;
+    const paginationSql = limit ? ' LIMIT ? OFFSET ?' : '';
 
-    if (config.supportsVehiclePlate) {
-      searchColumns.push('request.vehicle_plate');
-    }
-
-    if (filters.status) {
-      if (type === 'pass') {
-        switch (filters.status) {
-          case 'handed_out':
-            where.push("request.status = 'handed_out'");
-            break;
-          case 'entered':
-            where.push(`request.status != 'handed_out'`);
-            where.push(`${passEntryAtExpression} IS NOT NULL`);
-            where.push(`(request.last_exit_at IS NULL OR ${passEntryAtExpression} > request.last_exit_at)`);
-            break;
-          case 'exited':
-            where.push(`request.status != 'handed_out'`);
-            where.push('request.last_exit_at IS NOT NULL');
-            where.push(`(${passEntryAtExpression} IS NULL OR request.last_exit_at >= ${passEntryAtExpression})`);
-            break;
-          case 'pending':
-            where.push(`request.status = 'pending'`);
-            where.push(`${passEntryAtExpression} IS NULL`);
-            where.push('request.last_exit_at IS NULL');
-            break;
-          default:
-            break;
-        }
-      } else {
-        where.push('request.status = ?');
-        params.push(filters.status);
-      }
-    }
-
-    if (filters.categoryId) {
-      where.push(`request.${config.categoryIdField} = ?`);
-      params.push(filters.categoryId);
-    }
-
-    if (filters.profileId) {
-      where.push('request.request_profile_id = ?');
-      params.push(filters.profileId);
-    }
-
-    if (filters.company) {
-      where.push('request.company_name LIKE ?');
-      params.push(`%${filters.company}%`);
-    }
-
-    if (filters.query) {
-      where.push(`(${searchColumns.map((column) => `${column} LIKE ?`).join(' OR ')})`);
-
-      const like = `%${filters.query}%`;
-      params.push(...searchColumns.map(() => like));
+    if (limit) {
+      queryParams.push(limit, offset);
     }
 
     const [rows] = await this.pool.execute(
@@ -152,15 +172,33 @@ class RequestRepository {
         LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
         LEFT JOIN users handed_out_by ON handed_out_by.id = request.handed_out_by_user_id
         LEFT JOIN users status_updated_by ON status_updated_by.id = request.status_updated_by_user_id
-        WHERE ${where.join(' AND ')}
+        WHERE ${whereSql}
         ORDER BY
           request.created_at ${orderDirection},
           request.id ${orderDirection}
+        ${paginationSql}
+      `,
+      queryParams,
+    );
+
+    return rows;
+  }
+
+  async countAdminRequests(eventId, type, filters = {}) {
+    const config = this.resolveConfig(type);
+    const { whereSql, params } = buildAdminRequestQuerySpec(config, type, eventId, filters);
+    const [[row]] = await this.pool.execute(
+      `
+        SELECT COUNT(*) AS total_requests
+        FROM ${config.requestTable} request
+        INNER JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
+        WHERE ${whereSql}
       `,
       params,
     );
 
-    return rows;
+    return Number(row?.total_requests || 0);
   }
 
   async getAdminSummary(eventId, type) {

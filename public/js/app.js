@@ -1429,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     exportUrl.search = '';
 
     activeParams.forEach((value, key) => {
-      if (key === 'format' || value === '') {
+      if (key === 'format' || key === 'page' || value === '') {
         return;
       }
 
@@ -1988,6 +1988,17 @@ document.addEventListener('DOMContentLoaded', () => {
       setAccessEntryWindows([], { ensureBlank: true });
     }
     syncAccessTypeUsageMetrics();
+
+    if (isAccessServerPaginationEnabled()) {
+      const pageRowCount = elements.tableBody
+        ? elements.tableBody.querySelectorAll('[data-request-row-id]').length
+        : 0;
+      syncAccessEmptyState(pageRowCount);
+      updateAccessFilteredCount();
+      syncAccessFilterUrl();
+      return;
+    }
+
     applyAccessFilters();
   };
 
@@ -2022,8 +2033,24 @@ document.addEventListener('DOMContentLoaded', () => {
     return template.replace('__COUNT__', count);
   };
 
+  const isAccessServerPaginationEnabled = () => {
+    const { workspace } = getAccessElements();
+    return workspace?.dataset.accessPaginationEnabled === 'true';
+  };
+
+  const setAccessFilterPage = (page = 1) => {
+    const { filterForm } = getAccessElements();
+    const pageField = filterForm?.elements?.page;
+
+    if (!pageField || !('value' in pageField)) {
+      return;
+    }
+
+    pageField.value = String(Math.max(Number(page) || 1, 1));
+  };
+
   const updateAccessFilteredCount = () => {
-    const { tableBody, filteredCountNodes } = getAccessElements();
+    const { tableBody, filteredCountNodes, workspace } = getAccessElements();
 
     if (!filteredCountNodes.length) {
       return;
@@ -2032,9 +2059,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const visibleCount = tableBody
       ? [...tableBody.querySelectorAll('[data-request-row-id]')].filter((row) => row.style.display !== 'none').length
       : 0;
+    const nextCount = isAccessServerPaginationEnabled()
+      ? Number(workspace?.dataset.accessFilteredCountValue || 0)
+      : visibleCount;
 
     filteredCountNodes.forEach((node) => {
-      node.textContent = formatAccessFilteredCount(visibleCount);
+      node.textContent = formatAccessFilteredCount(nextCount);
     });
   };
 
@@ -2155,6 +2185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         status: '',
         company: '',
         sort: 'newest',
+        page: 1,
       };
     }
 
@@ -2165,6 +2196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       status: String(filterForm.elements.status?.value || ''),
       company: String(filterForm.elements.company?.value || '').trim().toLowerCase(),
       sort: String(filterForm.elements.sort?.value || 'newest'),
+      page: Math.max(Number(filterForm.elements.page?.value) || 1, 1),
     };
   };
 
@@ -2274,12 +2306,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setParam('status', filterForm.elements.status?.value);
     setParam('company', filterForm.elements.company?.value);
     setParam('sort', filterForm.elements.sort?.value, 'newest');
+    setParam('page', filterForm.elements.page?.value, '1');
+
+    const hash = activeAccessView === 'types' ? '#types' : '#requests';
 
     const nextUrl = params.toString()
       ? `${filterForm.action}?${params.toString()}`
       : filterForm.action;
 
-    window.history.replaceState({}, '', `${nextUrl}#requests`);
+    window.history.replaceState({}, '', `${nextUrl}${hash}`);
   };
 
   const applyAccessFilters = () => {
@@ -2643,6 +2678,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateAccessSummary(summary || {});
 
+    if (isAccessServerPaginationEnabled()) {
+      return false;
+    }
+
     const normalizedRequest = {
       ...request,
       type: requestType,
@@ -2701,6 +2740,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateAccessSummary(summary || {});
+
+    if (isAccessServerPaginationEnabled()) {
+      return false;
+    }
 
     const row = document.querySelector(`[data-request-row-id="${escapeSelector(requestId)}"]`);
 
@@ -3109,6 +3152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeAccessView = 'requests';
         window.history.replaceState({}, '', `${targetUrl}#requests`);
         await refreshLiveSections(targetUrl, { abortPrevious: true });
+        syncAccessFilterUrl();
       } catch (error) {
         if (error?.name === 'AbortError') {
           return;
@@ -3872,13 +3916,44 @@ document.addEventListener('DOMContentLoaded', () => {
       if (accessFilterForm && getAccessElements().workspace) {
         accessFilterForm.reset();
 
+        if (accessFilterForm.elements.q) {
+          accessFilterForm.elements.q.value = '';
+        }
+
+        if (accessFilterForm.elements.profileId) {
+          accessFilterForm.elements.profileId.value = '';
+        }
+
+        if (accessFilterForm.elements.categoryId) {
+          accessFilterForm.elements.categoryId.value = '';
+        }
+
+        if (accessFilterForm.elements.status) {
+          accessFilterForm.elements.status.value = '';
+        }
+
+        if (accessFilterForm.elements.company) {
+          accessFilterForm.elements.company.value = '';
+        }
+
         if (accessFilterForm.elements.sort) {
           accessFilterForm.elements.sort.value = 'newest';
         }
 
-        window.history.replaceState({}, '', `${resetUrl}#requests`);
         activeAccessView = 'requests';
-        applyAccessFilters();
+
+        if (isAccessServerPaginationEnabled()) {
+          setAccessFilterPage(1);
+
+          try {
+            await submitLiveFilterForm(accessFilterForm);
+          } catch (error) {
+            window.location.href = resetUrl;
+          }
+        } else {
+          window.history.replaceState({}, '', `${resetUrl}#requests`);
+          applyAccessFilters();
+        }
       } else {
         window.history.replaceState({}, '', `${resetUrl}#requests`);
         activeAccessView = 'requests';
@@ -3888,6 +3963,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
           window.location.href = resetUrl;
         }
+      }
+
+      return;
+    }
+
+    const accessPageTrigger = closest('[data-access-page-go]');
+
+    if (accessPageTrigger) {
+      const { filterForm } = getAccessElements();
+
+      if (filterForm && !accessPageTrigger.hasAttribute('disabled')) {
+        setAccessFilterPage(accessPageTrigger.dataset.accessPageGo || 1);
+        await submitLiveFilterForm(filterForm);
       }
 
       return;
@@ -4049,8 +4137,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (liveFilterForm && getAccessElements().workspace && event.target.matches('select, input')) {
       activeAccessView = 'requests';
-      syncAccessFilterUrl();
-      applyAccessFilters();
+
+      if (isAccessServerPaginationEnabled()) {
+        setAccessFilterPage(1);
+        submitLiveFilterForm(liveFilterForm);
+      } else {
+        syncAccessFilterUrl();
+        applyAccessFilters();
+      }
     }
   });
 
@@ -4090,11 +4184,18 @@ document.addEventListener('DOMContentLoaded', () => {
       && event.target.matches('input[type="search"], input[type="text"], input:not([type])')
     ) {
       window.clearTimeout(liveFilterTimer);
-      liveFilterTimer = window.setTimeout(() => {
+
+      if (isAccessServerPaginationEnabled()) {
         activeAccessView = 'requests';
-        syncAccessFilterUrl();
-        applyAccessFilters();
-      }, 180);
+        setAccessFilterPage(1);
+        submitLiveFilterForm(liveFilterForm, { delay: 180 });
+      } else {
+        liveFilterTimer = window.setTimeout(() => {
+          activeAccessView = 'requests';
+          syncAccessFilterUrl();
+          applyAccessFilters();
+        }, 180);
+      }
     }
   });
 
@@ -4122,8 +4223,13 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       if (getAccessElements().workspace) {
         activeAccessView = 'requests';
-        syncAccessFilterUrl();
-        applyAccessFilters();
+
+        if (isAccessServerPaginationEnabled()) {
+          await submitLiveFilterForm(form);
+        } else {
+          syncAccessFilterUrl();
+          applyAccessFilters();
+        }
       }
 
       return;
@@ -4186,13 +4292,14 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('access:request-upsert', async (payload) => {
       const handled = applyAccessRequestUpsert(payload);
       const isPortalPage = Boolean(getPortalElements().app);
+      const isAccessAdminPage = Boolean(getAccessElements().workspace);
 
       if (handled) {
         suppressSocketRefreshUntil = Date.now() + 1800;
         return;
       }
 
-      if (isPortalPage) {
+      if (isPortalPage || isAccessAdminPage) {
         await triggerSocketLiveRefresh();
       }
     });
@@ -4200,13 +4307,14 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('access:request-delete', async (payload) => {
       const handled = applyAccessRequestDelete(payload);
       const isPortalPage = Boolean(getPortalElements().app);
+      const isAccessAdminPage = Boolean(getAccessElements().workspace);
 
       if (handled) {
         suppressSocketRefreshUntil = Date.now() + 1800;
         return;
       }
 
-      if (isPortalPage) {
+      if (isPortalPage || isAccessAdminPage) {
         await triggerSocketLiveRefresh();
       }
     });

@@ -88,6 +88,8 @@ function normalizeRequestProfilePayload(body) {
 }
 
 function normalizeAdminFilters(query) {
+  const parsedPage = Number.parseInt(query.page, 10);
+
   return {
     query: query.q || '',
     profileId: query.profileId ? Number(query.profileId) : null,
@@ -95,6 +97,7 @@ function normalizeAdminFilters(query) {
     status: query.status || '',
     company: query.company || '',
     sort: query.sort === 'oldest' ? 'oldest' : 'newest',
+    page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
   };
 }
 
@@ -496,7 +499,8 @@ function buildAccessController({ categoryService, accessService }) {
         profiles: data.profiles,
         requests: data.requests,
         requestSummary: data.summary,
-        filters: normalizeAdminFilters(req.query),
+        filters: data.filters,
+        pagination: data.pagination,
         canManage: data.canManage,
       });
     },

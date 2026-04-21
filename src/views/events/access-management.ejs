@@ -4,6 +4,7 @@
   const typeLabel = isPass ? t('accessType.pass') : t('accessType.wristband');
   const routeBase = isPass ? 'passes' : 'wristbands';
   const sectionTitle = isPass ? t('event.sidebar.autoPasses') : t('event.sidebar.eventWristbands');
+  const filteredRequestCount = pagination?.totalItems ?? requests.length;
 %>
 
 <section class="space-y-6" data-access-admin-page>
@@ -41,6 +42,8 @@
     data-access-status-handed-out-label="<%= isPass ? t('access.passState.handed_out') : t('statuses.handed_out') %>"
     data-access-status-section-label="<%= t('access.workspace.status') %>"
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
+    data-access-filtered-count-value="<%= filteredRequestCount %>"
+    data-access-pagination-enabled="true"
     data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
     data-access-entry-at-label="<%= t('access.entryAt') %>"
     data-access-entry-button-label="<%= isPass ? t('access.passState.entered') : t('check.direction.entry') %>"
@@ -113,6 +116,7 @@
     <div class="access-workspace-panel" data-access-view-panel="requests">
       <div class="access-workspace-toolbar">
         <form method="GET" action="/events/<%= activeEvent.id %>/<%= routeBase %>" class="access-filter-grid" data-live-filter-form>
+          <input type="hidden" name="page" value="<%= pagination.currentPage %>" />
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
 
           <select name="profileId" class="field-input">
@@ -166,7 +170,7 @@
 
       <div class="access-table-frame">
         <div class="access-table-frame__meta">
-          <span class="toolbar-chip toolbar-chip-active" data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+          <span class="toolbar-chip toolbar-chip-active" data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: filteredRequestCount }) %></span>
         </div>
         <div class="px-5 py-12 text-center sm:px-6 <%= requests.length ? 'hidden' : '' %>" data-access-empty-state>
           <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
@@ -442,7 +446,34 @@
         </div>
 
         <div class="access-table-footer">
-          <span data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: requests.length }) %></span>
+          <div class="access-table-footer__meta">
+            <span data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: filteredRequestCount }) %></span>
+            <% if (pagination.totalItems > 0) { %>
+              <span class="access-table-footer__range"><%= t('access.pagination.showingRange', { start: pagination.startItem, end: pagination.endItem, total: pagination.totalItems }) %></span>
+            <% } %>
+          </div>
+
+          <% if (pagination.totalPages > 1) { %>
+            <div class="access-pagination">
+              <span class="access-pagination__summary"><%= t('access.pagination.page', { current: pagination.currentPage, total: pagination.totalPages }) %></span>
+              <button
+                type="button"
+                class="access-pagination__button"
+                data-access-page-go="<%= pagination.currentPage - 1 %>"
+                <%= pagination.hasPrev ? '' : 'disabled' %>
+              >
+                <%= t('buttons.previous') %>
+              </button>
+              <button
+                type="button"
+                class="access-pagination__button"
+                data-access-page-go="<%= pagination.currentPage + 1 %>"
+                <%= pagination.hasNext ? '' : 'disabled' %>
+              >
+                <%= t('buttons.next') %>
+              </button>
+            </div>
+          <% } %>
         </div>
       </div>
 
