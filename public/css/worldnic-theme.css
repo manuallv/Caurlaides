@@ -873,6 +873,59 @@ select.field-input {
   background: rgba(0, 116, 255, 0.08);
 }
 
+.event-dashboard-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding: 0.38rem;
+  border: 1px solid rgba(214, 223, 236, 0.98);
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.96), rgba(241, 245, 251, 0.94));
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.04);
+}
+
+.event-dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.8rem;
+  padding: 0.68rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.92rem;
+  background: transparent;
+  color: #708096;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.event-dashboard-tab:hover {
+  color: var(--wn-text);
+  border-color: rgba(204, 214, 227, 0.98);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.event-dashboard-tab.is-active {
+  color: var(--wn-primary);
+  border-color: rgba(0, 116, 255, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.98));
+  box-shadow: 0 12px 22px rgba(0, 116, 255, 0.08);
+}
+
+.event-dashboard-panel[hidden] {
+  display: none !important;
+}
+
+.event-dashboard-panel.is-active {
+  display: block;
+}
+
 .access-admin-shell {
   position: relative;
 }
@@ -1828,6 +1881,11 @@ body.portal-modal-open {
   margin-top: 1.2rem;
 }
 
+.request-profile-editor__stack {
+  display: grid;
+  gap: 1rem;
+}
+
 .request-profile-editor__fields {
   display: grid;
   gap: 1rem;
@@ -1838,11 +1896,91 @@ body.portal-modal-open {
   align-items: end;
 }
 
+.request-profile-editor__fields--stacked {
+  gap: 1rem;
+}
+
+.request-profile-form-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(223, 229, 240, 0.9);
+  border-radius: 1.35rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 249, 253, 0.96));
+  box-shadow: var(--wn-shadow-sm);
+}
+
+.request-profile-form-section--quota {
+  gap: 0.95rem;
+}
+
+.request-profile-form-section__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.request-profile-form-section__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #19b8d4 0%, var(--wn-primary) 100%);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(0, 116, 255, 0.16);
+}
+
+.request-profile-form-section__copy h2 {
+  margin: 0.2rem 0 0;
+  color: var(--wn-text);
+  font-size: 1.14rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.request-profile-form-section__copy p {
+  margin: 0.4rem 0 0;
+  color: var(--wn-muted);
+  font-size: 0.84rem;
+  line-height: 1.68;
+}
+
+.request-profile-form-section__eyebrow {
+  margin: 0;
+  color: #7d8ca2;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.request-profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.95rem;
+}
+
+.request-profile-form-grid__full {
+  grid-column: 1 / -1;
+}
+
+.request-profile-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  align-items: stretch;
+}
+
 .request-profile-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.7rem;
-  width: fit-content;
+  width: 100%;
   padding: 0.8rem 1rem;
   border: 1px solid rgba(223, 229, 240, 0.95);
   border-radius: 1rem;
@@ -2010,6 +2148,21 @@ body.portal-modal-open {
 
 .request-profile-editor__actions form {
   margin: 0;
+}
+
+.request-profile-editor__actions--stacked {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.3rem;
+}
+
+.request-profile-editor__submit {
+  width: 100%;
+  min-height: 3.3rem;
+  border-radius: 1.15rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  justify-content: center;
 }
 
 .system-settings-provider-row {
@@ -3250,6 +3403,11 @@ body.portal-modal-open {
     grid-template-columns: 1fr;
   }
 
+  .request-profile-form-grid,
+  .request-profile-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+
   .system-settings-provider-row,
   .system-settings-fields {
     grid-template-columns: 1fr;
@@ -3455,6 +3613,14 @@ body.portal-modal-open {
   }
 
   .request-profile-quota-row {
+    grid-template-columns: 1fr;
+  }
+
+  .request-profile-form-section {
+    padding: 1rem;
+  }
+
+  .request-profile-form-section__head {
     grid-template-columns: 1fr;
   }
 

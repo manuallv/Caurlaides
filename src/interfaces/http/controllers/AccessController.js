@@ -25,6 +25,29 @@ function resolveAccessType(req) {
   return req.originalUrl.includes('/wristbands') ? 'wristband' : 'pass';
 }
 
+function normalizeBracketMap(body, prefix) {
+  const nestedValue = body[prefix];
+
+  if (nestedValue && typeof nestedValue === 'object' && !Array.isArray(nestedValue)) {
+    return nestedValue;
+  }
+
+  const result = {};
+  const matcher = new RegExp(`^${prefix}\\[(\\d+)\\]$`);
+
+  Object.entries(body || {}).forEach(([key, value]) => {
+    const match = key.match(matcher);
+
+    if (!match) {
+      return;
+    }
+
+    result[match[1]] = value;
+  });
+
+  return result;
+}
+
 function normalizeRequestProfilePayload(body) {
   return {
     name: body.name,
@@ -34,8 +57,8 @@ function normalizeRequestProfilePayload(body) {
     unlimitedQuota: body.unlimitedQuota === 'on',
     notes: body.notes || null,
     isActive: body.isActive === 'on',
-    passQuota: body.passQuota || {},
-    wristbandQuota: body.wristbandQuota || {},
+    passQuota: normalizeBracketMap(body, 'passQuota'),
+    wristbandQuota: normalizeBracketMap(body, 'wristbandQuota'),
   };
 }
 
@@ -176,6 +199,7 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
 
   const status = request.status || 'pending';
   const currentPresence = type === 'pass' ? resolveRequestPresence(request) : 'unknown';
+  const currentStatusAt = request.status_updated_at || request.created_at || null;
 
   return {
     requestType: type,
@@ -195,10 +219,10 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       status,
       statusLabel: req.t(`statuses.${status}`),
       statusTone: status === 'handed_out' ? 'active' : 'pending',
-      statusUpdatedAtLabel: request.status_updated_at
-        ? res.locals.helpers.formatDateTime(request.status_updated_at)
+      statusUpdatedAtLabel: currentStatusAt
+        ? res.locals.helpers.formatDateTime(currentStatusAt)
         : '',
-      statusUpdatedAtTs: request.status_updated_at ? new Date(request.status_updated_at).getTime() : 0,
+      statusUpdatedAtTs: currentStatusAt ? new Date(currentStatusAt).getTime() : 0,
       enteredAtLabel: request.entered_at ? res.locals.helpers.formatDateTime(request.entered_at) : '',
       enteredAtTs: request.entered_at ? new Date(request.entered_at).getTime() : 0,
       lastEntryAtLabel: request.last_entry_at ? res.locals.helpers.formatDateTime(request.last_entry_at) : '',

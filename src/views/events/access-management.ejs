@@ -173,6 +173,7 @@
             <tbody data-access-requests-body>
               <% requests.forEach((request) => { %>
                 <%
+                  const requestStatusAt = request.status_updated_at || request.created_at || null;
                   const requestLastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
                   const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
                   const requestPresence = !requestLastEntryTs && !requestLastExitTs
@@ -250,8 +251,8 @@
                           class="status-<%= request.status === 'handed_out' ? 'active' : 'pending' %>"
                           data-request-status-badge
                         ><%= t(`statuses.${request.status}`) %></span>
-                        <% if (request.status_updated_at) { %>
-                          <span class="access-status-time" data-request-status-time><%= helpers.formatDateTime(request.status_updated_at) %></span>
+                        <% if (requestStatusAt) { %>
+                          <span class="access-status-time" data-request-status-time><%= helpers.formatDateTime(requestStatusAt) %></span>
                         <% } else { %>
                           <span class="access-status-time" data-request-status-time>&nbsp;</span>
                         <% } %>

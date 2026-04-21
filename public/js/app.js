@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activePortalRequestType = 'pass';
   let activePortalRequestMode = 'create';
   let activePortalImportType = 'pass';
+  let activeEventDashboardTab = window.location.hash === '#api' ? 'api' : 'summary';
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
   let refreshInProgress = false;
@@ -25,6 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return String(value).replace(/["\\]/g, '\\$&');
+  };
+
+  const findClosestTarget = (target, selector) => {
+    let current = target instanceof Element ? target : target?.parentElement || null;
+
+    while (current) {
+      if (typeof current.matches === 'function' && current.matches(selector)) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return null;
   };
 
   const closeSidebar = () => {
@@ -273,6 +288,49 @@ document.addEventListener('DOMContentLoaded', () => {
       hasPassAccess: app?.dataset.portalHasPassAccess === 'true',
       hasWristbandAccess: app?.dataset.portalHasWristbandAccess === 'true',
     };
+  };
+
+  const getEventDashboardElements = () => ({
+    app: document.querySelector('[data-event-dashboard-app]'),
+    tabButtons: [...document.querySelectorAll('[data-event-dashboard-tab]')],
+    panels: [...document.querySelectorAll('[data-event-dashboard-panel]')],
+  });
+
+  const setEventDashboardTab = (tab, { updateHash = true } = {}) => {
+    const elements = getEventDashboardElements();
+
+    if (!elements.app) {
+      return;
+    }
+
+    const availableTabs = elements.tabButtons
+      .map((button) => button.dataset.eventDashboardTab)
+      .filter(Boolean);
+    const nextTab = availableTabs.includes(tab)
+      ? tab
+      : availableTabs.includes('summary')
+        ? 'summary'
+        : availableTabs[0] || 'summary';
+
+    activeEventDashboardTab = nextTab;
+
+    elements.tabButtons.forEach((button) => {
+      const isActive = button.dataset.eventDashboardTab === nextTab;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    elements.panels.forEach((panel) => {
+      const isActive = panel.dataset.eventDashboardPanel === nextTab;
+      panel.classList.toggle('is-active', isActive);
+      panel.hidden = !isActive;
+    });
+
+    if (updateHash) {
+      const nextHash = nextTab === 'api' ? '#api' : '';
+      const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
   };
 
   const getCheckElements = () => ({
@@ -1282,10 +1340,13 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        const passQuotaInputs = quotaInputs.filter((input) => String(input.name || '').startsWith('passQuota['));
-        const wristbandQuotaInputs = quotaInputs.filter((input) => String(input.name || '').startsWith('wristbandQuota['));
-        const hasPassQuota = passQuotaInputs.some((input) => Number(input.value || 0) > 0);
-        const hasWristbandQuota = wristbandQuotaInputs.some((input) => Number(input.value || 0) > 0);
+        const formData = new FormData(form);
+        const hasPassQuota = [...formData.entries()].some(([key, value]) => (
+          key.startsWith('passQuota[') && Number(value || 0) > 0
+        ));
+        const hasWristbandQuota = [...formData.entries()].some(([key, value]) => (
+          key.startsWith('wristbandQuota[') && Number(value || 0) > 0
+        ));
         const hasQuota = hasPassQuota || hasWristbandQuota;
 
         if (hasQuota) {
@@ -1297,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
           form.dataset.requestProfileQuotaRequiredMessage || 'Assign at least one pass or wristband quota before saving the profile.',
           'error',
         );
-        (passQuotaInputs[0] || wristbandQuotaInputs[0] || quotaInputs[0])?.focus();
+        quotaInputs[0]?.focus();
       };
     }
 
@@ -1454,6 +1515,28 @@ document.addEventListener('DOMContentLoaded', () => {
       entryButtonLabel: workspace.dataset.accessEntryButtonLabel,
       exitButtonLabel: workspace.dataset.accessExitButtonLabel,
     };
+  };
+
+  const getNamedFormField = (form, name) => {
+    if (!form?.elements) {
+      return null;
+    }
+
+    if (typeof form.elements.namedItem === 'function') {
+      return form.elements.namedItem(name);
+    }
+
+    return form.elements[name] || null;
+  };
+
+  const setNamedFormFieldValue = (form, name, value = '') => {
+    const field = getNamedFormField(form, name);
+
+    if (!field || !('value' in field)) {
+      return;
+    }
+
+    field.value = value;
   };
 
   const setAccessView = (view, { updateHash = true } = {}) => {
@@ -2452,7 +2535,10 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         credentials: 'same-origin',
       });
-      const payload = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json')
+        ? await response.json()
+        : null;
 
       if (!response.ok) {
         throw new Error(payload?.error || ui.historyError || 'Could not load vehicle history.');
@@ -2518,13 +2604,13 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessHistoryModal();
     closeAccessExportModal();
 
-    const eventId = document.body.dataset.eventRoom;
-    const accessType = window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass';
+    const eventId = ui.eventId || document.body.dataset.eventRoom || '';
+    const accessType = ui.pageType || (window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass');
     const isEdit = Boolean(trigger?.dataset.requestId);
 
     requestForm.reset();
     requestForm.action = isEdit
-      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}?_method=PUT`
+      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`
       : (ui.requestCreateAction || `/events/${eventId}/${accessType}/requests`);
 
     if (requestMethodHolder) {
@@ -2557,17 +2643,19 @@ document.addEventListener('DOMContentLoaded', () => {
         : (ui.requestCreateSubmit || 'Save');
     }
 
-    requestForm.elements.fullName.value = trigger?.dataset.requestFullName || '';
-    requestForm.elements.companyName.value = trigger?.dataset.requestCompanyName || '';
-    requestForm.elements.phone.value = trigger?.dataset.requestPhone || '';
-    requestForm.elements.email.value = trigger?.dataset.requestEmail || '';
-    if (requestForm.elements.vehiclePlate) {
-      requestForm.elements.vehiclePlate.value = trigger?.dataset.requestVehiclePlate || '';
-    }
-    requestForm.elements.notes.value = trigger?.dataset.requestNotes || '';
+    setNamedFormFieldValue(requestForm, 'fullName', trigger?.dataset.requestFullName || '');
+    setNamedFormFieldValue(requestForm, 'companyName', trigger?.dataset.requestCompanyName || '');
+    setNamedFormFieldValue(requestForm, 'phone', trigger?.dataset.requestPhone || '');
+    setNamedFormFieldValue(requestForm, 'email', trigger?.dataset.requestEmail || '');
+    setNamedFormFieldValue(requestForm, 'vehiclePlate', trigger?.dataset.requestVehiclePlate || '');
+    setNamedFormFieldValue(requestForm, 'notes', trigger?.dataset.requestNotes || '');
 
     if (requestCategory) {
       requestCategory.value = trigger?.dataset.requestCategoryId || '';
+
+      if (!requestCategory.value && requestCategory.options.length) {
+        requestCategory.selectedIndex = 0;
+      }
     }
 
     if (requestProfile) {
@@ -2850,26 +2938,32 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.requestForm.reset();
     syncPortalRequestFormLayout(type);
     elements.requestForm.action = `/p/${type}`;
-    elements.requestSubmitLabel.textContent = mode === 'edit'
-      ? (ui.saveRequest || 'Save request')
-      : (ui.addRequest || 'Add request');
-    elements.requestMethodHolder.innerHTML = '';
+    if (elements.requestSubmitLabel) {
+      elements.requestSubmitLabel.textContent = mode === 'edit'
+        ? (ui.saveRequest || 'Save request')
+        : (ui.addRequest || 'Add request');
+    }
+
+    if (elements.requestMethodHolder) {
+      elements.requestMethodHolder.innerHTML = '';
+    }
 
     if (mode === 'edit' && request) {
-      elements.requestForm.action = `/p/${type}/${request.id}?_method=PUT`;
+      elements.requestForm.action = `/p/${type}/${request.id}`;
       const methodInput = document.createElement('input');
       methodInput.type = 'hidden';
       methodInput.name = '_method';
       methodInput.value = 'PUT';
-      elements.requestMethodHolder.appendChild(methodInput);
-      elements.requestForm.fullName.value = request.fullName;
-      elements.requestForm.companyName.value = request.companyName;
-      elements.requestForm.phone.value = request.phone;
-      elements.requestForm.email.value = request.email;
-      if (elements.requestForm.vehiclePlate) {
-        elements.requestForm.vehiclePlate.value = request.vehiclePlate || '';
+      if (elements.requestMethodHolder) {
+        elements.requestMethodHolder.appendChild(methodInput);
       }
-      elements.requestForm.notes.value = request.notes;
+
+      setNamedFormFieldValue(elements.requestForm, 'fullName', request.fullName || '');
+      setNamedFormFieldValue(elements.requestForm, 'companyName', request.companyName || '');
+      setNamedFormFieldValue(elements.requestForm, 'phone', request.phone || '');
+      setNamedFormFieldValue(elements.requestForm, 'email', request.email || '');
+      setNamedFormFieldValue(elements.requestForm, 'vehiclePlate', request.vehiclePlate || '');
+      setNamedFormFieldValue(elements.requestForm, 'notes', request.notes || '');
       fillCategoryOptions(elements.requestCategorySelect, type, request.categoryId);
     } else {
       fillCategoryOptions(elements.requestCategorySelect, type);
@@ -2998,6 +3092,18 @@ document.addEventListener('DOMContentLoaded', () => {
     updateImportTemplateLink();
   };
 
+  const initializeEventDashboardTabs = () => {
+    const { app, tabButtons } = getEventDashboardElements();
+
+    if (!app || !tabButtons.length) {
+      return;
+    }
+
+    setEventDashboardTab(activeEventDashboardTab, {
+      updateHash: activeEventDashboardTab === 'api',
+    });
+  };
+
   sidebarToggles.forEach((toggle) => {
     toggle.addEventListener('click', openSidebar);
   });
@@ -3032,28 +3138,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', async (event) => {
-    const passPrintTabTrigger = event.target.closest('[data-pass-print-tab]');
+    const closest = (selector) => findClosestTarget(event.target, selector);
+
+    const eventDashboardTabTrigger = closest('[data-event-dashboard-tab]');
+
+    if (eventDashboardTabTrigger) {
+      setEventDashboardTab(eventDashboardTabTrigger.dataset.eventDashboardTab || 'summary');
+      return;
+    }
+
+    const passPrintTabTrigger = closest('[data-pass-print-tab]');
 
     if (passPrintTabTrigger) {
       setPassPrintTab(passPrintTabTrigger.dataset.passPrintTab || 'editor');
       return;
     }
 
-    const passPrintAddTrigger = event.target.closest('[data-pass-print-add-field]');
+    const passPrintAddTrigger = closest('[data-pass-print-add-field]');
 
     if (passPrintAddTrigger) {
       addPassPrintField(passPrintAddTrigger.dataset.passPrintAddField || '');
       return;
     }
 
-    const passPrintRemoveTrigger = event.target.closest('[data-pass-print-remove-field]');
+    const passPrintRemoveTrigger = closest('[data-pass-print-remove-field]');
 
     if (passPrintRemoveTrigger) {
       removeSelectedPassPrintField();
       return;
     }
 
-    const passPrintRotateTrigger = event.target.closest('[data-pass-print-rotate-field]');
+    const passPrintRotateTrigger = closest('[data-pass-print-rotate-field]');
 
     if (passPrintRotateTrigger) {
       const selectedField = passPrintEditorState.fields.find((field) => field.id === passPrintEditorState.selectedId);
@@ -3066,7 +3181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const passPrintRotateBackgroundTrigger = event.target.closest('[data-pass-print-rotate-background]');
+    const passPrintRotateBackgroundTrigger = closest('[data-pass-print-rotate-background]');
 
     if (passPrintRotateBackgroundTrigger) {
       passPrintEditorState.backgroundRotation = (normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation) + 90) % 360;
@@ -3074,7 +3189,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const passPrintRemoveBackgroundTrigger = event.target.closest('[data-pass-print-remove-background-button]');
+    const passPrintRemoveBackgroundTrigger = closest('[data-pass-print-remove-background-button]');
 
     if (passPrintRemoveBackgroundTrigger) {
       const { backgroundInput, removeBackgroundInput } = getPassPrintElements();
@@ -3102,14 +3217,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const passPrintFieldTrigger = event.target.closest('[data-pass-print-field-id]');
+    const passPrintFieldTrigger = closest('[data-pass-print-field-id]');
 
     if (passPrintFieldTrigger) {
       selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '');
       return;
     }
 
-    const sortDirectionTrigger = event.target.closest('[data-portal-sort-direction]');
+    const sortDirectionTrigger = closest('[data-portal-sort-direction]');
 
     if (sortDirectionTrigger) {
       portalTableSortDirection = portalTableSortDirection === 'asc' ? 'desc' : 'asc';
@@ -3118,14 +3233,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const portalSummaryToggle = event.target.closest('[data-portal-summary-toggle]');
+    const portalSummaryToggle = closest('[data-portal-summary-toggle]');
 
     if (portalSummaryToggle) {
       togglePortalSummaryCard(portalSummaryToggle.closest('[data-portal-summary-card]'));
       return;
     }
 
-    const copyTrigger = event.target.closest('[data-copy-text]');
+    const copyTrigger = closest('[data-copy-text]');
 
     if (copyTrigger) {
       try {
@@ -3145,35 +3260,35 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const accessViewTrigger = event.target.closest('[data-access-view-tab]');
+    const accessViewTrigger = closest('[data-access-view-tab]');
 
     if (accessViewTrigger) {
       setAccessView(accessViewTrigger.dataset.accessViewTab || 'requests');
       return;
     }
 
-    const accessEditTypeTrigger = event.target.closest('[data-access-edit-type]');
+    const accessEditTypeTrigger = closest('[data-access-edit-type]');
 
     if (accessEditTypeTrigger) {
       populateAccessTypeForm(accessEditTypeTrigger);
       return;
     }
 
-    const accessTypeResetTrigger = event.target.closest('[data-access-type-reset]');
+    const accessTypeResetTrigger = closest('[data-access-type-reset]');
 
     if (accessTypeResetTrigger) {
       resetAccessTypeForm();
       return;
     }
 
-    const accessEntryWindowAddTrigger = event.target.closest('[data-access-entry-window-add]');
+    const accessEntryWindowAddTrigger = closest('[data-access-entry-window-add]');
 
     if (accessEntryWindowAddTrigger) {
       addAccessEntryWindowRow({}, { focusStart: true });
       return;
     }
 
-    const accessEntryWindowRemoveTrigger = event.target.closest('[data-access-entry-window-remove]');
+    const accessEntryWindowRemoveTrigger = closest('[data-access-entry-window-remove]');
 
     if (accessEntryWindowRemoveTrigger) {
       accessEntryWindowRemoveTrigger.closest('[data-access-entry-window-row]')?.remove();
@@ -3181,35 +3296,35 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const accessFullscreenTrigger = event.target.closest('[data-access-fullscreen-toggle]');
+    const accessFullscreenTrigger = closest('[data-access-fullscreen-toggle]');
 
     if (accessFullscreenTrigger) {
       setAccessFullscreen(!accessFullscreen);
       return;
     }
 
-    const accessEditRequestTrigger = event.target.closest('[data-access-edit-request]');
+    const accessEditRequestTrigger = closest('[data-access-edit-request]');
 
     if (accessEditRequestTrigger) {
       openAccessRequestModal(accessEditRequestTrigger);
       return;
     }
 
-    const accessHistoryTrigger = event.target.closest('[data-access-history-open]');
+    const accessHistoryTrigger = closest('[data-access-history-open]');
 
     if (accessHistoryTrigger) {
       await openAccessHistoryModal(accessHistoryTrigger);
       return;
     }
 
-    const accessCreateRequestTrigger = event.target.closest('[data-access-create-request]');
+    const accessCreateRequestTrigger = closest('[data-access-create-request]');
 
     if (accessCreateRequestTrigger) {
       openAccessRequestModal();
       return;
     }
 
-    const accessExportDownloadTrigger = event.target.closest('[data-access-export-download]');
+    const accessExportDownloadTrigger = closest('[data-access-export-download]');
 
     if (accessExportDownloadTrigger) {
       event.preventDefault();
@@ -3223,35 +3338,35 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const accessExportTrigger = event.target.closest('[data-access-export-open]');
+    const accessExportTrigger = closest('[data-access-export-open]');
 
     if (accessExportTrigger) {
       openAccessExportModal();
       return;
     }
 
-    const accessRequestCloseTrigger = event.target.closest('[data-access-request-close]');
+    const accessRequestCloseTrigger = closest('[data-access-request-close]');
 
     if (accessRequestCloseTrigger) {
       closeAccessRequestModal();
       return;
     }
 
-    const accessHistoryCloseTrigger = event.target.closest('[data-access-history-close]');
+    const accessHistoryCloseTrigger = closest('[data-access-history-close]');
 
     if (accessHistoryCloseTrigger) {
       closeAccessHistoryModal();
       return;
     }
 
-    const accessExportCloseTrigger = event.target.closest('[data-access-export-close]');
+    const accessExportCloseTrigger = closest('[data-access-export-close]');
 
     if (accessExportCloseTrigger) {
       closeAccessExportModal();
       return;
     }
 
-    const liveFilterResetTrigger = event.target.closest('[data-live-filter-reset]');
+    const liveFilterResetTrigger = closest('[data-live-filter-reset]');
 
     if (liveFilterResetTrigger) {
       window.clearTimeout(liveFilterTimer);
@@ -3282,14 +3397,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const closeTrigger = event.target.closest('[data-portal-back-to-table]');
+    const closeTrigger = closest('[data-portal-back-to-table]');
 
     if (closeTrigger) {
       setPortalWorkspaceView('table');
       return;
     }
 
-    const tabTrigger = event.target.closest('[data-portal-tab], [data-portal-set-tab]');
+    const tabTrigger = closest('[data-portal-tab], [data-portal-set-tab]');
 
     if (tabTrigger) {
       const tab = tabTrigger.dataset.tab || 'all';
@@ -3298,7 +3413,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const createTrigger = event.target.closest('[data-portal-open-request-panel]');
+    const createTrigger = closest('[data-portal-open-request-panel]');
 
     if (createTrigger) {
       openRequestPanel({
@@ -3307,7 +3422,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const editTrigger = event.target.closest('[data-portal-edit-request]');
+    const editTrigger = closest('[data-portal-edit-request]');
 
     if (editTrigger) {
       openRequestPanel({
@@ -3327,14 +3442,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const importTrigger = event.target.closest('[data-portal-open-import-panel]');
+    const importTrigger = closest('[data-portal-open-import-panel]');
 
     if (importTrigger) {
       openImportPanel(importTrigger.dataset.requestType);
       return;
     }
 
-    const importConfirm = event.target.closest('[data-portal-import-confirm]');
+    const importConfirm = closest('[data-portal-import-confirm]');
 
     if (importConfirm) {
       event.preventDefault();
@@ -3609,6 +3724,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessHistoryModal();
     closeAccessRequestModal();
     closeAccessExportModal();
+    initializeEventDashboardTabs();
     initializeAccessUI();
     initializeCheckUI();
     initializePassPrintUI();
@@ -3617,6 +3733,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeSystemEmailSettings();
   });
 
+  initializeEventDashboardTabs();
   initializeAccessUI();
   initializeCheckUI();
   initializePassPrintUI();

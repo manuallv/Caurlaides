@@ -30,145 +30,132 @@
     >
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-      <div class="request-profile-editor__fields request-profile-editor__fields--compact">
-        <div>
-          <label class="field-label" for="request-profile-name"><%= t('requestProfiles.fields.name') %></label>
-          <input
-            id="request-profile-name"
-            name="name"
-            type="text"
-            class="field-input"
-            required
-            value="<%= editingProfile?.name || '' %>"
-          />
-        </div>
-
-        <div>
-          <label class="field-label" for="request-profile-contact-email"><%= t('field.email') %></label>
-          <input
-            id="request-profile-contact-email"
-            name="contactEmail"
-            type="email"
-            class="field-input"
-            value="<%= editingProfile?.contact_email || '' %>"
-          />
-        </div>
-
-        <div>
-          <label class="field-label" for="request-profile-contact-phone"><%= t('portal.fields.phone') %></label>
-          <input
-            id="request-profile-contact-phone"
-            name="contactPhone"
-            type="text"
-            class="field-input"
-            value="<%= editingProfile?.contact_phone || '' %>"
-          />
-        </div>
-
-        <div>
-          <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
-          <textarea id="request-profile-notes" name="notes" rows="1" class="field-input"><%= editingProfile?.notes || '' %></textarea>
-        </div>
-
-        <label class="request-profile-toggle">
-          <input type="checkbox" name="isActive" <%= !isEditMode || editingProfile.is_active ? 'checked' : '' %> />
-          <span><%= t('requestProfiles.fields.active') %></span>
-        </label>
-
-        <label class="request-profile-toggle">
-          <input type="checkbox" name="notifyContactOnCreate" <%= !isEditMode || editingProfile?.notify_contact_on_create ? 'checked' : '' %> />
-          <span><%= t('requestProfiles.fields.sendInvite') %></span>
-        </label>
-
-        <label class="request-profile-toggle request-profile-toggle--wide">
-          <input
-            type="checkbox"
-            name="unlimitedQuota"
-            data-request-profile-unlimited-toggle
-            <%= editingProfile?.is_unlimited_quota ? 'checked' : '' %>
-          />
-          <span>
-            <strong><%= t('requestProfiles.fields.unlimitedQuota') %></strong>
-            <small><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></small>
-          </span>
-        </label>
-      </div>
-
-      <% if (isEditMode) { %>
-        <div class="request-profile-editor__meta">
-          <div class="request-profile-meta-field">
-            <label class="field-label" for="request-profile-code"><%= t('requestProfiles.editorAccessCode') %></label>
-            <div class="request-profile-inline-input">
-              <input id="request-profile-code" type="text" class="field-input" readonly value="<%= editingProfile.access_code || '' %>" />
+      <div class="request-profile-editor__stack">
+        <section class="request-profile-form-section panel">
+          <div class="request-profile-form-section__head">
+            <div class="request-profile-form-section__step">1</div>
+            <div class="request-profile-form-section__copy">
+              <p class="request-profile-form-section__eyebrow"><%= t('requestProfiles.sections.infoTitle') %></p>
+              <h2><%= t('requestProfiles.sections.infoTitle') %></h2>
+              <p><%= t('requestProfiles.sections.infoDescription') %></p>
             </div>
           </div>
 
-          <div class="request-profile-meta-field">
-            <label class="field-label" for="request-profile-link"><%= t('requestProfiles.editorInviteLink') %></label>
-            <div class="request-profile-inline-input">
-              <input id="request-profile-link" type="text" class="field-input" readonly value="<%= editingProfile.invite_url || '' %>" />
-              <button
-                type="button"
-                class="table-icon-button"
-                data-copy-text="<%= editingProfile.invite_url || '' %>"
-                data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
-                title="<%= t('requestProfiles.copyInviteLink') %>"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
-                </svg>
-              </button>
+          <div class="request-profile-editor__fields request-profile-editor__fields--stacked">
+            <div class="request-profile-form-grid">
+              <div>
+                <label class="field-label" for="request-profile-name"><%= t('requestProfiles.fields.name') %></label>
+                <input
+                  id="request-profile-name"
+                  name="name"
+                  type="text"
+                  class="field-input"
+                  required
+                  value="<%= editingProfile?.name || '' %>"
+                />
+              </div>
+
+              <div>
+                <label class="field-label" for="request-profile-contact-email"><%= t('field.email') %></label>
+                <input
+                  id="request-profile-contact-email"
+                  name="contactEmail"
+                  type="email"
+                  class="field-input"
+                  value="<%= editingProfile?.contact_email || '' %>"
+                />
+              </div>
+
+              <div>
+                <label class="field-label" for="request-profile-contact-phone"><%= t('portal.fields.phone') %></label>
+                <input
+                  id="request-profile-contact-phone"
+                  name="contactPhone"
+                  type="text"
+                  class="field-input"
+                  value="<%= editingProfile?.contact_phone || '' %>"
+                />
+              </div>
+
+              <div class="request-profile-form-grid__full">
+                <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
+                <textarea id="request-profile-notes" name="notes" rows="2" class="field-input"><%= editingProfile?.notes || '' %></textarea>
+              </div>
             </div>
-          </div>
-        </div>
-      <% } %>
 
-      <div class="request-profile-help panel">
-        <p class="request-profile-help__title"><%= t('requestProfiles.helpTitle') %></p>
-        <p class="request-profile-help__body"><%= t('requestProfiles.editorFooter') %></p>
-      </div>
+            <div class="request-profile-toggle-grid">
+              <label class="request-profile-toggle">
+                <input type="checkbox" name="isActive" <%= !isEditMode || editingProfile.is_active ? 'checked' : '' %> />
+                <span><%= t('requestProfiles.fields.active') %></span>
+              </label>
 
-      <div class="request-profile-help panel hidden" data-request-profile-unlimited-note>
-        <p class="request-profile-help__title"><%= t('requestProfiles.unlimited') %></p>
-        <p class="request-profile-help__body"><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></p>
-      </div>
+              <label class="request-profile-toggle">
+                <input type="checkbox" name="notifyContactOnCreate" <%= !isEditMode || editingProfile?.notify_contact_on_create ? 'checked' : '' %> />
+                <span><%= t('requestProfiles.fields.sendInvite') %></span>
+              </label>
 
-      <div class="request-profile-editor__quotas" data-request-profile-quotas>
-        <section class="request-profile-quota-card panel">
-          <div class="request-profile-quota-card__head">
-            <div>
-              <h2><%= t('nav.wristbands') %></h2>
+              <label class="request-profile-toggle request-profile-toggle--wide">
+                <input
+                  type="checkbox"
+                  name="unlimitedQuota"
+                  data-request-profile-unlimited-toggle
+                  <%= editingProfile?.is_unlimited_quota ? 'checked' : '' %>
+                />
+                <span>
+                  <strong><%= t('requestProfiles.fields.unlimitedQuota') %></strong>
+                  <small><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></small>
+                </span>
+              </label>
             </div>
-          </div>
 
-          <div class="request-profile-quota-list">
-            <% if (!wristbandCategories.length) { %>
-              <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
+            <% if (isEditMode) { %>
+              <div class="request-profile-editor__meta">
+                <div class="request-profile-meta-field">
+                  <label class="field-label" for="request-profile-code"><%= t('requestProfiles.editorAccessCode') %></label>
+                  <div class="request-profile-inline-input">
+                    <input id="request-profile-code" type="text" class="field-input" readonly value="<%= editingProfile.access_code || '' %>" />
+                  </div>
+                </div>
+
+                <div class="request-profile-meta-field">
+                  <label class="field-label" for="request-profile-link"><%= t('requestProfiles.editorInviteLink') %></label>
+                  <div class="request-profile-inline-input">
+                    <input id="request-profile-link" type="text" class="field-input" readonly value="<%= editingProfile.invite_url || '' %>" />
+                    <button
+                      type="button"
+                      class="table-icon-button"
+                      data-copy-text="<%= editingProfile.invite_url || '' %>"
+                      data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
+                      title="<%= t('requestProfiles.copyInviteLink') %>"
+                    >
+                      <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
             <% } %>
 
-            <% wristbandCategories.forEach((category) => { %>
-              <label class="request-profile-quota-row">
-                <span class="request-profile-quota-row__copy">
-                  <span class="request-profile-quota-row__title"><%= category.name %></span>
-                  <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
-                </span>
-                <input
-                  name="wristbandQuota[<%= category.id %>]"
-                  type="number"
-                  min="0"
-                  class="field-input request-profile-quota-input"
-                  data-request-profile-quota-input
-                  value="<%= Number(wristbandQuotaMap[category.id] || 0) %>"
-                />
-              </label>
-            <% }) %>
+            <div class="request-profile-help panel">
+              <p class="request-profile-help__title"><%= t('requestProfiles.helpTitle') %></p>
+              <p class="request-profile-help__body"><%= t('requestProfiles.editorFooter') %></p>
+            </div>
+
+            <div class="request-profile-help panel hidden" data-request-profile-unlimited-note>
+              <p class="request-profile-help__title"><%= t('requestProfiles.unlimited') %></p>
+              <p class="request-profile-help__body"><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></p>
+            </div>
           </div>
         </section>
 
-        <section class="request-profile-quota-card panel">
-          <div class="request-profile-quota-card__head">
-            <div>
-              <h2><%= t('nav.passes') %></h2>
+        <section class="request-profile-form-section request-profile-form-section--quota panel" data-request-profile-quotas>
+          <div class="request-profile-form-section__head">
+            <div class="request-profile-form-section__step">2</div>
+            <div class="request-profile-form-section__copy">
+              <p class="request-profile-form-section__eyebrow"><%= t('requestProfiles.sections.passTitle') %></p>
+              <h2><%= t('requestProfiles.sections.passTitle') %></h2>
+              <p><%= t('requestProfiles.sections.passDescription') %></p>
             </div>
           </div>
 
@@ -195,13 +182,47 @@
             <% }) %>
           </div>
         </section>
+
+        <section class="request-profile-form-section request-profile-form-section--quota panel" data-request-profile-quotas>
+          <div class="request-profile-form-section__head">
+            <div class="request-profile-form-section__step">3</div>
+            <div class="request-profile-form-section__copy">
+              <p class="request-profile-form-section__eyebrow"><%= t('requestProfiles.sections.wristbandTitle') %></p>
+              <h2><%= t('requestProfiles.sections.wristbandTitle') %></h2>
+              <p><%= t('requestProfiles.sections.wristbandDescription') %></p>
+            </div>
+          </div>
+
+          <div class="request-profile-quota-list">
+            <% if (!wristbandCategories.length) { %>
+              <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
+            <% } %>
+
+            <% wristbandCategories.forEach((category) => { %>
+              <label class="request-profile-quota-row">
+                <span class="request-profile-quota-row__copy">
+                  <span class="request-profile-quota-row__title"><%= category.name %></span>
+                  <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
+                </span>
+                <input
+                  name="wristbandQuota[<%= category.id %>]"
+                  type="number"
+                  min="0"
+                  class="field-input request-profile-quota-input"
+                  data-request-profile-quota-input
+                  value="<%= Number(wristbandQuotaMap[category.id] || 0) %>"
+                />
+              </label>
+            <% }) %>
+          </div>
+        </section>
       </div>
     </form>
 
-    <div class="request-profile-editor__actions">
-      <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.backToList') %></a>
-
+    <div class="request-profile-editor__actions request-profile-editor__actions--stacked">
       <div class="request-profile-editor__actions-right">
+        <a href="/events/<%= activeEvent.id %>/request-profiles" class="btn-secondary"><%= t('requestProfiles.backToList') %></a>
+
         <% if (isEditMode) { %>
           <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>/regenerate-code" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -213,11 +234,11 @@
             <button type="submit" class="btn-danger"><%= t('requestProfiles.deleteButton') %></button>
           </form>
         <% } %>
-
-        <button type="submit" form="request-profile-form" class="btn-primary">
-          <%= isEditMode ? t('requestProfiles.saveButton') : t('requestProfiles.createButton') %>
-        </button>
       </div>
+
+      <button type="submit" form="request-profile-form" class="btn-primary request-profile-editor__submit">
+        <%= isEditMode ? t('requestProfiles.saveButton') : t('requestProfiles.createButton') %>
+      </button>
     </div>
   </section>
 </section>

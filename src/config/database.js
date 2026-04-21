@@ -6,6 +6,7 @@ module.exports = {
   user: env.db.user,
   password: env.db.password,
   database: env.db.name,
+  timezone: 'Z',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
