@@ -3340,6 +3340,27 @@ body.portal-modal-open {
   width: min(100%, 940px);
 }
 
+[data-access-history-modal],
+[data-access-request-modal],
+[data-access-export-modal] {
+  align-items: flex-start;
+  padding-top: clamp(1rem, 6vh, 3.2rem);
+  padding-bottom: 1rem;
+}
+
+[data-access-history-modal] .portal-modal__backdrop,
+[data-access-request-modal] .portal-modal__backdrop,
+[data-access-export-modal] .portal-modal__backdrop {
+  background: rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(1.5px);
+}
+
+[data-access-history-modal] .portal-modal__dialog,
+[data-access-request-modal] .portal-modal__dialog,
+[data-access-export-modal] .portal-modal__dialog {
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.16);
+}
+
 .portal-modal__header {
   display: flex;
   align-items: flex-start;
