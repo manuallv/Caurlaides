@@ -57,6 +57,7 @@ class RequestRepository {
     const where = ['request.event_id = ?', 'request.deleted_at IS NULL', 'category.deleted_at IS NULL'];
     const params = [eventId];
     const orderDirection = filters.sort === 'oldest' ? 'ASC' : 'DESC';
+    const passEntryAtExpression = 'COALESCE(request.last_entry_at, request.entered_at)';
     const searchColumns = [
       'request.full_name',
       'request.phone',
@@ -72,8 +73,33 @@ class RequestRepository {
     }
 
     if (filters.status) {
-      where.push('request.status = ?');
-      params.push(filters.status);
+      if (type === 'pass') {
+        switch (filters.status) {
+          case 'handed_out':
+            where.push("request.status = 'handed_out'");
+            break;
+          case 'entered':
+            where.push(`request.status != 'handed_out'`);
+            where.push(`${passEntryAtExpression} IS NOT NULL`);
+            where.push(`(request.last_exit_at IS NULL OR ${passEntryAtExpression} > request.last_exit_at)`);
+            break;
+          case 'exited':
+            where.push(`request.status != 'handed_out'`);
+            where.push('request.last_exit_at IS NOT NULL');
+            where.push(`(${passEntryAtExpression} IS NULL OR request.last_exit_at >= ${passEntryAtExpression})`);
+            break;
+          case 'pending':
+            where.push(`request.status = 'pending'`);
+            where.push(`${passEntryAtExpression} IS NULL`);
+            where.push('request.last_exit_at IS NULL');
+            break;
+          default:
+            break;
+        }
+      } else {
+        where.push('request.status = ?');
+        params.push(filters.status);
+      }
     }
 
     if (filters.categoryId) {
@@ -725,21 +751,31 @@ class RequestRepository {
         `
           UPDATE pass_requests
           SET
+            status = 'pending',
+            handed_out_at = NULL,
+            handed_out_by_user_id = NULL,
+            status_updated_at = NOW(),
+            status_updated_by_user_id = ?,
             last_exit_at = NOW()
           WHERE id = ?
         `,
-        [requestId],
+        [payload.statusUpdatedByUserId || null, requestId],
       );
     } else {
       await connection.execute(
         `
           UPDATE pass_requests
           SET
+            status = 'pending',
+            handed_out_at = NULL,
+            handed_out_by_user_id = NULL,
+            status_updated_at = NOW(),
+            status_updated_by_user_id = ?,
             entered_at = COALESCE(entered_at, NOW()),
             last_entry_at = NOW()
           WHERE id = ?
         `,
-        [requestId],
+        [payload.statusUpdatedByUserId || null, requestId],
       );
     }
 

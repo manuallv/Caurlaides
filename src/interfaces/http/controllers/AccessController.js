@@ -1,6 +1,11 @@
 const {
   PUBLIC_PORTAL_IMPORTS_KEY,
   PUBLIC_PORTAL_SESSION_KEY,
+  resolveRequestDisplayState,
+  resolveRequestDisplayStatusAt,
+  resolveRequestDisplayStatusLabelKey,
+  resolveRequestDisplayStatusTone,
+  resolveVehiclePresenceStatus,
 } = require('../../../application/services/AccessService');
 const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
 const { extractExternalApiKey } = require('../middleware/external-api-key');
@@ -202,14 +207,7 @@ function saveSession(req) {
 }
 
 function resolveRequestPresence(request = {}) {
-  const lastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
-  const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
-
-  if (!lastEntryTs && !lastExitTs) {
-    return 'unknown';
-  }
-
-  return lastEntryTs > lastExitTs ? 'inside' : 'outside';
+  return resolveVehiclePresenceStatus(request);
 }
 
 function buildAccessRequestLivePayload(req, res, type, request, summary = null) {
@@ -217,9 +215,10 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
     return null;
   }
 
-  const status = request.status || 'pending';
+  const status = resolveRequestDisplayState(type, request);
   const currentPresence = type === 'pass' ? resolveRequestPresence(request) : 'unknown';
-  const currentStatusAt = request.status_updated_at || request.created_at || null;
+  const currentStatusAt = resolveRequestDisplayStatusAt(type, request);
+  const nextStatus = type === 'wristband' && request.status === 'handed_out' ? 'pending' : 'handed_out';
 
   return {
     requestType: type,
@@ -237,8 +236,8 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       profileName: request.profile_name || '',
       categoryName: request.category_name || '',
       status,
-      statusLabel: req.t(`statuses.${status}`),
-      statusTone: status === 'handed_out' ? 'active' : 'pending',
+      statusLabel: req.t(resolveRequestDisplayStatusLabelKey(type, request)),
+      statusTone: resolveRequestDisplayStatusTone(type, request),
       statusUpdatedAtLabel: currentStatusAt
         ? res.locals.helpers.formatDateTime(currentStatusAt)
         : '',
@@ -251,9 +250,9 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       lastExitAtTs: request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0,
       createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
       createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
-      nextStatus: status === 'handed_out' ? 'pending' : 'handed_out',
-      nextStatusLabel: req.t(`statuses.${status === 'handed_out' ? 'pending' : 'handed_out'}`),
-      nextStatusTone: status === 'handed_out' ? 'secondary' : 'primary',
+      nextStatus: type === 'wristband' ? nextStatus : null,
+      nextStatusLabel: type === 'wristband' ? req.t(`statuses.${nextStatus}`) : '',
+      nextStatusTone: type === 'wristband' && nextStatus === 'handed_out' ? 'primary' : 'secondary',
       currentPresence,
     },
     summary,

@@ -82,8 +82,13 @@ function normalizeVehiclePlate(value) {
     .replace(/[^A-Z0-9]/g, '') || null;
 }
 
+function resolveVehicleEntryTimestamp(request = {}) {
+  const entryValue = request.last_entry_at || request.entered_at;
+  return entryValue ? new Date(entryValue).getTime() : 0;
+}
+
 function resolveVehiclePresenceStatus(request = {}) {
-  const lastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+  const lastEntryTs = resolveVehicleEntryTimestamp(request);
   const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
 
   if (!lastEntryTs && !lastExitTs) {
@@ -91,6 +96,79 @@ function resolveVehiclePresenceStatus(request = {}) {
   }
 
   return lastEntryTs > lastExitTs ? 'inside' : 'outside';
+}
+
+function resolveRequestDisplayState(type, request = {}) {
+  if (type !== 'pass') {
+    return request.status === 'handed_out' ? 'handed_out' : 'pending';
+  }
+
+  if (request.status === 'handed_out') {
+    return 'handed_out';
+  }
+
+  const lastEntryTs = resolveVehicleEntryTimestamp(request);
+  const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
+
+  if (lastEntryTs && lastEntryTs > lastExitTs) {
+    return 'entered';
+  }
+
+  if (lastExitTs && lastExitTs >= lastEntryTs) {
+    return 'exited';
+  }
+
+  return 'pending';
+}
+
+function resolveRequestDisplayStatusTone(type, request = {}) {
+  const displayState = resolveRequestDisplayState(type, request);
+
+  if (displayState === 'pending') {
+    return 'pending';
+  }
+
+  if (type === 'pass' && displayState === 'exited') {
+    return 'completed';
+  }
+
+  return 'active';
+}
+
+function resolveRequestDisplayStatusLabelKey(type, request = {}) {
+  const displayState = resolveRequestDisplayState(type, request);
+  return type === 'pass'
+    ? `access.passState.${displayState}`
+    : `statuses.${displayState}`;
+}
+
+function resolveRequestDisplayStatusAt(type, request = {}) {
+  const displayState = resolveRequestDisplayState(type, request);
+
+  if (type !== 'pass') {
+    return request.status_updated_at || request.created_at || null;
+  }
+
+  switch (displayState) {
+    case 'handed_out':
+      return request.handed_out_at || request.status_updated_at || request.created_at || null;
+    case 'entered':
+      return request.last_entry_at || request.entered_at || request.created_at || null;
+    case 'exited':
+      return request.last_exit_at || request.created_at || null;
+    default:
+      return request.status_updated_at || request.created_at || null;
+  }
+}
+
+function isRequestLockedForPortal(type, request = {}) {
+  const displayState = resolveRequestDisplayState(type, request);
+
+  if (type === 'pass') {
+    return displayState === 'handed_out' || displayState === 'entered';
+  }
+
+  return displayState === 'handed_out';
 }
 
 function resolveVehicleGateScanDirection(configuredMode, currentPresence) {
@@ -546,7 +624,7 @@ function escapeCsvValue(value) {
   return stringValue;
 }
 
-function buildAdminExportRows(requests = [], typeLabel = '') {
+function buildAdminExportRows(requests = [], typeLabel = '', type = '') {
   return requests.map((request, index) => ({
     '#': index + 1,
     'ID': request.id,
@@ -557,9 +635,9 @@ function buildAdminExportRows(requests = [], typeLabel = '') {
     'Company': request.company_name || '',
     'Phone': request.phone || '',
     'Email': request.email || '',
-    'Status': request.status || '',
-    'Status Label': translate(DEFAULT_LOCALE, `statuses.${request.status}`),
-    'Status Updated At': formatExportDateTime(request.status_updated_at),
+    'Status': resolveRequestDisplayState(type, request),
+    'Status Label': translate(DEFAULT_LOCALE, resolveRequestDisplayStatusLabelKey(type, request)),
+    'Status Updated At': formatExportDateTime(resolveRequestDisplayStatusAt(type, request)),
     'Status Updated By': request.status_updated_by_name || '',
     'Handed Out At': formatExportDateTime(request.handed_out_at),
     'Handed Out By': request.handed_out_by_name || '',
@@ -848,7 +926,13 @@ class AccessService {
         id: profile.id,
         name: profile.name,
       })),
-      requests,
+      requests: requests.map((request) => ({
+        ...request,
+        display_status: resolveRequestDisplayState(type, request),
+        display_status_label_key: resolveRequestDisplayStatusLabelKey(type, request),
+        display_status_tone: resolveRequestDisplayStatusTone(type, request),
+        display_status_at: resolveRequestDisplayStatusAt(type, request),
+      })),
       summary,
       canManage: MANAGEMENT_ROLES.includes(event.role),
       type,
@@ -866,7 +950,7 @@ class AccessService {
 
     const requests = await this.requestRepository.listAdminRequests(eventId, type, filters || {});
     const typeTitle = tx(type === 'pass' ? 'nav.passes' : 'nav.wristbands');
-    const rows = buildAdminExportRows(requests, typeTitle);
+    const rows = buildAdminExportRows(requests, typeTitle, type);
     const timestamp = dayjs().format('YYYYMMDD-HHmm');
     const baseFileName = sanitizeFileName(`${event.name}-${typeTitle}-${timestamp}`);
 
@@ -1625,6 +1709,7 @@ class AccessService {
         source: 'admin-table',
         metadata: null,
         direction: normalizedDirection,
+        statusUpdatedByUserId: actorId,
       });
 
       await this.auditLogService.record(
@@ -1989,11 +2074,19 @@ class AccessService {
     const passRequests = passRequestsRaw.map((request) => ({
       ...request,
       request_type: 'pass',
+      display_status: resolveRequestDisplayState('pass', request),
+      display_status_label_key: resolveRequestDisplayStatusLabelKey('pass', request),
+      display_status_tone: resolveRequestDisplayStatusTone('pass', request),
+      display_status_at: resolveRequestDisplayStatusAt('pass', request),
       isEditable: this.isPortalRequestEditable(profile, 'pass', request),
     }));
     const wristbandRequests = wristbandRequestsRaw.map((request) => ({
       ...request,
       request_type: 'wristband',
+      display_status: resolveRequestDisplayState('wristband', request),
+      display_status_label_key: resolveRequestDisplayStatusLabelKey('wristband', request),
+      display_status_tone: resolveRequestDisplayStatusTone('wristband', request),
+      display_status_at: resolveRequestDisplayStatusAt('wristband', request),
       isEditable: this.isPortalRequestEditable(profile, 'wristband', request),
     }));
     const passPortalOpen = this.isPortalTypeOpen(profile, 'pass');
@@ -2556,6 +2649,11 @@ class AccessService {
 
     const existingRequest = matches[0];
     const alreadyEntered = Boolean(existingRequest.entered_at);
+
+    if (resolveRequestDisplayState('pass', existingRequest) === 'handed_out') {
+      throw new AppError(tx('service.vehicleEntry.handedOutLocked'), 409);
+    }
+
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       existingRequest.category_id,
       direction,
@@ -2578,6 +2676,7 @@ class AccessService {
         source,
         metadata,
         direction,
+        statusUpdatedByUserId: options.actorId || null,
       });
 
       await this.auditLogService.record(
@@ -2695,6 +2794,20 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
+
+    if (resolveRequestDisplayState('pass', request) === 'handed_out') {
+      return {
+        eventId,
+        allowed: false,
+        decision: 'denied',
+        reason: 'handed_out',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: tx('service.vehicleEntry.handedOutLocked'),
+        request,
+        currentPresence: resolveVehiclePresenceStatus(request),
+      };
+    }
+
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       request?.category_id,
       direction,
@@ -2820,6 +2933,30 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
+
+    if (resolveRequestDisplayState('pass', request) === 'handed_out') {
+      return {
+        eventId: Number(event.id),
+        allowed: false,
+        decision: 'denied',
+        reason: 'handed_out',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: tx('service.vehicleEntry.handedOutLocked'),
+        request,
+        currentPresence: resolveVehiclePresenceStatus(request),
+        movement: {
+          mode: requestedMode,
+          configuredMode,
+          direction: requestedMode === 'decision' ? null : requestedMode,
+          recorded: false,
+          deduplicated: false,
+          performedAt: null,
+          autoSwitched: false,
+          explicitDirection: Boolean(explicitDirection),
+        },
+      };
+    }
+
     const initialPresence = resolveVehiclePresenceStatus(request);
     const resolvedDirection = explicitDirection || resolveVehicleGateScanDirection(configuredMode, initialPresence);
     const autoSwitched = !explicitDirection
@@ -3018,11 +3155,7 @@ class AccessService {
       return false;
     }
 
-    if (type === 'wristband' && request.status === 'handed_out') {
-      return false;
-    }
-
-    if (type === 'pass' && resolveVehiclePresenceStatus(request) === 'inside') {
+    if (isRequestLockedForPortal(type, request)) {
       return false;
     }
 
@@ -3172,4 +3305,13 @@ class AccessService {
   }
 }
 
-module.exports = { AccessService, PUBLIC_PORTAL_SESSION_KEY, PUBLIC_PORTAL_IMPORTS_KEY };
+module.exports = {
+  AccessService,
+  PUBLIC_PORTAL_SESSION_KEY,
+  PUBLIC_PORTAL_IMPORTS_KEY,
+  resolveRequestDisplayState,
+  resolveRequestDisplayStatusTone,
+  resolveRequestDisplayStatusLabelKey,
+  resolveRequestDisplayStatusAt,
+  resolveVehiclePresenceStatus,
+};

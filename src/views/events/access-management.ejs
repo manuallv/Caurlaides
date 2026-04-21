@@ -38,12 +38,12 @@
     data-access-edit-label="<%= t('access.actions.editRequest') %>"
     data-access-not-set="<%= t('common.notSet') %>"
     data-access-status-pending-label="<%= t('statuses.pending') %>"
-    data-access-status-handed-out-label="<%= t('statuses.handed_out') %>"
+    data-access-status-handed-out-label="<%= isPass ? t('access.passState.handed_out') : t('statuses.handed_out') %>"
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
     data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
     data-access-entry-at-label="<%= t('access.entryAt') %>"
-    data-access-entry-button-label="<%= t('check.direction.entry') %>"
-    data-access-exit-button-label="<%= t('check.direction.exit') %>"
+    data-access-entry-button-label="<%= isPass ? t('access.passState.entered') : t('check.direction.entry') %>"
+    data-access-exit-button-label="<%= isPass ? t('access.passState.exited') : t('check.direction.exit') %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -129,8 +129,15 @@
 
           <select name="status" class="field-input">
             <option value=""><%= t('access.filters.allStatuses') %></option>
-            <option value="pending" <%= filters.status === 'pending' ? 'selected' : '' %>><%= t('statuses.pending') %></option>
-            <option value="handed_out" <%= filters.status === 'handed_out' ? 'selected' : '' %>><%= t('statuses.handed_out') %></option>
+            <% if (isPass) { %>
+              <option value="pending" <%= filters.status === 'pending' ? 'selected' : '' %>><%= t('access.passState.pending') %></option>
+              <option value="handed_out" <%= filters.status === 'handed_out' ? 'selected' : '' %>><%= t('access.passState.handed_out') %></option>
+              <option value="entered" <%= filters.status === 'entered' ? 'selected' : '' %>><%= t('access.passState.entered') %></option>
+              <option value="exited" <%= filters.status === 'exited' ? 'selected' : '' %>><%= t('access.passState.exited') %></option>
+            <% } else { %>
+              <option value="pending" <%= filters.status === 'pending' ? 'selected' : '' %>><%= t('statuses.pending') %></option>
+              <option value="handed_out" <%= filters.status === 'handed_out' ? 'selected' : '' %>><%= t('statuses.handed_out') %></option>
+            <% } %>
           </select>
 
           <select name="sort" class="field-input">
@@ -182,26 +189,23 @@
             <tbody data-access-requests-body>
               <% requests.forEach((request) => { %>
                 <%
-                  const requestStatusAt = request.status_updated_at || request.created_at || null;
-                  const requestLastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+                  const requestDisplayStatus = request.display_status || request.status || 'pending';
+                  const requestDisplayStatusLabelKey = request.display_status_label_key || `statuses.${requestDisplayStatus}`;
+                  const requestStatusTone = request.display_status_tone || (requestDisplayStatus === 'handed_out' ? 'active' : 'pending');
+                  const requestStatusAt = request.display_status_at || request.status_updated_at || request.created_at || null;
+                  const requestEntryValue = request.last_entry_at || request.entered_at || null;
+                  const requestLastEntryTs = requestEntryValue ? new Date(requestEntryValue).getTime() : 0;
                   const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
-                  const requestPresence = !requestLastEntryTs && !requestLastExitTs
-                    ? 'unknown'
-                    : requestLastEntryTs > requestLastExitTs
-                      ? 'inside'
-                      : 'outside';
                   const hasVehicleMovement = isPass && Boolean(request.vehicle_plate);
                   const updatedMovementLabel = requestLastExitTs && requestLastExitTs >= requestLastEntryTs
                     ? `${t('check.direction.exit')}: ${helpers.formatDateTime(request.last_exit_at)}`
-                    : request.last_entry_at
-                      ? `${t('access.entryAt')}: ${helpers.formatDateTime(request.last_entry_at)}`
-                      : request.entered_at
-                        ? `${t('access.entryAt')}: ${helpers.formatDateTime(request.entered_at)}`
+                    : requestEntryValue
+                      ? `${t('access.entryAt')}: ${helpers.formatDateTime(requestEntryValue)}`
                         : '';
                 %>
                 <tr
                   data-request-row-id="<%= request.id %>"
-                  data-request-status="<%= request.status %>"
+                  data-request-status="<%= requestDisplayStatus %>"
                   data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
                   data-request-category-id="<%= request.category_id %>"
                   data-request-profile-id="<%= request.request_profile_id || '' %>"
@@ -257,9 +261,9 @@
                     <td>
                       <div class="access-data-stack">
                         <span
-                          class="status-<%= request.status === 'handed_out' ? 'active' : 'pending' %>"
+                          class="status-<%= requestStatusTone %>"
                           data-request-status-badge
-                        ><%= t(`statuses.${request.status}`) %></span>
+                        ><%= t(requestDisplayStatusLabelKey) %></span>
                         <% if (requestStatusAt) { %>
                           <span class="access-status-time" data-request-status-time><%= helpers.formatDateTime(requestStatusAt) %></span>
                         <% } else { %>
@@ -320,34 +324,49 @@
                           </svg>
                         </button>
 
-                        <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-                          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                          <% if (request.status === 'handed_out') { %>
-                            <input type="hidden" name="status" value="pending" data-request-status-input />
-                            <button type="submit" class="access-mini-button access-mini-button--secondary" data-request-status-button><%= t('statuses.pending') %></button>
-                          <% } else { %>
-                            <input type="hidden" name="status" value="handed_out" data-request-status-input />
-                            <button type="submit" class="access-mini-button access-mini-button--primary" data-request-status-button><%= t('statuses.handed_out') %></button>
-                          <% } %>
-                        </form>
-
-                        <% if (hasVehicleMovement) { %>
-                          <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                        <% if (isPass) { %>
+                          <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <input type="hidden" name="direction" value="entry" />
+                            <input type="hidden" name="status" value="handed_out" data-request-status-input />
                             <button
                               type="submit"
-                              class="access-mini-button <%= requestPresence === 'inside' ? 'access-mini-button--secondary' : 'access-mini-button--primary' %>"
-                            ><%= t('check.direction.entry') %></button>
+                              class="access-mini-button <%= requestDisplayStatus === 'handed_out' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
+                              data-request-status-button
+                              <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
+                            ><%= t('access.passState.handed_out') %></button>
                           </form>
 
-                          <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                          <% if (hasVehicleMovement) { %>
+                            <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                              <input type="hidden" name="direction" value="entry" />
+                              <button
+                                type="submit"
+                                class="access-mini-button <%= requestDisplayStatus === 'entered' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
+                                <%= requestDisplayStatus === 'entered' ? 'disabled' : '' %>
+                              ><%= t('access.passState.entered') %></button>
+                            </form>
+
+                            <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                              <input type="hidden" name="direction" value="exit" />
+                              <button
+                                type="submit"
+                                class="access-mini-button <%= requestDisplayStatus === 'exited' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
+                                <%= requestDisplayStatus === 'exited' ? 'disabled' : '' %>
+                              ><%= t('access.passState.exited') %></button>
+                            </form>
+                          <% } %>
+                        <% } else { %>
+                          <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <input type="hidden" name="direction" value="exit" />
-                            <button
-                              type="submit"
-                              class="access-mini-button <%= requestPresence === 'inside' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
-                            ><%= t('check.direction.exit') %></button>
+                            <% if (request.status === 'handed_out') { %>
+                              <input type="hidden" name="status" value="pending" data-request-status-input />
+                              <button type="submit" class="access-mini-button access-mini-button--secondary" data-request-status-button><%= t('statuses.pending') %></button>
+                            <% } else { %>
+                              <input type="hidden" name="status" value="handed_out" data-request-status-input />
+                              <button type="submit" class="access-mini-button access-mini-button--primary" data-request-status-button><%= t('statuses.handed_out') %></button>
+                            <% } %>
                           </form>
                         <% } %>
                       </div>

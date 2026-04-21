@@ -2306,17 +2306,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const notSet = ui.notSet || '-';
     const isPass = ui.pageType === 'pass';
     const hasVehicleMovement = isPass && Boolean(request.vehiclePlate);
-    const currentPresence = request.currentPresence || 'unknown';
-    const buttonToneClass = request.nextStatusTone === 'primary'
+    const issuedButtonToneClass = request.status === 'handed_out'
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
-    const entryButtonToneClass = currentPresence === 'inside'
-      ? 'access-mini-button--secondary'
-      : 'access-mini-button--primary';
-    const exitButtonToneClass = currentPresence === 'inside'
+    const entryButtonToneClass = request.status === 'entered'
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
-    const statusToneClass = request.statusTone === 'active' ? 'status-active' : 'status-pending';
+    const exitButtonToneClass = request.status === 'exited'
+      ? 'access-mini-button--primary'
+      : 'access-mini-button--secondary';
+    const statusToneClass = request.statusTone === 'completed'
+      ? 'status-completed'
+      : request.statusTone === 'active'
+        ? 'status-active'
+        : 'status-pending';
     const personMeta = escapeHtml(request.notes || request.email || request.phone || '');
     const secondaryUpdatedLabel = request.lastExitAtLabel && Number(request.lastExitAtTs || 0) >= Number(request.lastEntryAtTs || 0)
       ? `${escapeHtml(ui.exitButtonLabel || 'Exited')}: ${escapeHtml(request.lastExitAtLabel)}`
@@ -2430,23 +2433,31 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
           </button>
 
-          <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-            <input type="hidden" name="_csrf" value="${csrfValue}" />
-            <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
-            <button type="submit" class="access-mini-button ${buttonToneClass}" data-request-status-button>${escapeHtml(request.nextStatusLabel || '')}</button>
-          </form>
-          ${hasVehicleMovement ? `
-            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+          ${isPass ? `
+            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
               <input type="hidden" name="_csrf" value="${csrfValue}" />
-              <input type="hidden" name="direction" value="entry" />
-              <button type="submit" class="access-mini-button ${entryButtonToneClass}">${escapeHtml(ui.entryButtonLabel || 'Enter')}</button>
+              <input type="hidden" name="status" value="handed_out" data-request-status-input />
+              <button type="submit" class="access-mini-button ${issuedButtonToneClass}" data-request-status-button ${request.status === 'handed_out' ? 'disabled' : ''}>${escapeHtml(ui.statusHandedOutLabel || 'Issued')}</button>
             </form>
-            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+            ${hasVehicleMovement ? `
+              <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                <input type="hidden" name="_csrf" value="${csrfValue}" />
+                <input type="hidden" name="direction" value="entry" />
+                <button type="submit" class="access-mini-button ${entryButtonToneClass}" ${request.status === 'entered' ? 'disabled' : ''}>${escapeHtml(ui.entryButtonLabel || 'Enter')}</button>
+              </form>
+              <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                <input type="hidden" name="_csrf" value="${csrfValue}" />
+                <input type="hidden" name="direction" value="exit" />
+                <button type="submit" class="access-mini-button ${exitButtonToneClass}" ${request.status === 'exited' ? 'disabled' : ''}>${escapeHtml(ui.exitButtonLabel || 'Exit')}</button>
+              </form>
+            ` : ''}
+          ` : `
+            <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
               <input type="hidden" name="_csrf" value="${csrfValue}" />
-              <input type="hidden" name="direction" value="exit" />
-              <button type="submit" class="access-mini-button ${exitButtonToneClass}">${escapeHtml(ui.exitButtonLabel || 'Exit')}</button>
+              <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
+              <button type="submit" class="access-mini-button ${request.nextStatusTone === 'primary' ? 'access-mini-button--primary' : 'access-mini-button--secondary'}" data-request-status-button>${escapeHtml(request.nextStatusLabel || '')}</button>
             </form>
-          ` : ''}
+          `}
         </div>
       </td>
     `;

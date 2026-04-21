@@ -228,12 +228,13 @@
                   <% visibleCombinedRequests.forEach((request) => { %>
                     <%
                       const statusToneClass = request.isEditable ? 'is-pending' : 'is-locked';
-                      const requestLastEntryTs = request.last_entry_at ? new Date(request.last_entry_at).getTime() : 0;
+                      const requestEntryValue = request.last_entry_at || request.entered_at || null;
+                      const requestLastEntryTs = requestEntryValue ? new Date(requestEntryValue).getTime() : 0;
                       const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
                       const requestMovementLabel = request.request_type === 'pass' && requestLastExitTs >= requestLastEntryTs && requestLastExitTs
                         ? `${t('check.direction.exit')}: ${helpers.formatDateTime(request.last_exit_at)}`
-                        : request.request_type === 'pass' && (request.last_entry_at || request.entered_at)
-                          ? `${t('portal.enteredAt')}: ${helpers.formatDateTime(request.last_entry_at || request.entered_at)}`
+                        : request.request_type === 'pass' && requestEntryValue
+                          ? `${t('portal.enteredAt')}: ${helpers.formatDateTime(requestEntryValue)}`
                           : '';
                     %>
                     <tr
@@ -246,7 +247,7 @@
                       data-sort-phone="<%= (request.phone || '').toLowerCase() %>"
                       data-sort-company="<%= (request.company_name || '').toLowerCase() %>"
                       data-sort-category="<%= (request.category_name || '').toLowerCase() %>"
-                      data-sort-status="<%= (request.status || '').toLowerCase() %>"
+                      data-sort-status="<%= (request.display_status || request.status || '').toLowerCase() %>"
                       data-sort-updated="<%= new Date(request.updated_at).getTime() || 0 %>"
                     >
                       <td>
@@ -270,7 +271,7 @@
                       <td><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
                       <td>
                         <div class="portal-status-stack">
-                          <span class="portal-status-pill <%= statusToneClass %>"><%= t(`statuses.${request.status}`) %></span>
+                          <span class="portal-status-pill <%= statusToneClass %>"><%= t(request.display_status_label_key || `statuses.${request.status}`) %></span>
                           <% if (requestMovementLabel) { %>
                             <span class="text-xs text-slate-500"><%= requestMovementLabel %></span>
                           <% } %>
