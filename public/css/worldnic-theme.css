@@ -1212,7 +1212,8 @@ body.is-access-fullscreen {
 
 .access-table-scroll {
   overflow: auto;
-  max-height: 68vh;
+  max-height: 87vh;
+  min-height: 310px;
 }
 
 .access-table-footer {
