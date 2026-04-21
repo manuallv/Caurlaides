@@ -354,145 +354,6 @@
         </div>
       </div>
 
-      <div class="portal-modal" data-access-history-modal>
-        <button type="button" class="portal-modal__backdrop" data-access-history-close></button>
-        <div class="portal-modal__dialog shell-card">
-          <div class="portal-modal__header">
-            <div class="portal-modal__title-block">
-              <p class="worldnic-eyebrow" data-access-history-eyebrow><%= t('access.history.title') %></p>
-              <h2 data-access-history-title><%= t('access.history.title') %></h2>
-              <p class="mt-2 text-sm text-slate-500" data-access-history-meta></p>
-            </div>
-
-            <button type="button" class="table-icon-button" data-access-history-close aria-label="<%= t('buttons.cancel') %>">
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M5 5l10 10M15 5 5 15" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="access-history-shell">
-            <div class="access-history-summary" data-access-history-summary hidden></div>
-            <p class="text-sm text-slate-500" data-access-history-loading><%= t('access.history.loading') %></p>
-            <p class="text-sm text-slate-500" data-access-history-empty hidden><%= t('access.history.empty') %></p>
-            <div class="access-history-list" data-access-history-list></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="portal-modal" data-access-request-modal>
-        <button type="button" class="portal-modal__backdrop" data-access-request-close></button>
-        <div class="portal-modal__dialog portal-modal__dialog-wide shell-card">
-          <div class="portal-modal__header">
-            <div class="portal-modal__title-block">
-              <p class="worldnic-eyebrow" data-access-request-modal-eyebrow><%= t('access.actions.editRequest') %></p>
-              <h2 data-access-request-modal-title><%= t('access.modal.editTitle', { type: typeLabel }) %></h2>
-            </div>
-
-            <button type="button" class="table-icon-button" data-access-request-close aria-label="<%= t('buttons.cancel') %>">
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M5 5l10 10M15 5 5 15" />
-              </svg>
-            </button>
-          </div>
-
-          <form action="" method="POST" class="portal-modal__form" data-live-form data-access-request-form>
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-            <div data-access-request-method-holder>
-              <input type="hidden" name="_method" value="PUT" />
-            </div>
-
-            <div class="portal-form-grid">
-              <div>
-                <label class="field-label"><%= t('access.fields.profileOptional') %></label>
-                <select name="requestProfileId" class="field-input" data-access-request-profile>
-                  <option value=""><%= t('access.filters.allProfiles') %></option>
-                  <% profiles.forEach((profile) => { %>
-                    <option value="<%= profile.id %>"><%= profile.name %></option>
-                  <% }) %>
-                </select>
-              </div>
-
-              <div>
-                <label class="field-label"><%= t('portal.selectType') %></label>
-                <select name="categoryId" class="field-input" required data-access-request-category>
-                  <% categories.forEach((category) => { %>
-                    <option value="<%= category.id %>"><%= category.name %></option>
-                  <% }) %>
-                </select>
-              </div>
-
-              <div>
-                <label class="field-label"><%= t('portal.fields.fullName') %></label>
-                <input name="fullName" type="text" class="field-input" required />
-              </div>
-
-              <div>
-                <label class="field-label"><%= t('portal.fields.company') %></label>
-                <input name="companyName" type="text" class="field-input" />
-              </div>
-
-              <div>
-                <label class="field-label"><%= t('portal.fields.phone') %></label>
-                <input name="phone" type="text" class="field-input" />
-              </div>
-
-              <div>
-                <label class="field-label"><%= t('portal.fields.email') %></label>
-                <input name="email" type="email" class="field-input" />
-              </div>
-
-              <% if (isPass) { %>
-                <div>
-                  <label class="field-label"><%= t('access.fields.vehiclePlate') %></label>
-                  <input name="vehiclePlate" type="text" class="field-input" />
-                </div>
-              <% } %>
-
-              <div class="portal-form-grid__full">
-                <label class="field-label"><%= t('portal.fields.notes') %></label>
-                <textarea name="notes" rows="4" class="field-input"></textarea>
-              </div>
-            </div>
-
-            <div class="portal-modal__actions">
-              <button type="button" class="btn-secondary" data-access-request-close><%= t('buttons.cancel') %></button>
-              <button type="submit" class="btn-primary" data-access-request-submit-label><%= t('buttons.save') %></button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <div class="portal-modal" data-access-export-modal>
-        <button type="button" class="portal-modal__backdrop" data-access-export-close></button>
-        <div class="portal-modal__dialog shell-card">
-          <div class="portal-modal__header">
-            <div class="portal-modal__title-block">
-              <p class="worldnic-eyebrow"><%= t('access.export.eyebrow') %></p>
-              <h2><%= t('access.export.title') %></h2>
-              <p class="mt-2 text-sm text-slate-500"><%= t('access.export.description') %></p>
-            </div>
-            <button type="button" class="table-icon-button" data-access-export-close aria-label="<%= t('buttons.cancel') %>">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
-            </button>
-          </div>
-
-          <div class="access-export-grid">
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=xlsx" data-access-export-download>
-              <strong><%= t('access.export.formats.xlsx') %></strong>
-              <span><%= t('access.export.formats.xlsxDescription') %></span>
-            </a>
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=csv" data-access-export-download>
-              <strong><%= t('access.export.formats.csv') %></strong>
-              <span><%= t('access.export.formats.csvDescription') %></span>
-            </a>
-            <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=pdf" data-access-export-download>
-              <strong><%= t('access.export.formats.pdf') %></strong>
-              <span><%= t('access.export.formats.pdfDescription') %></span>
-            </a>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="access-workspace-panel is-hidden" data-access-view-panel="types">
@@ -691,6 +552,146 @@
               </table>
             </div>
           <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="portal-modal" data-access-history-modal>
+      <button type="button" class="portal-modal__backdrop" data-access-history-close></button>
+      <div class="portal-modal__dialog shell-card">
+        <div class="portal-modal__header">
+          <div class="portal-modal__title-block">
+            <p class="worldnic-eyebrow" data-access-history-eyebrow><%= t('access.history.title') %></p>
+            <h2 data-access-history-title><%= t('access.history.title') %></h2>
+            <p class="mt-2 text-sm text-slate-500" data-access-history-meta></p>
+          </div>
+
+          <button type="button" class="table-icon-button" data-access-history-close aria-label="<%= t('buttons.cancel') %>">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5 5 15" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="access-history-shell">
+          <div class="access-history-summary" data-access-history-summary hidden></div>
+          <p class="text-sm text-slate-500" data-access-history-loading><%= t('access.history.loading') %></p>
+          <p class="text-sm text-slate-500" data-access-history-empty hidden><%= t('access.history.empty') %></p>
+          <div class="access-history-list" data-access-history-list></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="portal-modal" data-access-request-modal>
+      <button type="button" class="portal-modal__backdrop" data-access-request-close></button>
+      <div class="portal-modal__dialog portal-modal__dialog-wide shell-card">
+        <div class="portal-modal__header">
+          <div class="portal-modal__title-block">
+            <p class="worldnic-eyebrow" data-access-request-modal-eyebrow><%= t('access.actions.editRequest') %></p>
+            <h2 data-access-request-modal-title><%= t('access.modal.editTitle', { type: typeLabel }) %></h2>
+          </div>
+
+          <button type="button" class="table-icon-button" data-access-request-close aria-label="<%= t('buttons.cancel') %>">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5 5 15" />
+            </svg>
+          </button>
+        </div>
+
+        <form action="" method="POST" class="portal-modal__form" data-live-form data-access-request-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <div data-access-request-method-holder>
+            <input type="hidden" name="_method" value="PUT" />
+          </div>
+
+          <div class="portal-form-grid">
+            <div>
+              <label class="field-label"><%= t('access.fields.profileOptional') %></label>
+              <select name="requestProfileId" class="field-input" data-access-request-profile>
+                <option value=""><%= t('access.filters.allProfiles') %></option>
+                <% profiles.forEach((profile) => { %>
+                  <option value="<%= profile.id %>"><%= profile.name %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div>
+              <label class="field-label"><%= t('portal.selectType') %></label>
+              <select name="categoryId" class="field-input" required data-access-request-category>
+                <% categories.forEach((category) => { %>
+                  <option value="<%= category.id %>"><%= category.name %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div>
+              <label class="field-label"><%= t('portal.fields.fullName') %></label>
+              <input name="fullName" type="text" class="field-input" required />
+            </div>
+
+            <div>
+              <label class="field-label"><%= t('portal.fields.company') %></label>
+              <input name="companyName" type="text" class="field-input" />
+            </div>
+
+            <div>
+              <label class="field-label"><%= t('portal.fields.phone') %></label>
+              <input name="phone" type="text" class="field-input" />
+            </div>
+
+            <div>
+              <label class="field-label"><%= t('portal.fields.email') %></label>
+              <input name="email" type="email" class="field-input" />
+            </div>
+
+            <% if (isPass) { %>
+              <div>
+                <label class="field-label"><%= t('access.fields.vehiclePlate') %></label>
+                <input name="vehiclePlate" type="text" class="field-input" />
+              </div>
+            <% } %>
+
+            <div class="portal-form-grid__full">
+              <label class="field-label"><%= t('portal.fields.notes') %></label>
+              <textarea name="notes" rows="4" class="field-input"></textarea>
+            </div>
+          </div>
+
+          <div class="portal-modal__actions">
+            <button type="button" class="btn-secondary" data-access-request-close><%= t('buttons.cancel') %></button>
+            <button type="submit" class="btn-primary" data-access-request-submit-label><%= t('buttons.save') %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="portal-modal" data-access-export-modal>
+      <button type="button" class="portal-modal__backdrop" data-access-export-close></button>
+      <div class="portal-modal__dialog shell-card">
+        <div class="portal-modal__header">
+          <div class="portal-modal__title-block">
+            <p class="worldnic-eyebrow"><%= t('access.export.eyebrow') %></p>
+            <h2><%= t('access.export.title') %></h2>
+            <p class="mt-2 text-sm text-slate-500"><%= t('access.export.description') %></p>
+          </div>
+          <button type="button" class="table-icon-button" data-access-export-close aria-label="<%= t('buttons.cancel') %>">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+          </button>
+        </div>
+
+        <div class="access-export-grid">
+          <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=xlsx" data-access-export-download>
+            <strong><%= t('access.export.formats.xlsx') %></strong>
+            <span><%= t('access.export.formats.xlsxDescription') %></span>
+          </a>
+          <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=csv" data-access-export-download>
+            <strong><%= t('access.export.formats.csv') %></strong>
+            <span><%= t('access.export.formats.csvDescription') %></span>
+          </a>
+          <a class="access-export-option" href="/events/<%= activeEvent.id %>/<%= accessType %>/export?format=pdf" data-access-export-download>
+            <strong><%= t('access.export.formats.pdf') %></strong>
+            <span><%= t('access.export.formats.pdfDescription') %></span>
+          </a>
         </div>
       </div>
     </div>
