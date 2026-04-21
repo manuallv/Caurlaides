@@ -3738,6 +3738,62 @@ body.portal-modal-open {
   margin-top: 1.15rem;
 }
 
+.portal-import-preview-submit.is-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.52rem;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.portal-import-preview-submit.is-loading::after {
+  content: '';
+  width: 0.84rem;
+  height: 0.84rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-right-color: transparent;
+  animation: wn-button-spin 0.7s linear infinite;
+}
+
+.portal-import-preview-loader {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.15rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(213, 223, 238, 0.9);
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(241, 246, 255, 0.96) 100%);
+  color: #42536a;
+}
+
+.portal-import-preview-loader__spinner {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 116, 255, 0.24);
+  border-top-color: #0074ff;
+  animation: wn-button-spin 0.75s linear infinite;
+}
+
+.portal-import-preview-loader__copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.portal-import-preview-loader__copy strong {
+  font-size: 0.88rem;
+  color: #1f2f43;
+}
+
+.portal-import-preview-loader__copy span {
+  font-size: 0.79rem;
+  color: #61738b;
+}
+
 .portal-preview-wrap {
   display: grid;
   gap: 1rem;

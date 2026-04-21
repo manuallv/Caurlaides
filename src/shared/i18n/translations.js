@@ -537,6 +537,8 @@ const translations = {
     'portal.import.preview.vehiclePlate': 'Vehicle plate',
     'portal.import.preview.validation': 'Validation',
     'portal.import.preview.ok': 'OK',
+    'portal.import.preview.loading': 'Processing Excel preview',
+    'portal.import.preview.loadingHint': 'This can take a few seconds for larger files.',
 
     'check.title': 'Vehicle check',
     'check.description': 'Quick phone-friendly page for logging vehicle entry and exit by number plate.',
@@ -1418,6 +1420,8 @@ const translations = {
     'portal.import.preview.vehiclePlate': 'Auto numurs',
     'portal.import.preview.validation': 'Pārbaude',
     'portal.import.preview.ok': 'OK',
+    'portal.import.preview.loading': 'Apstrādā Excel priekšskatījumu',
+    'portal.import.preview.loadingHint': 'Lielākiem failiem tas var aizņemt dažas sekundes.',
 
     'check.title': 'Auto pārbaude',
     'check.description': 'Ātra telefona lapa, kur pēc auto numura reģistrēt iebraukšanu vai izbraukšanu.',

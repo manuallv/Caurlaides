@@ -3142,6 +3142,8 @@ document.addEventListener('DOMContentLoaded', () => {
     importCategory: document.querySelector('[data-portal-import-category]'),
     importFileInput: document.querySelector('[data-portal-import-file]'),
     importTemplateLink: document.querySelector('[data-portal-template-link]'),
+    importPreviewSubmitButton: document.querySelector('[data-portal-import-preview-submit]'),
+    importPreviewLoader: document.querySelector('[data-portal-import-preview-loader]'),
     importPreview: document.querySelector('[data-portal-import-preview]'),
     importConfirmButton: document.querySelector('[data-portal-import-confirm]'),
     tableRows: [...document.querySelectorAll('[data-request-row]')],
@@ -3409,13 +3411,56 @@ document.addEventListener('DOMContentLoaded', () => {
     activePortalImportType = type;
     elements.importPreviewForm.reset();
     elements.importTypeInput.value = type;
+    if (elements.importPreviewLoader) {
+      elements.importPreviewLoader.classList.add('hidden');
+    }
     elements.importPreview.classList.add('hidden');
     elements.importPreview.innerHTML = '';
     elements.importConfirmButton.classList.add('hidden');
     elements.importConfirmButton.dataset.token = '';
+    elements.importConfirmButton.disabled = false;
     fillCategoryOptions(elements.importCategory, type);
     updateImportTemplateLink();
     setPortalWorkspaceView('import');
+  };
+
+  const setPortalImportPreviewLoading = (isLoading) => {
+    const {
+      importPreviewLoader,
+      importPreview,
+      importConfirmButton,
+      importCategory,
+      importFileInput,
+      importPreviewSubmitButton,
+    } = getPortalElements();
+
+    if (importPreviewLoader) {
+      importPreviewLoader.classList.toggle('hidden', !isLoading);
+    }
+
+    if (importPreview && isLoading) {
+      importPreview.classList.add('hidden');
+      importPreview.innerHTML = '';
+    }
+
+    if (importConfirmButton) {
+      if (isLoading) {
+        importConfirmButton.classList.add('hidden');
+        importConfirmButton.dataset.token = '';
+      }
+
+      importConfirmButton.disabled = isLoading;
+    }
+
+    if (importCategory) {
+      importCategory.disabled = isLoading;
+    }
+
+    if (importFileInput) {
+      importFileInput.disabled = isLoading;
+    }
+
+    setLiveSubmitterState(importPreviewSubmitButton, isLoading);
   };
 
   const renderImportPreview = (preview) => {
@@ -4076,6 +4121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (form.matches('[data-portal-import-preview-form]')) {
       event.preventDefault();
+      setPortalImportPreviewLoading(true);
 
       try {
         const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
@@ -4097,6 +4143,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderImportPreview(payload.preview);
       } catch (error) {
         showLiveNotice(error.message, 'error');
+      } finally {
+        setPortalImportPreviewLoading(false);
       }
 
       return;

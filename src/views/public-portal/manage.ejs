@@ -375,11 +375,28 @@
             </div>
 
             <div class="portal-inline-form__actions">
-              <button type="submit" class="btn-primary"><%= t('portal.previewImport') %></button>
+              <button
+                type="submit"
+                class="btn-primary portal-import-preview-submit"
+                data-portal-import-preview-submit
+              ><%= t('portal.previewImport') %></button>
               <button type="button" class="btn-secondary hidden" data-portal-import-confirm><%= t('portal.confirmImport') %></button>
               <button type="button" class="btn-secondary" data-portal-back-to-table><%= t('portal.tableTitle') %></button>
             </div>
           </form>
+
+          <div
+            class="portal-import-preview-loader hidden"
+            data-portal-import-preview-loader
+            role="status"
+            aria-live="polite"
+          >
+            <span class="portal-import-preview-loader__spinner" aria-hidden="true"></span>
+            <div class="portal-import-preview-loader__copy">
+              <strong><%= t('portal.import.preview.loading') %></strong>
+              <span><%= t('portal.import.preview.loadingHint') %></span>
+            </div>
+          </div>
 
           <div class="portal-import-preview hidden" data-portal-import-preview></div>
         </section>
