@@ -1906,26 +1906,12 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleAccessEntryWindowsEmptyState();
   };
 
-  const ensureAccessModalsMounted = () => {
-    const { historyModal, requestModal, exportModal } = getAccessElements();
-
-    [historyModal, requestModal, exportModal].forEach((modal) => {
-      if (!modal || modal.parentElement === document.body) {
-        return;
-      }
-
-      document.body.appendChild(modal);
-    });
-  };
-
   const initializeAccessUI = () => {
     const elements = getAccessElements();
 
     if (!elements.workspace) {
       return;
     }
-
-    ensureAccessModalsMounted();
 
     const hashView = window.location.hash === '#types' ? 'types' : 'requests';
 
