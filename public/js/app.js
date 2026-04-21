@@ -3602,6 +3602,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const closest = (selector) => findClosestTarget(event.target, selector);
     const accessActionMenuTrigger = closest('[data-access-actions-toggle]');
     const accessActionMenu = closest('[data-access-actions-menu]');
+    const dashboardEventSummary = closest('[data-dashboard-event-summary]');
+
+    if (dashboardEventSummary) {
+      const dashboardEventCard = dashboardEventSummary.closest('[data-dashboard-event-card]');
+
+      if (dashboardEventCard?.dataset.dashboardEventPinned === 'true' && dashboardEventCard.open) {
+        event.preventDefault();
+        return;
+      }
+    }
 
     if (!accessActionMenu) {
       closeAccessActionMenus();
