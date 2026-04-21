@@ -1693,6 +1693,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
       editLabel: workspace.dataset.accessEditLabel,
+      editDetailLabel: workspace.dataset.accessEditDetailLabel,
       notSet: workspace.dataset.accessNotSet,
       statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
       statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
@@ -2400,7 +2401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <path d="M12 20h9"></path>
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
           </svg>
-          <span>${escapeHtml(ui.editLabel || 'Edit')}</span>
+          <span>${escapeHtml(ui.editLabel || 'Edit')}<span class="access-actions-menu__meta"> - ${escapeHtml(ui.editDetailLabel || 'content')}</span></span>
         </button>
 
         <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
