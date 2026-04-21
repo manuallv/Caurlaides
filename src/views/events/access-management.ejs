@@ -79,6 +79,7 @@
     data-access-history-entry-label="<%= t('access.entryAt') %>"
     data-access-history-last-entry-label="<%= t('access.history.lastEntryAt') %>"
     data-access-history-last-exit-label="<%= t('access.history.lastExitAt') %>"
+    data-access-actions-label="<%= t('access.workspace.actions') %>"
   >
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -282,82 +283,124 @@
                       </div>
                     </td>
                     <td>
-                      <div class="access-row-actions">
+                      <div class="access-row-actions <%= isPass ? 'access-row-actions--menu' : '' %>">
                         <% if (isPass) { %>
+                          <div class="access-actions-menu" data-access-actions-menu>
+                            <button
+                              type="button"
+                              class="table-icon-button access-actions-menu__trigger"
+                              data-access-actions-toggle
+                              title="<%= t('access.workspace.actions') %>"
+                              aria-label="<%= t('access.workspace.actions') %>"
+                              aria-expanded="false"
+                              aria-haspopup="true"
+                            >
+                              <svg viewBox="0 0 20 20" aria-hidden="true">
+                                <circle cx="4" cy="10" r="1.6" />
+                                <circle cx="10" cy="10" r="1.6" />
+                                <circle cx="16" cy="10" r="1.6" />
+                              </svg>
+                            </button>
+
+                            <div class="access-actions-menu__panel" data-access-actions-panel hidden>
+                              <button
+                                type="button"
+                                class="access-actions-menu__action"
+                                data-access-history-open
+                                data-request-id="<%= request.id %>"
+                                data-request-history-url="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/history"
+                                data-request-full-name="<%= request.full_name %>"
+                                data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
+                                title="<%= t('access.actions.viewHistory') %>"
+                                aria-label="<%= t('access.actions.viewHistory') %>"
+                              >
+                                <svg viewBox="0 0 20 20" aria-hidden="true">
+                                  <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z" />
+                                  <path d="M10 7v3l2 1.5" />
+                                </svg>
+                                <span><%= t('access.actions.viewHistory') %></span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="access-actions-menu__action"
+                                data-access-edit-request
+                                data-request-id="<%= request.id %>"
+                                data-request-profile-id="<%= request.request_profile_id || '' %>"
+                                data-request-category-id="<%= request.category_id %>"
+                                data-request-full-name="<%= request.full_name %>"
+                                data-request-company-name="<%= request.company_name || '' %>"
+                                data-request-phone="<%= request.phone || '' %>"
+                                data-request-email="<%= request.email || '' %>"
+                                data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
+                                data-request-notes="<%= request.notes || '' %>"
+                                title="<%= t('access.actions.editRequest') %>"
+                                aria-label="<%= t('access.actions.editRequest') %>"
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 20h9" />
+                                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5" />
+                                </svg>
+                                <span><%= t('access.actions.editRequest') %></span>
+                              </button>
+
+                              <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                                <input type="hidden" name="status" value="handed_out" data-request-status-input />
+                                <button
+                                  type="submit"
+                                  class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'handed_out' ? 'is-active' : '' %>"
+                                  data-request-status-button
+                                  <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
+                                ><span><%= t('access.passState.handed_out') %></span></button>
+                              </form>
+
+                              <% if (hasVehicleMovement) { %>
+                                <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                                  <input type="hidden" name="direction" value="entry" />
+                                  <button
+                                    type="submit"
+                                    class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'entered' ? 'is-active' : '' %>"
+                                    <%= requestDisplayStatus === 'entered' ? 'disabled' : '' %>
+                                  ><span><%= t('access.passState.entered') %></span></button>
+                                </form>
+
+                                <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+                                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                                  <input type="hidden" name="direction" value="exit" />
+                                  <button
+                                    type="submit"
+                                    class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'exited' ? 'is-active' : '' %>"
+                                    <%= requestDisplayStatus === 'exited' ? 'disabled' : '' %>
+                                  ><span><%= t('access.passState.exited') %></span></button>
+                                </form>
+                              <% } %>
+                            </div>
+                          </div>
+                        <% } else { %>
                           <button
                             type="button"
                             class="table-icon-button"
-                            data-access-history-open
+                            data-access-edit-request
                             data-request-id="<%= request.id %>"
-                            data-request-history-url="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/history"
+                            data-request-profile-id="<%= request.request_profile_id || '' %>"
+                            data-request-category-id="<%= request.category_id %>"
                             data-request-full-name="<%= request.full_name %>"
+                            data-request-company-name="<%= request.company_name || '' %>"
+                            data-request-phone="<%= request.phone || '' %>"
+                            data-request-email="<%= request.email || '' %>"
                             data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
-                            title="<%= t('access.actions.viewHistory') %>"
-                            aria-label="<%= t('access.actions.viewHistory') %>"
+                            data-request-notes="<%= request.notes || '' %>"
+                            title="<%= t('access.actions.editRequest') %>"
+                            aria-label="<%= t('access.actions.editRequest') %>"
                           >
-                            <svg viewBox="0 0 20 20" aria-hidden="true">
-                              <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z" />
-                              <path d="M10 7v3l2 1.5" />
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5" />
                             </svg>
                           </button>
-                        <% } %>
 
-                        <button
-                          type="button"
-                          class="table-icon-button"
-                          data-access-edit-request
-                          data-request-id="<%= request.id %>"
-                          data-request-profile-id="<%= request.request_profile_id || '' %>"
-                          data-request-category-id="<%= request.category_id %>"
-                          data-request-full-name="<%= request.full_name %>"
-                          data-request-company-name="<%= request.company_name || '' %>"
-                          data-request-phone="<%= request.phone || '' %>"
-                          data-request-email="<%= request.email || '' %>"
-                          data-request-vehicle-plate="<%= request.vehicle_plate || '' %>"
-                          data-request-notes="<%= request.notes || '' %>"
-                          title="<%= t('access.actions.editRequest') %>"
-                          aria-label="<%= t('access.actions.editRequest') %>"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5" />
-                          </svg>
-                        </button>
-
-                        <% if (isPass) { %>
-                          <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-                            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <input type="hidden" name="status" value="handed_out" data-request-status-input />
-                            <button
-                              type="submit"
-                              class="access-mini-button <%= requestDisplayStatus === 'handed_out' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
-                              data-request-status-button
-                              <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
-                            ><%= t('access.passState.handed_out') %></button>
-                          </form>
-
-                          <% if (hasVehicleMovement) { %>
-                            <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
-                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                              <input type="hidden" name="direction" value="entry" />
-                              <button
-                                type="submit"
-                                class="access-mini-button <%= requestDisplayStatus === 'entered' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
-                                <%= requestDisplayStatus === 'entered' ? 'disabled' : '' %>
-                              ><%= t('access.passState.entered') %></button>
-                            </form>
-
-                            <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
-                              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                              <input type="hidden" name="direction" value="exit" />
-                              <button
-                                type="submit"
-                                class="access-mini-button <%= requestDisplayStatus === 'exited' ? 'access-mini-button--primary' : 'access-mini-button--secondary' %>"
-                                <%= requestDisplayStatus === 'exited' ? 'disabled' : '' %>
-                              ><%= t('access.passState.exited') %></button>
-                            </form>
-                          <% } %>
-                        <% } else { %>
                           <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                             <% if (request.status === 'handed_out') { %>

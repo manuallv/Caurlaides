@@ -1688,6 +1688,7 @@ document.addEventListener('DOMContentLoaded', () => {
       historyEntryLabel: workspace.dataset.accessHistoryEntryLabel,
       historyLastEntryLabel: workspace.dataset.accessHistoryLastEntryLabel,
       historyLastExitLabel: workspace.dataset.accessHistoryLastExitLabel,
+      actionsLabel: workspace.dataset.accessActionsLabel,
       eventId: workspace.dataset.accessEventId,
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
@@ -2300,6 +2301,136 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAccessFilteredCount();
   };
 
+  const closeAccessActionMenus = ({ except = null } = {}) => {
+    document.querySelectorAll('[data-access-actions-menu]').forEach((menu) => {
+      const isActiveMenu = Boolean(except && menu === except);
+      const panel = menu.querySelector('[data-access-actions-panel]');
+      const toggle = menu.querySelector('[data-access-actions-toggle]');
+
+      menu.classList.toggle('is-open', isActiveMenu);
+
+      if (panel) {
+        panel.hidden = !isActiveMenu;
+      }
+
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', isActiveMenu ? 'true' : 'false');
+      }
+    });
+  };
+
+  const toggleAccessActionMenu = (trigger) => {
+    const menu = trigger?.closest('[data-access-actions-menu]');
+
+    if (!menu) {
+      closeAccessActionMenus();
+      return;
+    }
+
+    if (menu.classList.contains('is-open')) {
+      closeAccessActionMenus();
+      return;
+    }
+
+    closeAccessActionMenus({ except: menu });
+  };
+
+  const buildPassActionsMenu = ({
+    request = {},
+    ui = {},
+    csrfValue = '',
+    hasVehicleMovement = false,
+    issuedButtonToneClass = '',
+    entryButtonToneClass = '',
+    exitButtonToneClass = '',
+  } = {}) => `
+    <div class="access-actions-menu" data-access-actions-menu>
+      <button
+        type="button"
+        class="table-icon-button access-actions-menu__trigger"
+        data-access-actions-toggle
+        title="${escapeHtml(ui.actionsLabel || 'Actions')}"
+        aria-label="${escapeHtml(ui.actionsLabel || 'Actions')}"
+        aria-expanded="false"
+        aria-haspopup="true"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="4" cy="10" r="1.6"></circle>
+          <circle cx="10" cy="10" r="1.6"></circle>
+          <circle cx="16" cy="10" r="1.6"></circle>
+        </svg>
+      </button>
+
+      <div class="access-actions-menu__panel" data-access-actions-panel hidden>
+        <button
+          type="button"
+          class="access-actions-menu__action"
+          data-access-history-open
+          data-request-id="${escapeHtml(request.id)}"
+          data-request-history-url="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/history"
+          data-request-full-name="${escapeHtml(request.fullName || '')}"
+          data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
+          title="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
+          aria-label="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"></path>
+            <path d="M10 7v3l2 1.5"></path>
+          </svg>
+          <span>${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}</span>
+        </button>
+
+        <button
+          type="button"
+          class="access-actions-menu__action"
+          data-access-edit-request
+          data-request-id="${escapeHtml(request.id)}"
+          data-request-profile-id="${escapeHtml(request.requestProfileId || '')}"
+          data-request-category-id="${escapeHtml(request.categoryId || '')}"
+          data-request-full-name="${escapeHtml(request.fullName || '')}"
+          data-request-company-name="${escapeHtml(request.companyName || '')}"
+          data-request-phone="${escapeHtml(request.phone || '')}"
+          data-request-email="${escapeHtml(request.email || '')}"
+          data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
+          data-request-notes="${escapeHtml(request.notes || '')}"
+          title="${escapeHtml(ui.editLabel || 'Edit')}"
+          aria-label="${escapeHtml(ui.editLabel || 'Edit')}"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
+          </svg>
+          <span>${escapeHtml(ui.editLabel || 'Edit')}</span>
+        </button>
+
+        <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+          <input type="hidden" name="_csrf" value="${csrfValue}" />
+          <input type="hidden" name="status" value="handed_out" data-request-status-input />
+          <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${issuedButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" data-request-status-button ${request.status === 'handed_out' ? 'disabled' : ''}>
+            <span>${escapeHtml(ui.statusHandedOutLabel || 'Issued')}</span>
+          </button>
+        </form>
+
+        ${hasVehicleMovement ? `
+          <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+            <input type="hidden" name="_csrf" value="${csrfValue}" />
+            <input type="hidden" name="direction" value="entry" />
+            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${entryButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.status === 'entered' ? 'disabled' : ''}>
+              <span>${escapeHtml(ui.entryButtonLabel || 'Enter')}</span>
+            </button>
+          </form>
+          <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
+            <input type="hidden" name="_csrf" value="${csrfValue}" />
+            <input type="hidden" name="direction" value="exit" />
+            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${exitButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.status === 'exited' ? 'disabled' : ''}>
+              <span>${escapeHtml(ui.exitButtonLabel || 'Exit')}</span>
+            </button>
+          </form>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
   const buildAccessRequestRow = (request = {}) => {
     const ui = getAccessUi();
     const row = document.createElement('tr');
@@ -2392,25 +2523,16 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </td>
       <td>
-        <div class="access-row-actions">
-          ${isPass ? `
-            <button
-              type="button"
-              class="table-icon-button"
-              data-access-history-open
-              data-request-id="${escapeHtml(request.id)}"
-              data-request-history-url="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/history"
-              data-request-full-name="${escapeHtml(request.fullName || '')}"
-              data-request-vehicle-plate="${escapeHtml(request.vehiclePlate || '')}"
-              title="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
-              aria-label="${escapeHtml(ui.historyButtonLabel || 'View vehicle history')}"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M10 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"></path>
-                <path d="M10 7v3l2 1.5"></path>
-              </svg>
-            </button>
-          ` : ''}
+        <div class="access-row-actions ${isPass ? 'access-row-actions--menu' : ''}">
+          ${isPass ? buildPassActionsMenu({
+            request,
+            ui,
+            csrfValue,
+            hasVehicleMovement,
+            issuedButtonToneClass,
+            entryButtonToneClass,
+            exitButtonToneClass,
+          }) : `
           <button
             type="button"
             class="table-icon-button"
@@ -2432,26 +2554,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
             </svg>
           </button>
-
-          ${isPass ? `
-            <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-              <input type="hidden" name="_csrf" value="${csrfValue}" />
-              <input type="hidden" name="status" value="handed_out" data-request-status-input />
-              <button type="submit" class="access-mini-button ${issuedButtonToneClass}" data-request-status-button ${request.status === 'handed_out' ? 'disabled' : ''}>${escapeHtml(ui.statusHandedOutLabel || 'Issued')}</button>
-            </form>
-            ${hasVehicleMovement ? `
-              <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
-                <input type="hidden" name="_csrf" value="${csrfValue}" />
-                <input type="hidden" name="direction" value="entry" />
-                <button type="submit" class="access-mini-button ${entryButtonToneClass}" ${request.status === 'entered' ? 'disabled' : ''}>${escapeHtml(ui.entryButtonLabel || 'Enter')}</button>
-              </form>
-              <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
-                <input type="hidden" name="_csrf" value="${csrfValue}" />
-                <input type="hidden" name="direction" value="exit" />
-                <button type="submit" class="access-mini-button ${exitButtonToneClass}" ${request.status === 'exited' ? 'disabled' : ''}>${escapeHtml(ui.exitButtonLabel || 'Exit')}</button>
-              </form>
-            ` : ''}
-          ` : `
             <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
               <input type="hidden" name="_csrf" value="${csrfValue}" />
               <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
@@ -3402,6 +3504,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      closeAccessActionMenus();
       closeSidebar();
       setAccessFullscreen(false);
       setPortalWorkspaceView('table');
@@ -3419,6 +3522,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('click', async (event) => {
     const closest = (selector) => findClosestTarget(event.target, selector);
+    const accessActionMenuTrigger = closest('[data-access-actions-toggle]');
+    const accessActionMenu = closest('[data-access-actions-menu]');
+
+    if (!accessActionMenu) {
+      closeAccessActionMenus();
+    }
+
+    if (accessActionMenuTrigger) {
+      event.preventDefault();
+      toggleAccessActionMenu(accessActionMenuTrigger);
+      return;
+    }
 
     const eventDashboardTabTrigger = closest('[data-event-dashboard-tab]');
 
@@ -3586,6 +3701,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessEditRequestTrigger = closest('[data-access-edit-request]');
 
     if (accessEditRequestTrigger) {
+      closeAccessActionMenus();
       openAccessRequestModal(accessEditRequestTrigger);
       return;
     }
@@ -3593,6 +3709,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessHistoryTrigger = closest('[data-access-history-open]');
 
     if (accessHistoryTrigger) {
+      closeAccessActionMenus();
       await openAccessHistoryModal(accessHistoryTrigger);
       return;
     }
@@ -3600,7 +3717,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessCreateRequestTrigger = closest('[data-access-create-request]');
 
     if (accessCreateRequestTrigger) {
+      closeAccessActionMenus();
       openAccessRequestModal();
+      return;
+    }
+
+    const accessActionsSubmitTrigger = closest('[data-access-actions-panel] [type="submit"]');
+
+    if (accessActionsSubmitTrigger) {
+      closeAccessActionMenus();
       return;
     }
 
