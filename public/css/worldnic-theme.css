@@ -1413,6 +1413,10 @@ body.is-access-fullscreen {
   backdrop-filter: blur(12px);
 }
 
+.access-actions-menu__panel[hidden] {
+  display: none;
+}
+
 .access-actions-menu__panel form {
   margin: 0;
 }
