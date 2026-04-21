@@ -3422,32 +3422,81 @@ body.portal-modal-open {
   line-height: 1.45;
 }
 
-.access-history-item {
-  padding: 0.95rem 1rem;
+.access-history-table-wrap {
+  overflow-x: auto;
   border: 1px solid rgba(223, 229, 240, 0.92);
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(243, 247, 253, 0.98) 100%);
 }
 
-.access-history-item__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  flex-wrap: wrap;
+.access-history-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
 }
 
-.access-history-item__top strong {
+.access-history-table thead th {
+  padding: 0.72rem 0.85rem;
+  border-bottom: 1px solid rgba(223, 229, 240, 0.92);
+  color: #7586a0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.access-history-table tbody td {
+  padding: 0.72rem 0.85rem;
+  border-bottom: 1px solid rgba(223, 229, 240, 0.7);
+  vertical-align: top;
+}
+
+.access-history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.access-history-cell {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.access-history-cell strong {
   color: var(--wn-text);
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.87rem;
+  line-height: 1.4;
 }
 
-.access-history-item__meta {
-  margin: 0.45rem 0 0;
+.access-history-cell span,
+.access-history-empty {
   color: #66788f;
-  font-size: 0.82rem;
-  line-height: 1.55;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.access-history-pill {
+  min-height: 2rem;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.72rem;
+}
+
+.access-history-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.access-history-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(0, 116, 255, 0.08);
+  color: #48607e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .check-form-card .btn-primary.is-disabled,
@@ -3991,6 +4040,10 @@ body.portal-modal-open {
 
   .access-history-summary {
     grid-template-columns: 1fr;
+  }
+
+  .access-history-table {
+    min-width: 600px;
   }
 
   .portal-table-sort,

@@ -1663,6 +1663,15 @@ document.addEventListener('DOMContentLoaded', () => {
       historyError: workspace.dataset.accessHistoryError,
       historyGateLabel: workspace.dataset.accessHistoryGateLabel,
       historySourceLabel: workspace.dataset.accessHistorySourceLabel,
+      historyLimitTemplate: workspace.dataset.accessHistoryLimitTemplate,
+      historyTimeLabel: workspace.dataset.accessHistoryTimeLabel,
+      historyDirectionLabel: workspace.dataset.accessHistoryDirectionLabel,
+      historyOriginLabel: workspace.dataset.accessHistoryOriginLabel,
+      historyLocationLabel: workspace.dataset.accessHistoryLocationLabel,
+      historyDetailsLabel: workspace.dataset.accessHistoryDetailsLabel,
+      historySeenAtLabel: workspace.dataset.accessHistorySeenAtLabel,
+      historyConfidenceLabel: workspace.dataset.accessHistoryConfidenceLabel,
+      historyVehicleConfidenceLabel: workspace.dataset.accessHistoryVehicleConfidenceLabel,
       historyButtonLabel: workspace.dataset.accessHistoryButtonLabel,
       historyCompanyLabel: workspace.dataset.accessHistoryCompanyLabel,
       historyTypeLabel: workspace.dataset.accessHistoryTypeLabel,
@@ -2646,27 +2655,81 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
+  const buildAccessHistoryMeta = (vehiclePlate = '', limit = 0) => {
+    const ui = getAccessUi();
+    const parts = [];
+
+    if (vehiclePlate) {
+      parts.push(vehiclePlate);
+    }
+
+    if (limit > 0 && ui.historyLimitTemplate) {
+      parts.push(ui.historyLimitTemplate.replace('__COUNT__', String(limit)));
+    }
+
+    return parts.join(' · ');
+  };
+
   const renderAccessHistoryItems = (items = []) => {
     const ui = getAccessUi();
+    const notSet = ui.notSet || '-';
 
-    return items.map((item) => {
-      const details = [
-        item.gateName ? `${escapeHtml(ui.historyGateLabel || 'Gate')}: ${escapeHtml(item.gateName)}` : '',
-        item.source ? `${escapeHtml(ui.historySourceLabel || 'Source')}: ${escapeHtml(item.source)}` : '',
-      ]
-        .filter(Boolean)
-        .join(' · ');
+    if (!items.length) {
+      return '';
+    }
+
+    const renderCell = (primary, secondary = '') => `
+      <div class="access-history-cell">
+        <strong>${escapeHtml(primary || notSet)}</strong>
+        ${secondary ? `<span>${escapeHtml(secondary)}</span>` : ''}
+      </div>
+    `;
+
+    const rows = items.map((item) => {
+      const originSecondary = item.source && item.source !== item.sourceLabel ? item.source : '';
+      const locationPrimary = item.cameraName || item.gateName || notSet;
+      const locationSecondary = item.cameraName && item.gateName && item.cameraName !== item.gateName
+        ? item.gateName
+        : '';
+      const detailChips = [
+        item.seenAtLabel ? `${ui.historySeenAtLabel || 'Seen'}: ${item.seenAtLabel}` : '',
+        item.confidenceLabel ? `${ui.historyConfidenceLabel || 'Plate conf.'}: ${item.confidenceLabel}` : '',
+        item.vehicleConfidenceLabel ? `${ui.historyVehicleConfidenceLabel || 'Vehicle conf.'}: ${item.vehicleConfidenceLabel}` : '',
+      ].filter(Boolean);
 
       return `
-        <div class="access-history-item">
-          <div class="access-history-item__top">
-            <span class="portal-type-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">${escapeHtml(item.directionLabel || '')}</span>
-            <strong>${escapeHtml(item.createdAtLabel || '')}</strong>
-          </div>
-          ${details ? `<p class="access-history-item__meta">${details}</p>` : ''}
-        </div>
+        <tr>
+          <td>${renderCell(item.createdAtLabel || notSet)}</td>
+          <td>
+            <span class="portal-type-pill access-history-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">${escapeHtml(item.directionLabel || '')}</span>
+          </td>
+          <td>${renderCell(item.sourceLabel || notSet, originSecondary)}</td>
+          <td>${renderCell(locationPrimary, locationSecondary)}</td>
+          <td>
+            ${detailChips.length
+              ? `<div class="access-history-chip-list">${detailChips.map((label) => `<span class="access-history-chip">${escapeHtml(label)}</span>`).join('')}</div>`
+              : `<span class="access-history-empty">${escapeHtml(notSet)}</span>`}
+          </td>
+        </tr>
       `;
     }).join('');
+
+    return `
+      <div class="access-history-table-wrap">
+        <table class="access-history-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(ui.historyTimeLabel || 'Time')}</th>
+              <th>${escapeHtml(ui.historyDirectionLabel || 'Direction')}</th>
+              <th>${escapeHtml(ui.historyOriginLabel || 'Origin')}</th>
+              <th>${escapeHtml(ui.historyLocationLabel || 'Camera / gate')}</th>
+              <th>${escapeHtml(ui.historyDetailsLabel || 'Details')}</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
   };
 
   const openAccessHistoryModal = async (trigger) => {
@@ -2726,7 +2789,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (historyMeta) {
-        historyMeta.textContent = payload.request?.vehiclePlate || '';
+        historyMeta.textContent = buildAccessHistoryMeta(payload.request?.vehiclePlate || '', payload.historyLimit || 0);
       }
 
       if (historySummary) {

@@ -13,6 +13,7 @@ const { comparePassword, hashPassword } = require('../../infrastructure/security
 
 const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
 const PUBLIC_PORTAL_IMPORTS_KEY = 'publicRequestProfileImports';
+const REQUEST_HISTORY_LIMIT = 100;
 const PASS_PRINT_BACKGROUND_MIME_TYPES = new Map([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
@@ -1101,12 +1102,13 @@ class AccessService {
       throw new AppError(tx('service.request.notFound'), 404);
     }
 
-    const movements = await this.requestRepository.listPassVehicleMovements(requestId, 100);
+    const movements = await this.requestRepository.listPassVehicleMovements(requestId, REQUEST_HISTORY_LIMIT);
 
     return {
       event,
       request,
       movements,
+      historyLimit: REQUEST_HISTORY_LIMIT,
     };
   }
 

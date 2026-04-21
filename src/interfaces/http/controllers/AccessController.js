@@ -6,6 +6,22 @@ const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
 const { extractExternalApiKey } = require('../middleware/external-api-key');
 const { AppError } = require('../../../shared/errors/AppError');
 
+function parseJsonValue(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
 function normalizeCategoryPayload(body) {
   return {
     name: body.name,
@@ -249,6 +265,62 @@ function buildAccessRequestDeletePayload(type, requestId, summary = null) {
     requestType: type,
     requestId: Number(requestId),
     summary,
+  };
+}
+
+function formatHistorySourceLabel(req, source) {
+  switch (source) {
+    case 'external-gate-api':
+      return req.t('access.history.sourceExternalApi');
+    case 'public-check-link':
+      return req.t('access.history.sourcePublicPhone');
+    case 'check-page':
+      return req.t('access.history.sourceAdminPhone');
+    case 'admin-table':
+      return req.t('access.history.sourceAdminTable');
+    default:
+      return source || req.t('common.notSet');
+  }
+}
+
+function formatHistoryMetric(value) {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return '';
+  }
+
+  const normalized = Math.abs(numeric) <= 1 ? numeric * 100 : numeric;
+  const precision = Math.abs(normalized - Math.round(normalized)) < 0.05 ? 0 : 1;
+
+  return `${normalized.toFixed(precision)}%`;
+}
+
+function formatOptionalDateTimeLabel(res, value) {
+  if (!value) {
+    return '';
+  }
+
+  const formatted = res.locals.helpers.formatDateTime(value);
+  return formatted === 'Invalid Date' ? String(value) : formatted;
+}
+
+function buildRequestHistoryMovementPayload(req, res, movement) {
+  const direction = movement.direction === 'exit' ? 'exit' : 'entry';
+  const metadata = parseJsonValue(movement.metadata) || {};
+
+  return {
+    id: Number(movement.id),
+    direction,
+    directionLabel: req.t(direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
+    createdAtLabel: movement.created_at ? res.locals.helpers.formatDateTime(movement.created_at) : '',
+    gateName: movement.gate_name || '',
+    source: movement.source || '',
+    sourceLabel: formatHistorySourceLabel(req, movement.source || ''),
+    cameraName: String(metadata.cameraName || '').trim(),
+    seenAtLabel: formatOptionalDateTimeLabel(res, metadata.seenAt),
+    confidenceLabel: formatHistoryMetric(metadata.confidence),
+    vehicleConfidenceLabel: formatHistoryMetric(metadata.vehicleConfidence),
   };
 }
 
@@ -854,15 +926,8 @@ function buildAccessController({ categoryService, accessService }) {
           lastEntryAtLabel: result.request.last_entry_at ? res.locals.helpers.formatDateTime(result.request.last_entry_at) : '',
           lastExitAtLabel: result.request.last_exit_at ? res.locals.helpers.formatDateTime(result.request.last_exit_at) : '',
         },
-        movements: result.movements.map((movement) => ({
-          id: Number(movement.id),
-          direction: movement.direction === 'exit' ? 'exit' : 'entry',
-          directionLabel: req.t(movement.direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
-          createdAtLabel: movement.created_at ? res.locals.helpers.formatDateTime(movement.created_at) : '',
-          gateName: movement.gate_name || '',
-          source: movement.source || '',
-          vehiclePlate: movement.vehicle_plate || result.request.vehicle_plate || '',
-        })),
+        historyLimit: Number(result.historyLimit || 100),
+        movements: result.movements.map((movement) => buildRequestHistoryMovementPayload(req, res, movement)),
       });
     },
 
