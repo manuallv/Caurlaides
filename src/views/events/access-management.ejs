@@ -5,6 +5,8 @@
   const routeBase = isPass ? 'passes' : 'wristbands';
   const sectionTitle = isPass ? t('event.sidebar.autoPasses') : t('event.sidebar.eventWristbands');
   const filteredRequestCount = pagination?.totalItems ?? requests.length;
+  const selectedProfile = profiles.find((profile) => Number(profile.id) === Number(filters.profileId));
+  const profileFilterListId = `access-profile-filter-${activeEvent.id}-${accessType}`;
 %>
 
 <section class="space-y-6" data-access-admin-page>
@@ -119,12 +121,20 @@
           <input type="hidden" name="page" value="<%= pagination.currentPage %>" />
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
 
-          <select name="profileId" class="field-input">
-            <option value=""><%= t('access.filters.allProfiles') %></option>
+          <input
+            type="search"
+            class="field-input"
+            list="<%= profileFilterListId %>"
+            value="<%= selectedProfile?.name || '' %>"
+            placeholder="<%= t('access.filters.allProfiles') %>"
+            data-access-profile-filter-input
+          />
+          <input type="hidden" name="profileId" value="<%= filters.profileId || '' %>" data-access-profile-filter-value />
+          <datalist id="<%= profileFilterListId %>">
             <% profiles.forEach((profile) => { %>
-              <option value="<%= profile.id %>" <%= Number(filters.profileId) === Number(profile.id) ? 'selected' : '' %>><%= profile.name %></option>
+              <option value="<%= profile.name %>" data-profile-id="<%= profile.id %>"></option>
             <% }) %>
-          </select>
+          </datalist>
 
           <select name="categoryId" class="field-input">
             <option value=""><%= t('access.filters.allTypes') %></option>

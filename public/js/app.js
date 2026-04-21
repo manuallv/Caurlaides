@@ -1673,6 +1673,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
       fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
       filterForm: document.querySelector('[data-live-filter-form]'),
+      profileFilterInput: document.querySelector('[data-access-profile-filter-input]'),
+      profileFilterValue: document.querySelector('[data-access-profile-filter-value]'),
       exportModal,
       historyModal,
       historyTitle: historyModal?.querySelector('[data-access-history-title]') || null,
@@ -2091,6 +2093,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     pageField.value = String(Math.max(Number(page) || 1, 1));
+  };
+
+  const syncAccessProfileFilterSelection = () => {
+    const { profileFilterInput, profileFilterValue } = getAccessElements();
+
+    if (!profileFilterInput || !profileFilterValue) {
+      return;
+    }
+
+    const normalizedInput = String(profileFilterInput.value || '').trim().toLowerCase();
+
+    if (!normalizedInput) {
+      profileFilterValue.value = '';
+      return;
+    }
+
+    const options = profileFilterInput.list ? [...profileFilterInput.list.options] : [];
+    const matchedOption = options.find((option) => String(option.value || '').trim().toLowerCase() === normalizedInput);
+
+    profileFilterValue.value = matchedOption?.dataset.profileId || '';
   };
 
   const updateAccessFilteredCount = () => {
@@ -3964,6 +3986,12 @@ document.addEventListener('DOMContentLoaded', () => {
           accessFilterForm.elements.q.value = '';
         }
 
+        const { profileFilterInput } = getAccessElements();
+
+        if (profileFilterInput) {
+          profileFilterInput.value = '';
+        }
+
         if (accessFilterForm.elements.profileId) {
           accessFilterForm.elements.profileId.value = '';
         }
@@ -4177,6 +4205,26 @@ document.addEventListener('DOMContentLoaded', () => {
       updateImportTemplateLink();
     }
 
+    if (event.target.matches('[data-access-profile-filter-input]')) {
+      const liveFilterForm = event.target.closest('[data-live-filter-form]');
+
+      syncAccessProfileFilterSelection();
+
+      if (liveFilterForm && getAccessElements().workspace) {
+        activeAccessView = 'requests';
+
+        if (isAccessServerPaginationEnabled()) {
+          setAccessFilterPage(1);
+          submitLiveFilterForm(liveFilterForm);
+        } else {
+          syncAccessFilterUrl();
+          applyAccessFilters();
+        }
+      }
+
+      return;
+    }
+
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
 
     if (liveFilterForm && getAccessElements().workspace && event.target.matches('select, input')) {
@@ -4218,6 +4266,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.target.matches('[data-check-vehicle-plate], [data-check-gate-name]')) {
       setCheckFeedback('');
+    }
+
+    if (event.target.matches('[data-access-profile-filter-input]')) {
+      syncAccessProfileFilterSelection();
+      return;
     }
 
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
