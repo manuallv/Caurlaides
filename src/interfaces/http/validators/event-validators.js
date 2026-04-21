@@ -239,6 +239,18 @@ const portalRequestValidator = [
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
     .normalizeEmail(),
+  body('vehiclePlate')
+    .custom((value, { req }) => {
+      if (req.params.type !== 'pass') {
+        return true;
+      }
+
+      if (!String(value || '').trim()) {
+        throw new Error(req.t('validation.portal.vehiclePlateRequired'));
+      }
+
+      return true;
+    }),
   buildVehiclePlateValidator(),
   body('notes')
     .optional({ values: 'falsy' })

@@ -2899,6 +2899,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (requestForm?.elements.vehiclePlate) {
       requestForm.elements.vehiclePlate.disabled = !isPass;
+      requestForm.elements.vehiclePlate.required = isPass;
+      requestForm.elements.vehiclePlate.setAttribute('aria-required', isPass ? 'true' : 'false');
 
       if (!isPass) {
         requestForm.elements.vehiclePlate.value = '';

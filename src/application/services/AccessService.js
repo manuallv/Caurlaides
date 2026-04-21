@@ -384,6 +384,12 @@ function buildRequestPayload(body, fallbackCompanyName = null) {
   };
 }
 
+function assertPortalPassVehiclePlateRequired(type, vehiclePlateNormalized, t) {
+  if (type === 'pass' && !vehiclePlateNormalized) {
+    throw new AppError(t('validation.portal.vehiclePlateRequired'), 422);
+  }
+}
+
 function withRemainingQuota(quotaUsage = []) {
   return quotaUsage.map((entry) => {
     const quota = Number(entry.quota || 0);
@@ -2013,6 +2019,7 @@ class AccessService {
     const portal = await this.getPublicPortal(session, tx);
     const payload = buildRequestPayload(body, portal.profile.name);
 
+    assertPortalPassVehiclePlateRequired(type, payload.vehiclePlateNormalized, tx);
     await this.assertVehiclePlateAvailable(
       portal.profile.event_id,
       type,
@@ -2092,6 +2099,7 @@ class AccessService {
       ...payload,
       requestProfileId: portal.profile.id,
     };
+    assertPortalPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
     await this.assertVehiclePlateAvailable(
       portal.profile.event_id,
       type,
@@ -2301,6 +2309,10 @@ class AccessService {
         errors.push(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }));
       }
 
+      if (type === 'pass' && !normalizedVehiclePlate) {
+        errors.push(tx('validation.portal.vehiclePlateRequired'));
+      }
+
       if (type === 'pass' && normalizedVehiclePlate) {
         if (seenVehiclePlates.has(normalizedVehiclePlate)) {
           errors.push(tx('service.vehicleEntry.duplicatePlate'));
@@ -2439,6 +2451,8 @@ class AccessService {
 
       for (const row of importBatch.rows) {
         const normalizedVehiclePlate = normalizeVehiclePlate(row.vehiclePlate);
+
+        assertPortalPassVehiclePlateRequired(importBatch.type, normalizedVehiclePlate, tx);
 
         if (normalizedVehiclePlate) {
           if (seenVehiclePlates.has(normalizedVehiclePlate)) {
