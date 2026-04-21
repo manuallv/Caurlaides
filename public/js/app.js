@@ -1906,12 +1906,49 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleAccessEntryWindowsEmptyState();
   };
 
+  const getAccessModalRoot = () => {
+    let modalRoot = document.querySelector('[data-access-modal-root]');
+
+    if (!modalRoot) {
+      modalRoot = document.createElement('div');
+      modalRoot.dataset.accessModalRoot = 'true';
+      document.body.appendChild(modalRoot);
+    }
+
+    return modalRoot;
+  };
+
+  const syncAccessModalsToRoot = () => {
+    const workspace = document.querySelector('[data-access-workspace]');
+
+    if (!workspace) {
+      return;
+    }
+
+    const modalSelectors = [
+      '[data-access-history-modal]',
+      '[data-access-request-modal]',
+      '[data-access-export-modal]',
+    ];
+    const freshModals = modalSelectors
+      .map((selector) => workspace.querySelector(selector))
+      .filter(Boolean);
+
+    if (!freshModals.length) {
+      return;
+    }
+
+    getAccessModalRoot().replaceChildren(...freshModals);
+  };
+
   const initializeAccessUI = () => {
     const elements = getAccessElements();
 
     if (!elements.workspace) {
       return;
     }
+
+    syncAccessModalsToRoot();
 
     const hashView = window.location.hash === '#types' ? 'types' : 'requests';
 
