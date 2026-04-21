@@ -185,6 +185,50 @@ class RequestRepository {
     };
   }
 
+  async getAdminOverview(eventId, type) {
+    const config = this.resolveConfig(type);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.${config.categoryIdField} AS category_id,
+          COUNT(*) AS total_requests,
+          SUM(CASE WHEN request.status = 'pending' THEN 1 ELSE 0 END) AS pending_requests,
+          SUM(CASE WHEN request.status = 'handed_out' THEN 1 ELSE 0 END) AS handed_out_requests
+        FROM ${config.requestTable} request
+        WHERE request.event_id = ?
+          AND request.deleted_at IS NULL
+        GROUP BY request.${config.categoryIdField}
+      `,
+      [eventId],
+    );
+
+    const categoryCounts = rows.map((row) => ({
+      category_id: Number(row.category_id),
+      total_requests: Number(row.total_requests || 0),
+      pending_requests: Number(row.pending_requests || 0),
+      handed_out_requests: Number(row.handed_out_requests || 0),
+    }));
+
+    const summary = categoryCounts.reduce(
+      (accumulator, row) => {
+        accumulator.totalRequests += row.total_requests;
+        accumulator.pendingRequests += row.pending_requests;
+        accumulator.handedOutRequests += row.handed_out_requests;
+        return accumulator;
+      },
+      {
+        totalRequests: 0,
+        pendingRequests: 0,
+        handedOutRequests: 0,
+      },
+    );
+
+    return {
+      categoryCounts,
+      summary,
+    };
+  }
+
   async listCategoryRequestCounts(eventId, type) {
     const config = this.resolveConfig(type);
     const [rows] = await this.pool.execute(

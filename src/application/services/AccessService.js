@@ -954,14 +954,13 @@ class AccessService {
 
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
-    const [categories, categoryCounts, profiles, requests, summary] = await Promise.all([
+    const [categories, overview, profiles, requests] = await Promise.all([
       this.categoryRepository.listByEvent(eventId, type),
-      this.requestRepository.listCategoryRequestCounts(eventId, type),
-      this.requestProfileRepository.listByEvent(eventId),
+      this.requestRepository.getAdminOverview(eventId, type),
+      this.requestProfileRepository.listOptionsByEvent(eventId),
       this.requestRepository.listAdminRequests(eventId, type, filters),
-      this.requestRepository.getAdminSummary(eventId, type),
     ]);
-    const categoryCountMap = categoryCounts.reduce((map, entry) => {
+    const categoryCountMap = overview.categoryCounts.reduce((map, entry) => {
       map[entry.category_id] = entry;
       return map;
     }, {});
@@ -984,7 +983,7 @@ class AccessService {
         display_status_tone: resolveRequestDisplayStatusTone(type, request),
         display_status_at: resolveRequestDisplayStatusAt(type, request),
       })),
-      summary,
+      summary: overview.summary,
       canManage: MANAGEMENT_ROLES.includes(event.role),
       type,
     };
@@ -1051,12 +1050,11 @@ class AccessService {
 
   async getPassPrintPage(eventId, actorId, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
-    const [categories, categoryCounts, summary] = await Promise.all([
+    const [categories, overview] = await Promise.all([
       this.categoryRepository.listByEvent(eventId, 'pass'),
-      this.requestRepository.listCategoryRequestCounts(eventId, 'pass'),
-      this.requestRepository.getAdminSummary(eventId, 'pass'),
+      this.requestRepository.getAdminOverview(eventId, 'pass'),
     ]);
-    const categoryCountMap = categoryCounts.reduce((map, entry) => {
+    const categoryCountMap = overview.categoryCounts.reduce((map, entry) => {
       map[entry.category_id] = entry;
       return map;
     }, {});
@@ -1066,7 +1064,7 @@ class AccessService {
       canManage: MANAGEMENT_ROLES.includes(event.role),
       template: buildPassPrintTemplateFromEvent(event, t),
       variableDefinitions: getPassPrintVariableDefinitions(t),
-      summary,
+      summary: overview.summary,
       categories: categories.map((category) => ({
         ...category,
         total_requests: Number(categoryCountMap[Number(category.id)]?.total_requests || 0),

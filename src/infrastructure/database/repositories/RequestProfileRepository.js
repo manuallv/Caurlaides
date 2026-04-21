@@ -57,6 +57,23 @@ class RequestProfileRepository {
     return rows;
   }
 
+  async listOptionsByEvent(eventId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.name
+        FROM request_profiles rp
+        WHERE rp.event_id = ?
+          AND rp.deleted_at IS NULL
+        ORDER BY rp.created_at DESC, rp.name ASC
+      `,
+      [eventId],
+    );
+
+    return rows;
+  }
+
   async findById(profileId) {
     const [rows] = await this.pool.execute(
       `
