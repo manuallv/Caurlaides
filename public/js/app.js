@@ -111,6 +111,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4200);
   };
 
+  const captureLiveScrollState = () => {
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    const accessTableScroll = document.querySelector('[data-access-table-scroll]');
+
+    return {
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+      documentLeft: scrollingElement?.scrollLeft || 0,
+      documentTop: scrollingElement?.scrollTop || 0,
+      accessTableLeft: accessTableScroll?.scrollLeft ?? null,
+      accessTableTop: accessTableScroll?.scrollTop ?? null,
+    };
+  };
+
+  const restoreLiveScrollState = (state) => {
+    if (!state) {
+      return;
+    }
+
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    const accessTableScroll = document.querySelector('[data-access-table-scroll]');
+
+    if (scrollingElement) {
+      scrollingElement.scrollLeft = state.documentLeft || 0;
+      scrollingElement.scrollTop = state.documentTop || 0;
+    }
+
+    window.scrollTo(state.windowX || 0, state.windowY || 0);
+
+    if (accessTableScroll && state.accessTableTop !== null) {
+      accessTableScroll.scrollLeft = state.accessTableLeft || 0;
+      accessTableScroll.scrollTop = state.accessTableTop || 0;
+    }
+  };
+
   const refreshLiveSections = async (targetUrl = window.location.href, options = {}) => {
     const { abortPrevious = false } = options;
     const currentSections = [...document.querySelectorAll('[data-live-section]')];
@@ -127,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const controller = new AbortController();
     activeRefreshController = controller;
     const activeElement = document.activeElement;
+    const scrollState = captureLiveScrollState();
     const focusedState = activeElement && activeElement.name
       ? {
           name: activeElement.name,
@@ -175,7 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const replacementInput = document.querySelector(`[name="${escapeSelector(focusedState.name)}"]`);
 
         if (replacementInput && typeof replacementInput.focus === 'function') {
-          replacementInput.focus();
+          try {
+            replacementInput.focus({ preventScroll: true });
+          } catch (error) {
+            replacementInput.focus();
+          }
 
           if (
             typeof replacementInput.setSelectionRange === 'function'
@@ -189,7 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      restoreLiveScrollState(scrollState);
       window.dispatchEvent(new CustomEvent('codex:live-sections-refreshed'));
+      window.requestAnimationFrame(() => {
+        restoreLiveScrollState(scrollState);
+      });
     } finally {
       if (activeRefreshController === controller) {
         activeRefreshController = null;
