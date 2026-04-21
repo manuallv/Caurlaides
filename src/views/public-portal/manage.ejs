@@ -229,14 +229,6 @@
                       const lockReasonKey = request.portal_lock_reason_code
                         ? `portal.lockReason.${request.portal_lock_reason_code}${request.portal_lock_reason_at ? '' : 'NoTime'}`
                         : '';
-                      const requestEntryValue = request.last_entry_at || request.entered_at || null;
-                      const requestLastEntryTs = requestEntryValue ? new Date(requestEntryValue).getTime() : 0;
-                      const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
-                      const requestMovementLabel = request.request_type === 'pass' && requestLastExitTs >= requestLastEntryTs && requestLastExitTs
-                        ? `${t('check.direction.exit')}: ${helpers.formatDateTime(request.last_exit_at)}`
-                        : request.request_type === 'pass' && requestEntryValue
-                          ? `${t('portal.enteredAt')}: ${helpers.formatDateTime(requestEntryValue)}`
-                          : '';
                     %>
                     <tr
                       class="portal-request-row"
@@ -274,12 +266,6 @@
                       <td>
                         <div class="portal-status-stack">
                           <span class="portal-status-pill <%= statusToneClass %>"><%= t(request.display_status_label_key || `statuses.${request.status}`) %></span>
-                          <% if (requestMovementLabel) { %>
-                            <span class="portal-status-meta"><%= requestMovementLabel %></span>
-                          <% } %>
-                          <% if (request.updated_at) { %>
-                            <span class="portal-status-meta"><%= t('portal.statusUpdatedAt', { time: helpers.formatDateTime(request.updated_at) }) %></span>
-                          <% } %>
                         </div>
                       </td>
                       <td>

@@ -3349,14 +3349,6 @@ body.portal-modal-open {
 
 .portal-status-stack {
   display: grid;
-  gap: 0.28rem;
-}
-
-.portal-status-meta {
-  color: #7b8aa1;
-  font-size: 0.72rem;
-  line-height: 1.45;
-  word-break: break-word;
 }
 
 .portal-status-pill.is-pending {
