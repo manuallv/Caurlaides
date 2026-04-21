@@ -11,6 +11,7 @@ function createSessionMiddleware() {
       clearExpired: true,
       checkExpirationInterval: 15 * 60 * 1000,
       expiration: 24 * 60 * 60 * 1000,
+      disableTouch: true,
       // We keep the schema in version control so local/dev/prod stay aligned.
       createDatabaseTable: false,
       schema: {
@@ -30,7 +31,7 @@ function createSessionMiddleware() {
     resave: false,
     saveUninitialized: false,
     store: sessionStore,
-    rolling: true,
+    rolling: false,
     cookie: {
       httpOnly: true,
       secure: env.cookieSecure,

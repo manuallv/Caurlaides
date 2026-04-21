@@ -283,6 +283,8 @@ CREATE TABLE IF NOT EXISTS pass_requests (
   PRIMARY KEY (id),
   KEY idx_pass_requests_event_status (event_id, status),
   KEY idx_pass_requests_profile_id (request_profile_id),
+  KEY idx_pass_requests_profile_deleted_created (request_profile_id, deleted_at, created_at, id),
+  KEY idx_pass_requests_profile_category_deleted (request_profile_id, pass_category_id, deleted_at),
   KEY idx_pass_requests_event_plate (event_id, vehicle_plate_normalized, deleted_at),
   CONSTRAINT fk_pass_requests_event
     FOREIGN KEY (event_id) REFERENCES events (id)
@@ -369,6 +371,8 @@ CREATE TABLE IF NOT EXISTS wristband_requests (
   PRIMARY KEY (id),
   KEY idx_wristband_requests_event_status (event_id, status),
   KEY idx_wristband_requests_profile_id (request_profile_id),
+  KEY idx_wristband_requests_profile_deleted_created (request_profile_id, deleted_at, created_at, id),
+  KEY idx_wristband_requests_profile_category_deleted (request_profile_id, wristband_category_id, deleted_at),
   CONSTRAINT fk_wristband_requests_event
     FOREIGN KEY (event_id) REFERENCES events (id)
     ON DELETE CASCADE
@@ -432,7 +436,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
   expires INT UNSIGNED NOT NULL,
   data MEDIUMTEXT COLLATE utf8mb4_bin NOT NULL,
-  PRIMARY KEY (session_id)
+  PRIMARY KEY (session_id),
+  KEY idx_sessions_expires (expires)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS system_settings (
