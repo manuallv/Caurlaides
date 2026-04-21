@@ -3290,11 +3290,7 @@ body.portal-modal-open {
 }
 
 .portal-col-status {
-  width: 8rem;
-}
-
-.portal-col-updated {
-  width: 10.5rem;
+  width: 12rem;
 }
 
 .portal-col-actions {
@@ -3340,8 +3336,7 @@ body.portal-modal-open {
   word-break: break-word;
 }
 
-.portal-data-cell,
-.portal-updated-cell {
+.portal-data-cell {
   color: #4a5b72;
   font-size: 0.85rem;
   line-height: 1.58;
@@ -3350,7 +3345,14 @@ body.portal-modal-open {
 
 .portal-status-stack {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.28rem;
+}
+
+.portal-status-meta {
+  color: #7b8aa1;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .portal-status-pill.is-pending {

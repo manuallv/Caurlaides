@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeRefreshController = null;
   let suppressSocketRefreshUntil = 0;
   let portalTableSearchQuery = '';
-  let portalTableSortField = 'updated';
+  let portalTableSortField = 'created';
   let portalTableSortDirection = 'desc';
   const escapeSelector = (value) => {
     if (window.CSS && typeof window.CSS.escape === 'function') {
@@ -1565,9 +1565,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tbody && rows.length) {
       const directionMultiplier = portalTableSortDirection === 'asc' ? 1 : -1;
       const sortedRows = [...rows].sort((left, right) => {
-        if (portalTableSortField === 'updated') {
-          const leftValue = Number(left.dataset.sortUpdated || 0);
-          const rightValue = Number(right.dataset.sortUpdated || 0);
+        if (portalTableSortField === 'updated' || portalTableSortField === 'created') {
+          const leftValue = Number(left.dataset[sortKey] || 0);
+          const rightValue = Number(right.dataset[sortKey] || 0);
 
           if (leftValue === rightValue) {
             return 0;
@@ -3944,7 +3944,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (event.target.matches('[data-portal-table-sort]')) {
-      portalTableSortField = event.target.value || 'updated';
+      portalTableSortField = event.target.value || 'created';
       filterPortalRows();
       return;
     }

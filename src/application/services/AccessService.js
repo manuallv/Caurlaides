@@ -581,9 +581,14 @@ function buildUnlimitedQuotaTotals(quotaUsage = []) {
 function buildCombinedRequests(passRequests = [], wristbandRequests = []) {
   return [...passRequests, ...wristbandRequests]
     .sort((left, right) => {
-      const leftDate = new Date(left.updated_at || left.created_at || 0).getTime();
-      const rightDate = new Date(right.updated_at || right.created_at || 0).getTime();
-      return rightDate - leftDate;
+      const leftDate = new Date(left.created_at || left.updated_at || 0).getTime();
+      const rightDate = new Date(right.created_at || right.updated_at || 0).getTime();
+
+      if (rightDate !== leftDate) {
+        return rightDate - leftDate;
+      }
+
+      return Number(right.id || 0) - Number(left.id || 0);
     })
     .map((request) => ({
       ...request,

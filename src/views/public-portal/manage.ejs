@@ -172,7 +172,7 @@
                 <p class="portal-table-toolbar-label"><%= t('portal.sort.label') %></p>
                 <div class="portal-table-sort">
                   <select id="portal-table-sort" class="field-input" data-portal-table-sort>
-                    <option value="updated"><%= t('portal.sort.updated') %></option>
+                    <option value="created"><%= t('portal.sort.submitted') %></option>
                     <option value="name"><%= t('portal.sort.name') %></option>
                     <option value="email"><%= t('portal.sort.email') %></option>
                     <option value="phone"><%= t('portal.sort.phone') %></option>
@@ -209,7 +209,6 @@
                   <col class="portal-col-company" />
                   <col class="portal-col-phone" />
                   <col class="portal-col-status" />
-                  <col class="portal-col-updated" />
                   <col class="portal-col-actions" />
                 </colgroup>
                 <thead>
@@ -220,7 +219,6 @@
                     <th><%= t('portal.table.company') %></th>
                     <th><%= t('portal.table.phone') %></th>
                     <th><%= t('portal.table.status') %></th>
-                    <th><%= t('portal.table.updated') %></th>
                     <th><%= t('portal.table.actions') %></th>
                   </tr>
                 </thead>
@@ -251,6 +249,7 @@
                       data-sort-company="<%= (request.company_name || '').toLowerCase() %>"
                       data-sort-category="<%= (request.category_name || '').toLowerCase() %>"
                       data-sort-status="<%= (request.display_status || request.status || '').toLowerCase() %>"
+                      data-sort-created="<%= new Date(request.created_at || request.updated_at).getTime() || 0 %>"
                       data-sort-updated="<%= new Date(request.updated_at).getTime() || 0 %>"
                     >
                       <td>
@@ -276,13 +275,11 @@
                         <div class="portal-status-stack">
                           <span class="portal-status-pill <%= statusToneClass %>"><%= t(request.display_status_label_key || `statuses.${request.status}`) %></span>
                           <% if (requestMovementLabel) { %>
-                            <span class="text-xs text-slate-500"><%= requestMovementLabel %></span>
+                            <span class="portal-status-meta"><%= requestMovementLabel %></span>
                           <% } %>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="portal-updated-cell">
-                          <span><%= helpers.formatDateTime(request.updated_at) %></span>
+                          <% if (request.updated_at) { %>
+                            <span class="portal-status-meta"><%= t('portal.statusUpdatedAt', { time: helpers.formatDateTime(request.updated_at) }) %></span>
+                          <% } %>
                         </div>
                       </td>
                       <td>
