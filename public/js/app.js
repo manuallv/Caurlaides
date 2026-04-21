@@ -1597,45 +1597,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const getAccessElements = () => ({
-    workspace: document.querySelector('[data-access-workspace]'),
-    viewTabs: [...document.querySelectorAll('[data-access-view-tab]')],
-    viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
-    fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
-    fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
-    filterForm: document.querySelector('[data-live-filter-form]'),
-    exportModal: document.querySelector('[data-access-export-modal]'),
-    historyModal: document.querySelector('[data-access-history-modal]'),
-    historyTitle: document.querySelector('[data-access-history-title]'),
-    historyEyebrow: document.querySelector('[data-access-history-eyebrow]'),
-    historyMeta: document.querySelector('[data-access-history-meta]'),
-    historySummary: document.querySelector('[data-access-history-summary]'),
-    historyLoading: document.querySelector('[data-access-history-loading]'),
-    historyEmpty: document.querySelector('[data-access-history-empty]'),
-    historyList: document.querySelector('[data-access-history-list]'),
-    table: document.querySelector('[data-access-requests-table]'),
-    tableBody: document.querySelector('[data-access-requests-body]'),
-    tableScroll: document.querySelector('[data-access-table-scroll]'),
-    emptyState: document.querySelector('[data-access-empty-state]'),
-    filteredCountNodes: [...document.querySelectorAll('[data-access-filtered-count-label]')],
-    typeForm: document.querySelector('[data-access-type-form]'),
-    typeFormTitle: document.querySelector('[data-access-type-form-title]'),
-    typeFormMethodHolder: document.querySelector('[data-access-type-method-holder]'),
-    typeSubmitLabel: document.querySelector('[data-access-type-submit-label]'),
-    requestModal: document.querySelector('[data-access-request-modal]'),
-    requestForm: document.querySelector('[data-access-request-form]'),
-    requestTitle: document.querySelector('[data-access-request-modal-title]'),
-    requestEyebrow: document.querySelector('[data-access-request-modal-eyebrow]'),
-    requestMethodHolder: document.querySelector('[data-access-request-method-holder]'),
-    requestSubmitLabel: document.querySelector('[data-access-request-submit-label]'),
-    requestProfile: document.querySelector('[data-access-request-profile]'),
-    requestCategory: document.querySelector('[data-access-request-category]'),
-    entryWindowsList: document.querySelector('[data-access-entry-windows-list]'),
-    entryWindowsEmpty: document.querySelector('[data-access-entry-windows-empty]'),
-    entryWindowTemplate: document.querySelector('[data-access-entry-window-template]'),
-    typeTotalNodes: [...document.querySelectorAll('[data-access-type-total]')],
-    typeHandedNodes: [...document.querySelectorAll('[data-access-type-handed]')],
-  });
+  const getAccessElements = () => {
+    const workspace = document.querySelector('[data-access-workspace]');
+    const exportModal = document.querySelector('[data-access-export-modal]');
+    const historyModal = document.querySelector('[data-access-history-modal]');
+    const requestModal = document.querySelector('[data-access-request-modal]');
+    const typeForm = document.querySelector('[data-access-type-form]');
+
+    return {
+      workspace,
+      viewTabs: [...document.querySelectorAll('[data-access-view-tab]')],
+      viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
+      fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
+      fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
+      filterForm: document.querySelector('[data-live-filter-form]'),
+      exportModal,
+      historyModal,
+      historyTitle: historyModal?.querySelector('[data-access-history-title]') || null,
+      historyEyebrow: historyModal?.querySelector('[data-access-history-eyebrow]') || null,
+      historyMeta: historyModal?.querySelector('[data-access-history-meta]') || null,
+      historySummary: historyModal?.querySelector('[data-access-history-summary]') || null,
+      historyLoading: historyModal?.querySelector('[data-access-history-loading]') || null,
+      historyEmpty: historyModal?.querySelector('[data-access-history-empty]') || null,
+      historyList: historyModal?.querySelector('[data-access-history-list]') || null,
+      table: document.querySelector('[data-access-requests-table]'),
+      tableBody: document.querySelector('[data-access-requests-body]'),
+      tableScroll: document.querySelector('[data-access-table-scroll]'),
+      emptyState: document.querySelector('[data-access-empty-state]'),
+      filteredCountNodes: [...document.querySelectorAll('[data-access-filtered-count-label]')],
+      typeForm,
+      typeFormTitle: document.querySelector('[data-access-type-form-title]'),
+      typeFormMethodHolder: typeForm?.querySelector('[data-access-type-method-holder]') || null,
+      typeSubmitLabel: typeForm?.querySelector('[data-access-type-submit-label]') || null,
+      requestModal,
+      requestForm: requestModal?.querySelector('[data-access-request-form]') || null,
+      requestTitle: requestModal?.querySelector('[data-access-request-modal-title]') || null,
+      requestEyebrow: requestModal?.querySelector('[data-access-request-modal-eyebrow]') || null,
+      requestMethodHolder: requestModal?.querySelector('[data-access-request-method-holder]') || null,
+      requestSubmitLabel: requestModal?.querySelector('[data-access-request-submit-label]') || null,
+      requestProfile: requestModal?.querySelector('[data-access-request-profile]') || null,
+      requestCategory: requestModal?.querySelector('[data-access-request-category]') || null,
+      entryWindowsList: document.querySelector('[data-access-entry-windows-list]'),
+      entryWindowsEmpty: document.querySelector('[data-access-entry-windows-empty]'),
+      entryWindowTemplate: document.querySelector('[data-access-entry-window-template]'),
+      typeTotalNodes: [...document.querySelectorAll('[data-access-type-total]')],
+      typeHandedNodes: [...document.querySelectorAll('[data-access-type-handed]')],
+    };
+  };
 
   const getAccessUi = () => {
     const workspace = getAccessElements().workspace;
