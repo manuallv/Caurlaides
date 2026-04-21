@@ -171,6 +171,52 @@ function isRequestLockedForPortal(type, request = {}) {
   return displayState === 'handed_out';
 }
 
+function resolvePortalDeadline(type, profile = {}) {
+  const deadlineField = type === 'pass' ? 'pass_request_deadline' : 'wristband_request_deadline';
+  return profile[deadlineField] || null;
+}
+
+function resolvePortalLockReason(type, request = {}, profile = {}) {
+  const displayState = resolveRequestDisplayState(type, request);
+
+  if (type === 'pass') {
+    if (displayState === 'handed_out') {
+      return {
+        code: 'passHandedOut',
+        at: resolveRequestDisplayStatusAt(type, request),
+      };
+    }
+
+    if (displayState === 'entered') {
+      return {
+        code: 'passEntered',
+        at: resolveRequestDisplayStatusAt(type, request),
+      };
+    }
+  }
+
+  if (type === 'wristband' && displayState === 'handed_out') {
+    return {
+      code: 'wristbandHandedOut',
+      at: resolveRequestDisplayStatusAt(type, request),
+    };
+  }
+
+  const deadline = resolvePortalDeadline(type, profile);
+
+  if (deadline && dayjs().isAfter(dayjs(deadline))) {
+    return {
+      code: 'deadline',
+      at: deadline,
+    };
+  }
+
+  return {
+    code: null,
+    at: null,
+  };
+}
+
 function resolveVehicleGateScanDirection(configuredMode, currentPresence) {
   if (!['entry', 'exit'].includes(configuredMode)) {
     return 'decision';
@@ -2077,24 +2123,42 @@ class AccessService {
         wristbandRequestsRaw,
       )
       : withRemainingQuota(wristbandQuotaUsageRaw);
-    const passRequests = passRequestsRaw.map((request) => ({
-      ...request,
-      request_type: 'pass',
-      display_status: resolveRequestDisplayState('pass', request),
-      display_status_label_key: resolveRequestDisplayStatusLabelKey('pass', request),
-      display_status_tone: resolveRequestDisplayStatusTone('pass', request),
-      display_status_at: resolveRequestDisplayStatusAt('pass', request),
-      isEditable: this.isPortalRequestEditable(profile, 'pass', request),
-    }));
-    const wristbandRequests = wristbandRequestsRaw.map((request) => ({
-      ...request,
-      request_type: 'wristband',
-      display_status: resolveRequestDisplayState('wristband', request),
-      display_status_label_key: resolveRequestDisplayStatusLabelKey('wristband', request),
-      display_status_tone: resolveRequestDisplayStatusTone('wristband', request),
-      display_status_at: resolveRequestDisplayStatusAt('wristband', request),
-      isEditable: this.isPortalRequestEditable(profile, 'wristband', request),
-    }));
+    const passRequests = passRequestsRaw.map((request) => {
+      const isEditable = this.isPortalRequestEditable(profile, 'pass', request);
+      const lockInfo = isEditable
+        ? { code: null, at: null }
+        : resolvePortalLockReason('pass', request, profile);
+
+      return {
+        ...request,
+        request_type: 'pass',
+        display_status: resolveRequestDisplayState('pass', request),
+        display_status_label_key: resolveRequestDisplayStatusLabelKey('pass', request),
+        display_status_tone: resolveRequestDisplayStatusTone('pass', request),
+        display_status_at: resolveRequestDisplayStatusAt('pass', request),
+        portal_lock_reason_code: lockInfo.code,
+        portal_lock_reason_at: lockInfo.at,
+        isEditable,
+      };
+    });
+    const wristbandRequests = wristbandRequestsRaw.map((request) => {
+      const isEditable = this.isPortalRequestEditable(profile, 'wristband', request);
+      const lockInfo = isEditable
+        ? { code: null, at: null }
+        : resolvePortalLockReason('wristband', request, profile);
+
+      return {
+        ...request,
+        request_type: 'wristband',
+        display_status: resolveRequestDisplayState('wristband', request),
+        display_status_label_key: resolveRequestDisplayStatusLabelKey('wristband', request),
+        display_status_tone: resolveRequestDisplayStatusTone('wristband', request),
+        display_status_at: resolveRequestDisplayStatusAt('wristband', request),
+        portal_lock_reason_code: lockInfo.code,
+        portal_lock_reason_at: lockInfo.at,
+        isEditable,
+      };
+    });
     const passPortalOpen = this.isPortalTypeOpen(profile, 'pass');
     const wristbandPortalOpen = this.isPortalTypeOpen(profile, 'wristband');
 

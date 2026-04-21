@@ -228,6 +228,9 @@
                   <% visibleCombinedRequests.forEach((request) => { %>
                     <%
                       const statusToneClass = request.isEditable ? 'is-pending' : 'is-locked';
+                      const lockReasonKey = request.portal_lock_reason_code
+                        ? `portal.lockReason.${request.portal_lock_reason_code}${request.portal_lock_reason_at ? '' : 'NoTime'}`
+                        : '';
                       const requestEntryValue = request.last_entry_at || request.entered_at || null;
                       const requestLastEntryTs = requestEntryValue ? new Date(requestEntryValue).getTime() : 0;
                       const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
@@ -305,7 +308,19 @@
                               <button type="submit" class="portal-action-button portal-action-button-danger"><%= t('portal.deleteRequest') %></button>
                             </form>
                           <% } else { %>
-                            <span class="portal-lock-label"><%= t('portal.requestLockedShort') %></span>
+                            <div class="portal-lock-stack">
+                              <span class="portal-lock-label"><%= t('portal.requestLockedShort') %></span>
+                              <% if (lockReasonKey) { %>
+                                <span class="portal-lock-reason">
+                                  <%= t(
+                                    lockReasonKey,
+                                    request.portal_lock_reason_at
+                                      ? { time: helpers.formatDateTime(request.portal_lock_reason_at) }
+                                      : {},
+                                  ) %>
+                                </span>
+                              <% } %>
+                            </div>
                           <% } %>
                         </div>
                       </td>

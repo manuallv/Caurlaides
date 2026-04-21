@@ -3314,6 +3314,21 @@ body.portal-modal-open {
   text-transform: uppercase;
 }
 
+.portal-lock-stack {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.portal-lock-reason {
+  color: #718096;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  max-width: 13rem;
+}
+
 .portal-empty-copy-table {
   padding: 0.2rem 0 0.25rem;
 }
