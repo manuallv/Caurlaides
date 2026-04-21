@@ -854,7 +854,7 @@ class AccessService {
     };
   }
 
-  async exportAdminRequests(eventId, actorId, type, format, t) {
+  async exportAdminRequests(eventId, actorId, type, format, filters, t) {
     const tx = resolveTranslate(t);
     const normalizedFormat = String(format || '').trim().toLowerCase();
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
@@ -863,7 +863,7 @@ class AccessService {
       throw new AppError(tx('service.export.formatInvalid'), 422);
     }
 
-    const requests = await this.requestRepository.listAdminRequests(eventId, type, {});
+    const requests = await this.requestRepository.listAdminRequests(eventId, type, filters || {});
     const typeTitle = tx(type === 'pass' ? 'nav.passes' : 'nav.wristbands');
     const rows = buildAdminExportRows(requests, typeTitle);
     const timestamp = dayjs().format('YYYYMMDD-HHmm');

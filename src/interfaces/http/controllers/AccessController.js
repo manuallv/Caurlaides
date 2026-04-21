@@ -822,6 +822,7 @@ function buildAccessController({ categoryService, accessService }) {
         req.currentUser.id,
         type,
         req.query.format,
+        normalizeAdminFilters(req.query),
         req.t,
       );
 

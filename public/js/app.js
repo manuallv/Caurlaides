@@ -1399,6 +1399,32 @@ document.addEventListener('DOMContentLoaded', () => {
     await downloadBlobResponse(response, url);
   };
 
+  const buildAccessExportUrl = (url) => {
+    if (!url) {
+      return '';
+    }
+
+    const exportUrl = new URL(url, window.location.origin);
+    const activeParams = new URLSearchParams(window.location.search);
+    const format = exportUrl.searchParams.get('format') || '';
+
+    exportUrl.search = '';
+
+    activeParams.forEach((value, key) => {
+      if (key === 'format' || value === '') {
+        return;
+      }
+
+      exportUrl.searchParams.append(key, value);
+    });
+
+    if (format) {
+      exportUrl.searchParams.set('format', format);
+    }
+
+    return exportUrl.toString();
+  };
+
   const getRequestProfileElements = () => ({
     form: document.querySelector('[data-request-profile-form]'),
     searchInput: document.querySelector('[data-request-profile-search]'),
@@ -2816,6 +2842,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    exportModal.querySelectorAll('[data-access-export-download]').forEach((link) => {
+      if (!link.dataset.exportBaseHref) {
+        link.dataset.exportBaseHref = link.getAttribute('href') || '';
+      }
+
+      const nextHref = buildAccessExportUrl(link.dataset.exportBaseHref);
+
+      if (nextHref) {
+        link.setAttribute('href', nextHref);
+      }
+    });
+
     closeAccessHistoryModal();
     closeAccessRequestModal();
     exportModal.classList.add('is-open');
@@ -3469,7 +3507,10 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
 
       try {
-        await triggerAccessExportDownload(accessExportDownloadTrigger.href);
+        const exportUrl = buildAccessExportUrl(
+          accessExportDownloadTrigger.dataset.exportBaseHref || accessExportDownloadTrigger.href,
+        );
+        await triggerAccessExportDownload(exportUrl);
         closeAccessExportModal();
       } catch (error) {
         showLiveNotice(error.message || 'Export failed', 'error');
