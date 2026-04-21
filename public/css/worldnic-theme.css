@@ -1966,6 +1966,10 @@ body.portal-modal-open {
   gap: 1.15rem;
 }
 
+.portal-summary-grid > :only-child {
+  grid-column: 1 / -1;
+}
+
 .portal-workspace {
   display: grid;
   grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
