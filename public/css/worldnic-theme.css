@@ -1057,6 +1057,7 @@ select.field-input {
 
 .access-admin-shell {
   position: relative;
+  overflow: visible;
 }
 
 .access-admin-shell-fullscreen {
