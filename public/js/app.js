@@ -141,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
         },
+        cache: 'no-store',
         credentials: 'same-origin',
         signal: controller.signal,
       });
@@ -193,6 +194,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activeRefreshController === controller) {
         activeRefreshController = null;
       }
+    }
+  };
+
+  const triggerSocketLiveRefresh = async () => {
+    if (refreshInProgress) {
+      return;
+    }
+
+    refreshInProgress = true;
+
+    try {
+      await refreshLiveSections(window.location.href, { abortPrevious: true });
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      refreshInProgress = false;
     }
   };
 
@@ -4108,19 +4125,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.emit('event:join', eventRoom);
 
-    socket.on('access:request-upsert', (payload) => {
+    socket.on('access:request-upsert', async (payload) => {
       const handled = applyAccessRequestUpsert(payload);
+      const isPortalPage = Boolean(getPortalElements().app);
 
       if (handled) {
         suppressSocketRefreshUntil = Date.now() + 1800;
+        return;
+      }
+
+      if (isPortalPage) {
+        await triggerSocketLiveRefresh();
       }
     });
 
-    socket.on('access:request-delete', (payload) => {
+    socket.on('access:request-delete', async (payload) => {
       const handled = applyAccessRequestDelete(payload);
+      const isPortalPage = Boolean(getPortalElements().app);
 
       if (handled) {
         suppressSocketRefreshUntil = Date.now() + 1800;
+        return;
+      }
+
+      if (isPortalPage) {
+        await triggerSocketLiveRefresh();
       }
     });
 
@@ -4129,19 +4158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (refreshInProgress) {
-        return;
-      }
-
-      refreshInProgress = true;
-
-      try {
-        await refreshLiveSections();
-      } catch (error) {
-        window.location.reload();
-      } finally {
-        refreshInProgress = false;
-      }
+      await triggerSocketLiveRefresh();
     });
 
     window.addEventListener('beforeunload', () => {
