@@ -1673,7 +1673,13 @@ document.addEventListener('DOMContentLoaded', () => {
       fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
       fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
       filterForm: document.querySelector('[data-live-filter-form]'),
-      profileFilterInput: document.querySelector('[data-access-profile-filter-input]'),
+      profileFilter: document.querySelector('[data-access-profile-filter]'),
+      profileFilterTrigger: document.querySelector('[data-access-profile-filter-trigger]'),
+      profileFilterLabel: document.querySelector('[data-access-profile-filter-label]'),
+      profileFilterPanel: document.querySelector('[data-access-profile-filter-panel]'),
+      profileFilterSearch: document.querySelector('[data-access-profile-filter-search]'),
+      profileFilterEmpty: document.querySelector('[data-access-profile-filter-empty]'),
+      profileFilterOptions: [...document.querySelectorAll('[data-access-profile-filter-option]')],
       profileFilterValue: document.querySelector('[data-access-profile-filter-value]'),
       exportModal,
       historyModal,
@@ -2034,6 +2040,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setAccessEntryWindows([], { ensureBlank: true });
     }
     syncAccessTypeUsageMetrics();
+    syncAccessProfileFilterSelection();
+    closeAccessProfileFilter();
 
     if (isAccessServerPaginationEnabled()) {
       const pageRowCount = elements.tableBody
@@ -2095,24 +2103,173 @@ document.addEventListener('DOMContentLoaded', () => {
     pageField.value = String(Math.max(Number(page) || 1, 1));
   };
 
+  const closeAccessProfileFilter = ({ restoreFocus = false } = {}) => {
+    const {
+      profileFilter,
+      profileFilterTrigger,
+      profileFilterPanel,
+      profileFilterSearch,
+      profileFilterOptions,
+      profileFilterEmpty,
+    } = getAccessElements();
+
+    if (!profileFilter || !profileFilterTrigger || !profileFilterPanel) {
+      return;
+    }
+
+    profileFilter.classList.remove('is-open');
+    profileFilterPanel.hidden = true;
+    profileFilterTrigger.setAttribute('aria-expanded', 'false');
+
+    if (profileFilterSearch) {
+      profileFilterSearch.value = '';
+    }
+
+    profileFilterOptions.forEach((option) => {
+      option.hidden = false;
+    });
+
+    if (profileFilterEmpty) {
+      profileFilterEmpty.classList.add('hidden');
+    }
+
+    if (restoreFocus) {
+      profileFilterTrigger.focus();
+    }
+  };
+
+  const filterAccessProfileOptions = () => {
+    const { profileFilterSearch, profileFilterOptions, profileFilterEmpty } = getAccessElements();
+
+    if (!profileFilterSearch || !profileFilterOptions.length) {
+      return null;
+    }
+
+    const normalizedQuery = String(profileFilterSearch.value || '').trim().toLowerCase();
+    let firstVisibleOption = null;
+    let visibleCount = 0;
+
+    profileFilterOptions.forEach((option) => {
+      const optionName = String(option.dataset.profileName || option.textContent || '').trim().toLowerCase();
+      const matches = !normalizedQuery || optionName.includes(normalizedQuery);
+
+      option.hidden = !matches;
+
+      if (matches) {
+        visibleCount += 1;
+
+        if (!firstVisibleOption) {
+          firstVisibleOption = option;
+        }
+      }
+    });
+
+    if (profileFilterEmpty) {
+      profileFilterEmpty.classList.toggle('hidden', visibleCount > 0);
+    }
+
+    return firstVisibleOption;
+  };
+
   const syncAccessProfileFilterSelection = () => {
-    const { profileFilterInput, profileFilterValue } = getAccessElements();
+    const {
+      profileFilter,
+      profileFilterLabel,
+      profileFilterSearch,
+      profileFilterValue,
+      profileFilterOptions,
+      profileFilterEmpty,
+    } = getAccessElements();
 
-    if (!profileFilterInput || !profileFilterValue) {
+    if (!profileFilter || !profileFilterLabel || !profileFilterValue) {
       return;
     }
 
-    const normalizedInput = String(profileFilterInput.value || '').trim().toLowerCase();
+    const selectedId = String(profileFilterValue.value || '');
+    const defaultLabel = profileFilter.dataset.accessProfileFilterDefaultLabel || '';
+    const selectedOption = profileFilterOptions.find((option) => String(option.dataset.profileId || '') === selectedId);
 
-    if (!normalizedInput) {
-      profileFilterValue.value = '';
+    profileFilterLabel.textContent = selectedOption?.dataset.profileName || defaultLabel;
+
+    profileFilterOptions.forEach((option) => {
+      const isSelected = String(option.dataset.profileId || '') === selectedId;
+      option.classList.toggle('is-selected', isSelected);
+      option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      option.hidden = false;
+    });
+
+    if (profileFilterSearch) {
+      profileFilterSearch.value = '';
+    }
+
+    if (profileFilterEmpty) {
+      profileFilterEmpty.classList.add('hidden');
+    }
+  };
+
+  const applyAccessProfileFilterSelection = async (option) => {
+    const { filterForm, workspace, profileFilterValue } = getAccessElements();
+
+    if (!option || !profileFilterValue) {
       return;
     }
 
-    const options = profileFilterInput.list ? [...profileFilterInput.list.options] : [];
-    const matchedOption = options.find((option) => String(option.value || '').trim().toLowerCase() === normalizedInput);
+    profileFilterValue.value = option.dataset.profileId || '';
+    syncAccessProfileFilterSelection();
+    closeAccessProfileFilter();
 
-    profileFilterValue.value = matchedOption?.dataset.profileId || '';
+    if (!filterForm || !workspace) {
+      return;
+    }
+
+    activeAccessView = 'requests';
+
+    if (isAccessServerPaginationEnabled()) {
+      setAccessFilterPage(1);
+      await submitLiveFilterForm(filterForm);
+    } else {
+      syncAccessFilterUrl();
+      applyAccessFilters();
+    }
+  };
+
+  const openAccessProfileFilter = () => {
+    const {
+      profileFilter,
+      profileFilterTrigger,
+      profileFilterPanel,
+      profileFilterSearch,
+    } = getAccessElements();
+
+    if (!profileFilter || !profileFilterTrigger || !profileFilterPanel) {
+      return;
+    }
+
+    profileFilter.classList.add('is-open');
+    profileFilterPanel.hidden = false;
+    profileFilterTrigger.setAttribute('aria-expanded', 'true');
+    filterAccessProfileOptions();
+
+    if (profileFilterSearch) {
+      window.requestAnimationFrame(() => {
+        profileFilterSearch.focus();
+      });
+    }
+  };
+
+  const toggleAccessProfileFilter = () => {
+    const { profileFilter } = getAccessElements();
+
+    if (!profileFilter) {
+      return;
+    }
+
+    if (profileFilter.classList.contains('is-open')) {
+      closeAccessProfileFilter({ restoreFocus: true });
+      return;
+    }
+
+    openAccessProfileFilter();
   };
 
   const updateAccessFilteredCount = () => {
@@ -3691,8 +3848,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (event.target.matches('[data-access-profile-filter-search]')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeAccessProfileFilter({ restoreFocus: true });
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const firstVisibleOption = filterAccessProfileOptions();
+
+        if (firstVisibleOption) {
+          applyAccessProfileFilterSelection(firstVisibleOption);
+        }
+      }
+
+      return;
+    }
+
     if (event.key === 'Escape') {
       closeAccessActionMenus();
+      closeAccessProfileFilter();
       closeSidebar();
       setAccessFullscreen(false);
       setPortalWorkspaceView('table');
@@ -3712,6 +3889,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const closest = (selector) => findClosestTarget(event.target, selector);
     const accessActionMenuTrigger = closest('[data-access-actions-toggle]');
     const accessActionMenu = closest('[data-access-actions-menu]');
+    const accessProfileFilter = closest('[data-access-profile-filter]');
+    const accessProfileFilterTrigger = closest('[data-access-profile-filter-trigger]');
+    const accessProfileFilterOption = closest('[data-access-profile-filter-option]');
     const dashboardEventSummary = closest('[data-dashboard-event-summary]');
 
     if (dashboardEventSummary) {
@@ -3727,9 +3907,25 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAccessActionMenus();
     }
 
+    if (!accessProfileFilter) {
+      closeAccessProfileFilter();
+    }
+
     if (accessActionMenuTrigger) {
       event.preventDefault();
       toggleAccessActionMenu(accessActionMenuTrigger);
+      return;
+    }
+
+    if (accessProfileFilterTrigger) {
+      event.preventDefault();
+      toggleAccessProfileFilter();
+      return;
+    }
+
+    if (accessProfileFilterOption) {
+      event.preventDefault();
+      await applyAccessProfileFilterSelection(accessProfileFilterOption);
       return;
     }
 
@@ -3986,12 +4182,6 @@ document.addEventListener('DOMContentLoaded', () => {
           accessFilterForm.elements.q.value = '';
         }
 
-        const { profileFilterInput } = getAccessElements();
-
-        if (profileFilterInput) {
-          profileFilterInput.value = '';
-        }
-
         if (accessFilterForm.elements.profileId) {
           accessFilterForm.elements.profileId.value = '';
         }
@@ -4013,6 +4203,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activeAccessView = 'requests';
+        syncAccessProfileFilterSelection();
+        closeAccessProfileFilter();
 
         if (isAccessServerPaginationEnabled()) {
           setAccessFilterPage(1);
@@ -4205,29 +4397,14 @@ document.addEventListener('DOMContentLoaded', () => {
       updateImportTemplateLink();
     }
 
-    if (event.target.matches('[data-access-profile-filter-input]')) {
-      const liveFilterForm = event.target.closest('[data-live-filter-form]');
-
-      syncAccessProfileFilterSelection();
-
-      if (liveFilterForm && getAccessElements().workspace) {
-        activeAccessView = 'requests';
-
-        if (isAccessServerPaginationEnabled()) {
-          setAccessFilterPage(1);
-          submitLiveFilterForm(liveFilterForm);
-        } else {
-          syncAccessFilterUrl();
-          applyAccessFilters();
-        }
-      }
-
-      return;
-    }
-
     const liveFilterForm = event.target.closest('[data-live-filter-form]');
 
-    if (liveFilterForm && getAccessElements().workspace && event.target.matches('select, input')) {
+    if (
+      liveFilterForm
+      && getAccessElements().workspace
+      && event.target.matches('select, input')
+      && !event.target.closest('[data-access-profile-filter]')
+    ) {
       activeAccessView = 'requests';
 
       if (isAccessServerPaginationEnabled()) {
@@ -4268,8 +4445,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setCheckFeedback('');
     }
 
-    if (event.target.matches('[data-access-profile-filter-input]')) {
-      syncAccessProfileFilterSelection();
+    if (event.target.matches('[data-access-profile-filter-search]')) {
+      filterAccessProfileOptions();
       return;
     }
 
@@ -4279,6 +4456,7 @@ document.addEventListener('DOMContentLoaded', () => {
       liveFilterForm
       && getAccessElements().workspace
       && event.target.matches('input[type="search"], input[type="text"], input:not([type])')
+      && !event.target.closest('[data-access-profile-filter]')
     ) {
       window.clearTimeout(liveFilterTimer);
 

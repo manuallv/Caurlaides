@@ -6,7 +6,6 @@
   const sectionTitle = isPass ? t('event.sidebar.autoPasses') : t('event.sidebar.eventWristbands');
   const filteredRequestCount = pagination?.totalItems ?? requests.length;
   const selectedProfile = profiles.find((profile) => Number(profile.id) === Number(filters.profileId));
-  const profileFilterListId = `access-profile-filter-${activeEvent.id}-${accessType}`;
 %>
 
 <section class="space-y-6" data-access-admin-page>
@@ -121,20 +120,66 @@
           <input type="hidden" name="page" value="<%= pagination.currentPage %>" />
           <input name="q" value="<%= filters.query %>" class="field-input" placeholder="<%= t('access.filters.search') %>" />
 
-          <input
-            type="search"
-            class="field-input"
-            list="<%= profileFilterListId %>"
-            value="<%= selectedProfile?.name || '' %>"
-            placeholder="<%= t('access.filters.allProfiles') %>"
-            data-access-profile-filter-input
-          />
-          <input type="hidden" name="profileId" value="<%= filters.profileId || '' %>" data-access-profile-filter-value />
-          <datalist id="<%= profileFilterListId %>">
-            <% profiles.forEach((profile) => { %>
-              <option value="<%= profile.name %>" data-profile-id="<%= profile.id %>"></option>
-            <% }) %>
-          </datalist>
+          <div
+            class="access-profile-filter"
+            data-access-profile-filter
+            data-access-profile-filter-default-label="<%= t('access.filters.allProfiles') %>"
+          >
+            <input type="hidden" name="profileId" value="<%= filters.profileId || '' %>" data-access-profile-filter-value />
+            <button
+              type="button"
+              class="field-input access-profile-filter__trigger"
+              data-access-profile-filter-trigger
+              aria-expanded="false"
+              aria-haspopup="listbox"
+            >
+              <span class="access-profile-filter__trigger-label" data-access-profile-filter-label><%= selectedProfile?.name || t('access.filters.allProfiles') %></span>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m6 8 4 4 4-4"></path>
+              </svg>
+            </button>
+
+            <div class="access-profile-filter__panel" data-access-profile-filter-panel hidden>
+              <div class="access-profile-filter__search-shell">
+                <input
+                  type="search"
+                  class="field-input access-profile-filter__search"
+                  placeholder="<%= t('access.filters.searchProfiles') %>"
+                  autocomplete="off"
+                  spellcheck="false"
+                  data-access-profile-filter-search
+                />
+              </div>
+
+              <div class="access-profile-filter__options" data-access-profile-filter-options role="listbox">
+                <button
+                  type="button"
+                  class="access-profile-filter__option <%= filters.profileId ? '' : 'is-selected' %>"
+                  data-access-profile-filter-option
+                  data-profile-id=""
+                  data-profile-name=""
+                  aria-selected="<%= filters.profileId ? 'false' : 'true' %>"
+                >
+                  <span><%= t('access.filters.allProfiles') %></span>
+                </button>
+
+                <% profiles.forEach((profile) => { %>
+                  <button
+                    type="button"
+                    class="access-profile-filter__option <%= Number(filters.profileId) === Number(profile.id) ? 'is-selected' : '' %>"
+                    data-access-profile-filter-option
+                    data-profile-id="<%= profile.id %>"
+                    data-profile-name="<%= profile.name %>"
+                    aria-selected="<%= Number(filters.profileId) === Number(profile.id) ? 'true' : 'false' %>"
+                  >
+                    <span><%= profile.name %></span>
+                  </button>
+                <% }) %>
+              </div>
+
+              <p class="access-profile-filter__empty hidden" data-access-profile-filter-empty><%= t('access.filters.noProfilesFound') %></p>
+            </div>
+          </div>
 
           <select name="categoryId" class="field-input">
             <option value=""><%= t('access.filters.allTypes') %></option>

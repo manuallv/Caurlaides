@@ -1346,6 +1346,123 @@ body.is-access-fullscreen {
   min-width: 11rem;
 }
 
+.access-profile-filter {
+  position: relative;
+  flex: 1 1 12rem;
+  min-width: 11rem;
+}
+
+.access-profile-filter__trigger {
+  position: relative;
+  width: 100%;
+  padding-right: 2.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.access-profile-filter__trigger-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-profile-filter__trigger svg {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  stroke: #8090a7;
+  stroke-width: 2;
+  fill: none;
+  transition: transform 0.2s ease;
+}
+
+.access-profile-filter.is-open .access-profile-filter__trigger {
+  border-color: rgba(0, 116, 255, 0.35);
+  box-shadow:
+    0 0 0 4px rgba(0, 116, 255, 0.09),
+    0 16px 30px rgba(20, 31, 56, 0.08);
+}
+
+.access-profile-filter.is-open .access-profile-filter__trigger svg {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.access-profile-filter__panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 32;
+  border: 1px solid rgba(206, 214, 226, 0.98);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 24px 54px rgba(20, 31, 56, 0.16);
+  overflow: hidden;
+}
+
+.access-profile-filter__panel[hidden] {
+  display: none;
+}
+
+.access-profile-filter__search-shell {
+  padding: 0.7rem;
+  border-bottom: 1px solid rgba(232, 237, 245, 0.96);
+  background: #f8fafc;
+}
+
+.access-profile-filter__search {
+  min-height: 2.6rem;
+  padding: 0.68rem 0.82rem;
+  border-radius: 0.8rem;
+  box-shadow: none;
+}
+
+.access-profile-filter__options {
+  max-height: 15rem;
+  overflow: auto;
+  padding: 0.35rem 0;
+}
+
+.access-profile-filter__option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #183153;
+  padding: 0.82rem 0.95rem;
+  text-align: left;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.access-profile-filter__option:hover,
+.access-profile-filter__option:focus-visible {
+  background: #edf4ff;
+  color: #0f3d85;
+  outline: none;
+}
+
+.access-profile-filter__option.is-selected {
+  background: linear-gradient(135deg, #5e97f6 0%, #4d88ef 100%);
+  color: #fff;
+}
+
+.access-profile-filter__empty {
+  padding: 0.85rem 0.95rem 1rem;
+  color: #7f8ea3;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .access-filter-grid > .field-input:first-child {
   flex-basis: 19rem;
 }
