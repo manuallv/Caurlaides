@@ -1457,12 +1457,15 @@ body.is-access-fullscreen {
   stroke-width: 1.9;
 }
 
-.access-actions-menu__meta {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-transform: none;
+.access-actions-menu__section-title {
+  margin: 0.2rem 0 0.05rem;
+  padding: 0.72rem 0.78rem 0;
+  border-top: 1px solid rgba(221, 228, 239, 0.96);
   color: #7b8aa1;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .access-actions-menu__action--status {

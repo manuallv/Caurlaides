@@ -36,10 +36,10 @@
     data-access-page-type="<%= accessType %>"
     data-access-singular-label="<%= typeLabel %>"
     data-access-edit-label="<%= t('access.actions.editRequest') %>"
-    data-access-edit-detail-label="<%= t('access.actions.editContentHint') %>"
     data-access-not-set="<%= t('common.notSet') %>"
     data-access-status-pending-label="<%= t('statuses.pending') %>"
     data-access-status-handed-out-label="<%= isPass ? t('access.passState.handed_out') : t('statuses.handed_out') %>"
+    data-access-status-section-label="<%= t('access.workspace.status') %>"
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
     data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
     data-access-entry-at-label="<%= t('access.entryAt') %>"
@@ -342,11 +342,10 @@
                                   <path d="M12 20h9" />
                                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5" />
                                 </svg>
-                                <span>
-                                  <%= t('access.actions.editRequest') %>
-                                  <span class="access-actions-menu__meta"> - <%= t('access.actions.editContentHint') %></span>
-                                </span>
+                                <span><%= t('access.actions.editRequest') %></span>
                               </button>
+
+                              <p class="access-actions-menu__section-title"><%= t('access.workspace.status') %></p>
 
                               <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                                 <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -356,7 +355,13 @@
                                   class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'handed_out' ? 'is-active' : '' %>"
                                   data-request-status-button
                                   <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
-                                ><span><%= t('access.passState.handed_out') %></span></button>
+                                >
+                                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
+                                    <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+                                  </svg>
+                                  <span><%= t('access.passState.handed_out') %></span>
+                                </button>
                               </form>
 
                               <% if (hasVehicleMovement) { %>
@@ -367,7 +372,13 @@
                                     type="submit"
                                     class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'entered' ? 'is-active' : '' %>"
                                     <%= requestDisplayStatus === 'entered' ? 'disabled' : '' %>
-                                  ><span><%= t('access.passState.entered') %></span></button>
+                                  >
+                                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                                      <path d="M3.5 10h11" />
+                                      <path d="M11 6.2 14.8 10 11 13.8" />
+                                    </svg>
+                                    <span><%= t('access.passState.entered') %></span>
+                                  </button>
                                 </form>
 
                                 <form action="/events/<%= activeEvent.id %>/pass/requests/<%= request.id %>/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
@@ -377,7 +388,13 @@
                                     type="submit"
                                     class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'exited' ? 'is-active' : '' %>"
                                     <%= requestDisplayStatus === 'exited' ? 'disabled' : '' %>
-                                  ><span><%= t('access.passState.exited') %></span></button>
+                                  >
+                                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                                      <path d="M16.5 10h-11" />
+                                      <path d="M9 6.2 5.2 10 9 13.8" />
+                                    </svg>
+                                    <span><%= t('access.passState.exited') %></span>
+                                  </button>
                                 </form>
                               <% } %>
                             </div>

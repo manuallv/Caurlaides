@@ -1693,10 +1693,10 @@ document.addEventListener('DOMContentLoaded', () => {
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
       editLabel: workspace.dataset.accessEditLabel,
-      editDetailLabel: workspace.dataset.accessEditDetailLabel,
       notSet: workspace.dataset.accessNotSet,
       statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
       statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
+      statusSectionLabel: workspace.dataset.accessStatusSectionLabel,
       filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
       vehiclePlateLabel: workspace.dataset.accessVehiclePlateLabel,
       entryAtLabel: workspace.dataset.accessEntryAtLabel,
@@ -2401,13 +2401,19 @@ document.addEventListener('DOMContentLoaded', () => {
             <path d="M12 20h9"></path>
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
           </svg>
-          <span>${escapeHtml(ui.editLabel || 'Edit')}<span class="access-actions-menu__meta"> - ${escapeHtml(ui.editDetailLabel || 'content')}</span></span>
+          <span>${escapeHtml(ui.editLabel || 'Edit')}</span>
         </button>
+
+        <p class="access-actions-menu__section-title">${escapeHtml(ui.statusSectionLabel || 'Status')}</p>
 
         <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
           <input type="hidden" name="_csrf" value="${csrfValue}" />
           <input type="hidden" name="status" value="handed_out" data-request-status-input />
           <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${issuedButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" data-request-status-button ${request.status === 'handed_out' ? 'disabled' : ''}>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
+              <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"></path>
+            </svg>
             <span>${escapeHtml(ui.statusHandedOutLabel || 'Issued')}</span>
           </button>
         </form>
@@ -2417,6 +2423,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="hidden" name="_csrf" value="${csrfValue}" />
             <input type="hidden" name="direction" value="entry" />
             <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${entryButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.status === 'entered' ? 'disabled' : ''}>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M3.5 10h11"></path>
+                <path d="M11 6.2 14.8 10 11 13.8"></path>
+              </svg>
               <span>${escapeHtml(ui.entryButtonLabel || 'Enter')}</span>
             </button>
           </form>
@@ -2424,6 +2434,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="hidden" name="_csrf" value="${csrfValue}" />
             <input type="hidden" name="direction" value="exit" />
             <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${exitButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.status === 'exited' ? 'disabled' : ''}>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M16.5 10h-11"></path>
+                <path d="M9 6.2 5.2 10 9 13.8"></path>
+              </svg>
               <span>${escapeHtml(ui.exitButtonLabel || 'Exit')}</span>
             </button>
           </form>
