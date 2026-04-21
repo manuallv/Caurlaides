@@ -1762,12 +1762,6 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.typeSubmitLabel.textContent = ui.saveSubmit || 'Save type';
     elements.typeFormMethodHolder.innerHTML = '';
 
-    const methodInput = document.createElement('input');
-    methodInput.type = 'hidden';
-    methodInput.name = '_method';
-    methodInput.value = 'PUT';
-    elements.typeFormMethodHolder.appendChild(methodInput);
-
     elements.typeForm.elements.name.value = trigger.dataset.typeName || '';
     elements.typeForm.elements.description.value = trigger.dataset.typeDescription || '';
     elements.typeForm.elements.quota.value = trigger.dataset.typeQuota || '';
@@ -2767,19 +2761,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     requestForm.reset();
     requestForm.action = isEdit
-      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}`
+      ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}?_method=PUT`
       : (ui.requestCreateAction || `/events/${eventId}/${accessType}/requests`);
 
     if (requestMethodHolder) {
       requestMethodHolder.innerHTML = '';
-    }
-
-    if (isEdit && requestMethodHolder) {
-      const methodInput = document.createElement('input');
-      methodInput.type = 'hidden';
-      methodInput.name = '_method';
-      methodInput.value = 'PUT';
-      requestMethodHolder.appendChild(methodInput);
     }
 
     if (requestTitle) {
@@ -3108,14 +3094,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (mode === 'edit' && request) {
-      elements.requestForm.action = `/p/${type}/${request.id}`;
-      const methodInput = document.createElement('input');
-      methodInput.type = 'hidden';
-      methodInput.name = '_method';
-      methodInput.value = 'PUT';
-      if (elements.requestMethodHolder) {
-        elements.requestMethodHolder.appendChild(methodInput);
-      }
+      elements.requestForm.action = `/p/${type}/${request.id}?_method=PUT`;
 
       setNamedFormFieldValue(elements.requestForm, 'fullName', request.fullName || '');
       setNamedFormFieldValue(elements.requestForm, 'companyName', request.companyName || '');
