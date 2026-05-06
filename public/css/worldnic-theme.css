@@ -2767,6 +2767,7 @@ body.portal-modal-open {
 
 .request-profile-quota-card {
   display: grid;
+  align-content: start;
   gap: 0.9rem;
   padding: 1rem;
 }
