@@ -149,6 +149,26 @@
         </div>
 
         <div class="portal-workspace-card__actions">
+          <% if (profile.invite_url) { %>
+            <div class="portal-share-chip" aria-label="<%= t('portal.shareLinkLabel') %>">
+              <span class="portal-share-chip__copy">
+                <span><%= t('portal.shareLinkLabel') %></span>
+                <strong><%= profile.access_code %></strong>
+              </span>
+              <button
+                type="button"
+                class="portal-share-chip__button"
+                data-copy-text="<%= profile.invite_url %>"
+                data-copy-success-message="<%= t('portal.shareLinkCopied') %>"
+                title="<%= t('portal.shareLinkCopy') %>"
+                aria-label="<%= t('portal.shareLinkCopy') %>"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
+                </svg>
+              </button>
+            </div>
+          <% } %>
           <button type="button" class="btn-secondary hidden" data-portal-back-to-table><%= t('portal.tableTitle') %></button>
         </div>
       </div>

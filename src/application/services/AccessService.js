@@ -2719,7 +2719,10 @@ class AccessService {
     const wristbandPortalOpen = this.isPortalTypeOpen(profile, 'wristband');
 
     return {
-      profile,
+      profile: {
+        ...profile,
+        invite_url: profile.access_code ? buildInviteUrl(profile.access_code) : null,
+      },
       passQuotaUsage,
       wristbandQuotaUsage,
       passPortalOpen,
