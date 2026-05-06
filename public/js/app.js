@@ -340,6 +340,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getPortalUi = () => getPortalState()?.ui || {};
 
+  const getPortalProfileId = () => document.querySelector('[data-portal-app]')?.dataset.portalProfileId || 'guest';
+
+  const getPortalCategoryPreferenceKey = (type) => {
+    if (!['pass', 'wristband'].includes(type)) {
+      return null;
+    }
+
+    return `caurlaides.portal.category.${getPortalProfileId()}.${type}`;
+  };
+
+  const getPortalPreferredCategoryId = (type) => {
+    const key = getPortalCategoryPreferenceKey(type);
+
+    if (!key) {
+      return '';
+    }
+
+    try {
+      return window.localStorage.getItem(key) || '';
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const setPortalPreferredCategoryId = (type, categoryId) => {
+    const key = getPortalCategoryPreferenceKey(type);
+
+    if (!key || !categoryId) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(key, String(categoryId));
+    } catch (error) {
+      // Browser privacy settings can block localStorage; the form still works normally.
+    }
+  };
+
+  const rememberPortalCategorySelection = (select) => {
+    if (!select || !select.value) {
+      return;
+    }
+
+    const type = select.dataset.portalCategoryType
+      || (select.matches('[data-portal-import-category]') ? activePortalImportType : activePortalRequestType);
+
+    setPortalPreferredCategoryId(type, select.value);
+  };
+
   const getPortalWorkspaceCopy = () => {
     const app = document.querySelector('[data-portal-app]');
 
@@ -3647,8 +3696,14 @@ document.addEventListener('DOMContentLoaded', () => {
         || Number(entry.remaining_count) > 0
         || Number(entry.category_id) === Number(currentCategoryId),
     );
+    const explicitCategoryId = currentCategoryId ? String(currentCategoryId) : '';
+    const preferredCategoryId = explicitCategoryId || getPortalPreferredCategoryId(type);
+    const selectedCategoryId = eligible.some(
+      (entry) => Number(entry.category_id) === Number(preferredCategoryId),
+    ) ? preferredCategoryId : '';
 
     select.innerHTML = '';
+    select.dataset.portalCategoryType = type;
 
     eligible.forEach((entry) => {
       const option = document.createElement('option');
@@ -3656,7 +3711,9 @@ document.addEventListener('DOMContentLoaded', () => {
       option.textContent = entry.is_unlimited
         ? `${entry.category_name} (${entry.used_count}/∞)`
         : `${entry.category_name} (${entry.used_count}/${entry.quota})`;
-      option.selected = Number(entry.category_id) === Number(currentCategoryId);
+      option.selected = selectedCategoryId
+        ? Number(entry.category_id) === Number(selectedCategoryId)
+        : false;
       select.appendChild(option);
     });
 
@@ -4450,6 +4507,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (event.target.matches('[data-portal-category-select], [data-portal-import-category]')) {
+      rememberPortalCategorySelection(event.target);
+    }
+
     if (event.target.matches('[data-portal-import-category]')) {
       updateImportTemplateLink();
     }
@@ -4571,6 +4632,7 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
       const formData = new FormData(form);
+      rememberPortalCategorySelection(form.querySelector('[data-portal-import-category]'));
       setPortalImportPreviewLoading(true);
 
       try {
@@ -4603,6 +4665,10 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
 
       try {
+        if (form.matches('[data-portal-request-form]')) {
+          rememberPortalCategorySelection(form.querySelector('[data-portal-category-select]'));
+        }
+
         await submitLiveForm(form, event.submitter);
         if (form.matches('[data-access-request-form]')) {
           closeAccessRequestModal();
