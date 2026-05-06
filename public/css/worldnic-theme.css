@@ -2837,6 +2837,18 @@ body.portal-modal-open {
   min-height: 46px;
 }
 
+.system-settings-toggle span {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.system-settings-toggle small {
+  color: var(--wn-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .request-profile-table-card {
   overflow: hidden;
   width: 100%;

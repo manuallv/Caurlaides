@@ -32,6 +32,20 @@ class EmailService {
     return name ? `${name} <${email}>` : email;
   }
 
+  resolveSmtpSecure(port, requestedSecure) {
+    const smtpPort = Number(port || 587);
+
+    if (smtpPort === 465) {
+      return true;
+    }
+
+    if ([25, 587, 2525].includes(smtpPort)) {
+      return false;
+    }
+
+    return Boolean(requestedSecure);
+  }
+
   async sendResendEmail(config, { to, subject, html, text }) {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -58,13 +72,14 @@ class EmailService {
 
   async getConfig() {
     const settings = await this.systemSettingsRepository.getSettings();
+    const smtpPort = Number(settings.smtp_port || 587) || 587;
 
     return {
       provider: settings.email_provider || 'smtp',
       smtp: {
         host: settings.smtp_host || '',
-        port: Number(settings.smtp_port || 587),
-        secure: settings.smtp_secure === 'true',
+        port: smtpPort,
+        secure: this.resolveSmtpSecure(smtpPort, settings.smtp_secure === 'true'),
         user: settings.smtp_user || '',
         pass: settings.smtp_pass || '',
         fromEmail: settings.smtp_from_email || '',

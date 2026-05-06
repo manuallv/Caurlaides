@@ -33,7 +33,8 @@
             </label>
             <label>
               <span class="field-label"><%= t('system.settings.smtpPort') %></span>
-              <input name="smtpPort" type="text" class="field-input" value="<%= settings.smtp_port || '587' %>" />
+              <input name="smtpPort" type="text" class="field-input" value="<%= settings.smtp_port || '587' %>" data-system-smtp-port-input />
+              <span class="field-help"><%= t('system.settings.smtpPortHelp') %></span>
             </label>
             <label>
               <span class="field-label"><%= t('system.settings.smtpUser') %></span>
@@ -52,8 +53,11 @@
               <input name="smtpFromName" type="text" class="field-input" value="<%= settings.smtp_from_name || '' %>" />
             </label>
             <label class="request-profile-toggle system-settings-toggle">
-              <input type="checkbox" name="smtpSecure" <%= settings.smtp_secure === 'true' ? 'checked' : '' %> />
-              <span><%= t('system.settings.smtpSecure') %></span>
+              <input type="checkbox" name="smtpSecure" <%= settings.smtp_secure === 'true' ? 'checked' : '' %> data-system-smtp-secure-input />
+              <span>
+                <strong><%= t('system.settings.smtpSecure') %></strong>
+                <small><%= t('system.settings.smtpSecureHelp') %></small>
+              </span>
             </label>
           </div>
         </section>

@@ -1601,6 +1601,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const initializeSystemEmailSettings = () => {
     const providerSelect = document.querySelector('[data-system-email-provider-select]');
     const panels = [...document.querySelectorAll('[data-system-email-provider-panel]')];
+    const smtpPortInput = document.querySelector('[data-system-smtp-port-input]');
+    const smtpSecureInput = document.querySelector('[data-system-smtp-secure-input]');
 
     if (!providerSelect || !panels.length) {
       return;
@@ -1616,6 +1618,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncPanels();
     providerSelect.onchange = syncPanels;
+
+    const syncSmtpSecure = () => {
+      if (!smtpPortInput || !smtpSecureInput) {
+        return;
+      }
+
+      const port = Number(String(smtpPortInput.value || '').trim());
+
+      if (port === 465) {
+        smtpSecureInput.checked = true;
+      }
+
+      if ([25, 587, 2525].includes(port)) {
+        smtpSecureInput.checked = false;
+      }
+    };
+
+    syncSmtpSecure();
+    smtpPortInput?.addEventListener('input', syncSmtpSecure);
+    smtpPortInput?.addEventListener('change', syncSmtpSecure);
   };
 
   const filterPortalRows = () => {
