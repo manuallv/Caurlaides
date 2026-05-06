@@ -225,11 +225,12 @@ class SystemService {
 
   async sendProfileInvite({ to, eventName, profileName, accessCode, inviteUrl, wristbandSummary, passSummary }) {
     if (!to) {
-      return;
+      throw new Error('Recipient email is required.');
     }
 
-    await this.emailService.sendTemplate('portal_invite', {
+    return this.emailService.sendTemplate('portal_invite', {
       to,
+      requireDelivery: true,
       variables: {
         eventName,
         profileName,

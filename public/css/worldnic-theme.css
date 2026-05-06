@@ -3016,6 +3016,11 @@ body.portal-modal-open {
   gap: 0.55rem;
 }
 
+.request-profile-action-form {
+  display: inline-flex;
+  margin: 0;
+}
+
 .table-icon-button {
   display: inline-flex;
   align-items: center;
@@ -3040,6 +3045,13 @@ body.portal-modal-open {
   transform: translateY(-1px);
   color: var(--wn-primary);
   border-color: rgba(0, 116, 255, 0.22);
+}
+
+.table-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
+  box-shadow: none;
 }
 
 .table-icon-button--danger {

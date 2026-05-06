@@ -630,6 +630,16 @@ function buildQuotaSummary(entries = [], categories = []) {
   }));
 }
 
+function buildQuotaUsageSummary(quotaUsage = []) {
+  if (!quotaUsage.length) {
+    return '0';
+  }
+
+  return quotaUsage
+    .map((entry) => `${entry.category_name}: ${entry.quota}`)
+    .join(', ');
+}
+
 function normalizeImportHeader(header = '') {
   return String(header)
     .trim()
@@ -977,6 +987,75 @@ class AccessService {
       throw error;
     } finally {
       connection.release();
+    }
+  }
+
+  async deliverRequestProfileInvite(event, profile, tx) {
+    if (!this.systemService) {
+      throw new AppError(tx('service.requestProfile.inviteEmailUnavailable'), 422);
+    }
+
+    if (!profile) {
+      throw new AppError(tx('service.requestProfile.notFound'), 404);
+    }
+
+    const contactEmail = normalizeEmail(profile.contact_email);
+
+    if (!contactEmail) {
+      throw new AppError(tx('service.requestProfile.contactEmailRequired'), 422);
+    }
+
+    const refreshedProfile = await this.ensureRequestProfileAccessCode(profile);
+    const isUnlimitedQuota = Number(refreshedProfile.is_unlimited_quota) === 1;
+    const [passQuotaUsage, wristbandQuotaUsage] = await Promise.all([
+      this.requestRepository.listQuotaUsage(refreshedProfile.id, 'pass').then(withRemainingQuota),
+      this.requestRepository.listQuotaUsage(refreshedProfile.id, 'wristband').then(withRemainingQuota),
+    ]);
+
+    const delivery = await this.systemService.sendProfileInvite({
+      to: contactEmail,
+      eventName: event.name,
+      profileName: refreshedProfile.name,
+      accessCode: refreshedProfile.access_code,
+      inviteUrl: buildInviteUrl(refreshedProfile.access_code),
+      wristbandSummary: isUnlimitedQuota
+        ? tx('requestProfiles.unlimited')
+        : buildQuotaUsageSummary(wristbandQuotaUsage),
+      passSummary: isUnlimitedQuota
+        ? tx('requestProfiles.unlimited')
+        : buildQuotaUsageSummary(passQuotaUsage),
+    });
+
+    return {
+      accessCode: refreshedProfile.access_code,
+      email: contactEmail,
+      delivery,
+    };
+  }
+
+  async sendRequestProfileInvite(eventId, profileId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.requestProfile.manage'), 403);
+    }
+
+    const profile = await this.requestProfileRepository.findById(profileId);
+
+    if (!profile || Number(profile.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.requestProfile.notFound'), 404);
+    }
+
+    try {
+      return await this.deliverRequestProfileInvite(event, profile, tx);
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      console.warn('Profile invite email failed:', error.message);
+      throw new AppError(tx('service.requestProfile.inviteEmailFailed'), 422);
     }
   }
 
@@ -1623,33 +1702,25 @@ class AccessService {
       connection.release();
     }
 
-    if (this.systemService && contactEmail) {
+    let inviteEmail = null;
+
+    if (contactEmail) {
       try {
-        await this.systemService.sendProfileInvite({
-          to: contactEmail,
-          eventName: event.name,
-          profileName,
-          accessCode,
-          inviteUrl: buildInviteUrl(accessCode),
-          wristbandSummary: wristbandQuotas.length
-            ? buildQuotaSummary(wristbandQuotas, wristbandCategories)
-              .map((entry) => `${entry.categoryName}: ${entry.quota}`)
-              .join(', ')
-            : '0',
-          passSummary: passQuotas.length
-            ? buildQuotaSummary(passQuotas, passCategories)
-              .map((entry) => `${entry.categoryName}: ${entry.quota}`)
-              .join(', ')
-            : '0',
-        });
+        const profile = await this.requestProfileRepository.findById(profileId);
+        inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
       } catch (error) {
         console.warn('Profile invite email failed:', error.message);
+        inviteEmail = {
+          sent: false,
+          error: tx('service.requestProfile.inviteEmailFailed'),
+        };
       }
     }
 
     return {
       profileId,
       accessCode,
+      inviteEmail,
     };
   }
 
@@ -1734,6 +1805,7 @@ class AccessService {
       : [...sanitizedPassQuotas, ...sanitizedWristbandQuotas]
         .reduce((sum, entry) => sum + entry.quota, 0) || 1;
 
+    let inviteEmail = null;
     const connection = await this.pool.getConnection();
 
     try {
@@ -1796,39 +1868,24 @@ class AccessService {
 
       await connection.commit();
 
-      if (this.systemService && payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
+      if (payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
         try {
-          const passQuotaUsage = withRemainingQuota(await this.requestRepository.listQuotaUsage(profileId, 'pass'));
-          const wristbandQuotaUsage = withRemainingQuota(
-            await this.requestRepository.listQuotaUsage(profileId, 'wristband'),
-          );
-
-          await this.systemService.sendProfileInvite({
-            to: normalizeEmail(payload.contactEmail),
-            eventName: event.name,
-            profileName: payload.name,
-            accessCode: accessCode,
-            inviteUrl: buildInviteUrl(accessCode),
-            wristbandSummary: isUnlimitedQuota
-              ? tx('requestProfiles.unlimited')
-              : wristbandQuotaUsage.length
-              ? wristbandQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
-              : '0',
-            passSummary: isUnlimitedQuota
-              ? tx('requestProfiles.unlimited')
-              : passQuotaUsage.length
-              ? passQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
-              : '0',
-          });
+          const profile = await this.requestProfileRepository.findById(profileId);
+          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
         } catch (error) {
           // Do not roll back a successfully saved profile because email delivery failed.
           console.warn('Profile invite email failed:', error.message);
+          inviteEmail = {
+            sent: false,
+            error: tx('service.requestProfile.inviteEmailFailed'),
+          };
         }
       }
 
       return {
         profileId,
         accessCode,
+        inviteEmail,
       };
     } catch (error) {
       await connection.rollback();
@@ -1876,6 +1933,7 @@ class AccessService {
       : [...sanitizedPassQuotas, ...sanitizedWristbandQuotas]
         .reduce((sum, entry) => sum + entry.quota, 0) || 1;
 
+    let inviteEmail = null;
     const connection = await this.pool.getConnection();
 
     try {
@@ -1935,37 +1993,23 @@ class AccessService {
 
       await connection.commit();
 
-      if (this.systemService && payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
+      if (payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
         try {
-          const refreshedProfile = await this.ensureRequestProfileAccessCode(
-            await this.requestProfileRepository.findById(profileId),
-          );
-          const passQuotaUsage = withRemainingQuota(await this.requestRepository.listQuotaUsage(profileId, 'pass'));
-          const wristbandQuotaUsage = withRemainingQuota(
-            await this.requestRepository.listQuotaUsage(profileId, 'wristband'),
-          );
-
-          await this.systemService.sendProfileInvite({
-            to: normalizeEmail(payload.contactEmail),
-            eventName: event.name,
-            profileName: payload.name,
-            accessCode: refreshedProfile.access_code,
-            inviteUrl: buildInviteUrl(refreshedProfile.access_code),
-            wristbandSummary: isUnlimitedQuota
-              ? tx('requestProfiles.unlimited')
-              : wristbandQuotaUsage.length
-              ? wristbandQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
-              : '0',
-            passSummary: isUnlimitedQuota
-              ? tx('requestProfiles.unlimited')
-              : passQuotaUsage.length
-              ? passQuotaUsage.map((entry) => `${entry.category_name}: ${entry.quota}`).join(', ')
-              : '0',
-          });
+          const profile = await this.requestProfileRepository.findById(profileId);
+          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
         } catch (error) {
           console.warn('Profile invite email failed:', error.message);
+          inviteEmail = {
+            sent: false,
+            error: tx('service.requestProfile.inviteEmailFailed'),
+          };
         }
       }
+
+      return {
+        profileId,
+        inviteEmail,
+      };
     } catch (error) {
       await connection.rollback();
       throw error;

@@ -106,6 +106,21 @@ function normalizeRequestProfileApplicationDecisionPayload(body) {
   };
 }
 
+function flashInviteEmailStatus(req, inviteEmail) {
+  if (!inviteEmail) {
+    return;
+  }
+
+  if (inviteEmail.delivery?.sent || inviteEmail.sent) {
+    req.flash('success', req.t('flash.requestProfileInviteEmailSent', { email: inviteEmail.email }));
+    return;
+  }
+
+  if (inviteEmail.error) {
+    req.flash('error', inviteEmail.error);
+  }
+}
+
 function normalizeAdminFilters(query) {
   const parsedPage = Number.parseInt(query.page, 10);
 
@@ -761,6 +776,7 @@ function buildAccessController({ categoryService, accessService }) {
           eventId: req.params.eventId,
         });
         req.flash('success', req.t('flash.requestProfileCreated', { code: result.accessCode }));
+        flashInviteEmailStatus(req, result.inviteEmail);
         return res.redirect(`/events/${req.params.eventId}/request-profiles`);
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
@@ -786,6 +802,7 @@ function buildAccessController({ categoryService, accessService }) {
           eventId: req.params.eventId,
         });
         req.flash('success', req.t('flash.requestProfileApplicationApproved', { code: result.accessCode }));
+        flashInviteEmailStatus(req, result.inviteEmail);
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
           req.flash('error', error.message);
@@ -826,7 +843,7 @@ function buildAccessController({ categoryService, accessService }) {
 
     async updateRequestProfile(req, res) {
       try {
-        await accessService.updateRequestProfile(
+        const result = await accessService.updateRequestProfile(
           req.params.eventId,
           req.params.profileId,
           req.currentUser.id,
@@ -838,6 +855,7 @@ function buildAccessController({ categoryService, accessService }) {
           eventId: req.params.eventId,
         });
         req.flash('success', req.t('flash.requestProfileUpdated'));
+        flashInviteEmailStatus(req, result.inviteEmail);
         return res.redirect(`/events/${req.params.eventId}/request-profiles`);
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
@@ -847,6 +865,27 @@ function buildAccessController({ categoryService, accessService }) {
 
         throw error;
       }
+    },
+
+    async sendRequestProfileInvite(req, res) {
+      try {
+        const result = await accessService.sendRequestProfileInvite(
+          req.params.eventId,
+          req.params.profileId,
+          req.currentUser.id,
+          req.t,
+        );
+
+        req.flash('success', req.t('flash.requestProfileInviteEmailSent', { email: result.email }));
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+        } else {
+          throw error;
+        }
+      }
+
+      return res.redirect(`/events/${req.params.eventId}/request-profiles`);
     },
 
     async destroyRequestProfile(req, res) {

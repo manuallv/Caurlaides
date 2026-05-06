@@ -157,6 +157,11 @@ function buildEventRoutes({ eventController, accessController }) {
     validateRequest,
     asyncHandler(accessController.updateRequestProfile),
   );
+  router.post(
+    '/events/:eventId/request-profiles/:profileId/send-invite',
+    requireAuth,
+    asyncHandler(accessController.sendRequestProfileInvite),
+  );
   router.delete(
     '/events/:eventId/request-profiles/:profileId',
     requireAuth,

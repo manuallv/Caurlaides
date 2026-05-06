@@ -208,6 +208,13 @@
     <div class="request-profile-editor__actions request-profile-editor__actions--stacked">
       <% if (isEditMode) { %>
         <div class="request-profile-editor__actions-right">
+          <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>/send-invite" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button type="submit" class="btn-secondary" <%= editingProfile.contact_email ? '' : 'disabled' %>>
+              <%= t('requestProfiles.sendInviteEmail') %>
+            </button>
+          </form>
+
           <form action="/events/<%= activeEvent.id %>/request-profiles/<%= editingProfile.id %>/regenerate-code" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <button type="submit" class="btn-secondary"><%= t('requestProfiles.regenerateCode') %></button>

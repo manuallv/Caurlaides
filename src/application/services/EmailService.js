@@ -78,23 +78,35 @@ class EmailService {
     };
   }
 
-  async sendTemplate(templateKey, { to, variables }) {
+  async sendTemplate(templateKey, { to, variables, requireDelivery = false }) {
+    const skip = (reason) => {
+      if (requireDelivery) {
+        throw new Error(reason);
+      }
+
+      return { skipped: true, reason };
+    };
+
     if (!to) {
-      return { skipped: true };
+      return skip('Recipient email is required.');
     }
 
     const config = await this.getConfig();
     const template = await this.systemSettingsRepository.getEmailTemplate(templateKey);
 
     if (!template) {
-      return { skipped: true };
+      return skip(`Email template "${templateKey}" is missing.`);
     }
 
     const subject = interpolateTemplate(template.subject, variables);
     const html = interpolateTemplate(template.html_content, variables);
     const text = interpolateTemplate(template.text_content || '', variables);
 
-    if (config.provider === 'resend' && config.resend.apiKey && config.resend.fromEmail) {
+    if (config.provider === 'resend') {
+      if (!config.resend.apiKey || !config.resend.fromEmail) {
+        return skip('Resend is not fully configured.');
+      }
+
       return this.sendResendEmail(config, {
         to,
         subject,
@@ -104,7 +116,7 @@ class EmailService {
     }
 
     if (!config.smtp.host || !config.smtp.fromEmail) {
-      return { skipped: true };
+      return skip('SMTP is not fully configured.');
     }
 
     const transporter = this.buildSmtpTransport(config);
