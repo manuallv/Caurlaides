@@ -260,6 +260,43 @@ class SystemService {
       },
     });
   }
+
+  async sendProfileApplicationNotification({
+    to,
+    recipientName,
+    eventName,
+    applicationId,
+    profileName,
+    contactEmail,
+    contactPhone,
+    passSummary,
+    wristbandSummary,
+    notes,
+    submittedAt,
+    applicationsUrl,
+  }) {
+    if (!to) {
+      throw new Error('Recipient email is required.');
+    }
+
+    return this.emailService.sendTemplate('profile_application_notification', {
+      to,
+      requireDelivery: true,
+      variables: {
+        recipientName,
+        eventName,
+        applicationId,
+        profileName,
+        contactEmail,
+        contactPhone,
+        passSummary,
+        wristbandSummary,
+        notes,
+        submittedAt,
+        applicationsUrl,
+      },
+    });
+  }
 }
 
 module.exports = { SystemService };

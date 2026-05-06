@@ -22,6 +22,23 @@ const DEFAULT_EMAIL_TEMPLATES = {
     `,
     text_content: 'You have been granted access to {{eventName}}.\nProfile: {{profileName}}\nCode: {{accessCode}}\nLink: {{inviteUrl}}\nWristbands: {{wristbandSummary}}\nPasses: {{passSummary}}',
   },
+  profile_application_notification: {
+    subject: 'New profile application for {{eventName}}',
+    html_content: `
+      <p>Hello {{recipientName}},</p>
+      <p>A new profile application was submitted for <strong>{{eventName}}</strong>.</p>
+      <p>Application ID: {{applicationId}}</p>
+      <p>Profile / company: <strong>{{profileName}}</strong></p>
+      <p>Email: {{contactEmail}}</p>
+      <p>Phone: {{contactPhone}}</p>
+      <p>Passes: {{passSummary}}</p>
+      <p>Wristbands: {{wristbandSummary}}</p>
+      <p>Notes: {{notes}}</p>
+      <p>Submitted: {{submittedAt}}</p>
+      <p><a href="{{applicationsUrl}}">Open profile applications</a></p>
+    `,
+    text_content: 'Hello {{recipientName}},\n\nA new profile application was submitted for {{eventName}}.\nApplication ID: {{applicationId}}\nProfile / company: {{profileName}}\nEmail: {{contactEmail}}\nPhone: {{contactPhone}}\nPasses: {{passSummary}}\nWristbands: {{wristbandSummary}}\nNotes: {{notes}}\nSubmitted: {{submittedAt}}\n\nOpen applications: {{applicationsUrl}}',
+  },
   test_email: {
     subject: 'Caurlaides test email',
     html_content: `
@@ -46,6 +63,12 @@ const EMAIL_TEMPLATE_DEFINITIONS = [
     titleKey: 'system.settings.template.portalInvite.title',
     descriptionKey: 'system.settings.template.portalInvite.description',
     variables: ['{{eventName}}', '{{profileName}}', '{{accessCode}}', '{{inviteUrl}}', '{{wristbandSummary}}', '{{passSummary}}'],
+  },
+  {
+    key: 'profile_application_notification',
+    titleKey: 'system.settings.template.profileApplicationNotification.title',
+    descriptionKey: 'system.settings.template.profileApplicationNotification.description',
+    variables: ['{{recipientName}}', '{{eventName}}', '{{applicationId}}', '{{profileName}}', '{{contactEmail}}', '{{contactPhone}}', '{{passSummary}}', '{{wristbandSummary}}', '{{notes}}', '{{submittedAt}}', '{{applicationsUrl}}'],
   },
   {
     key: 'test_email',

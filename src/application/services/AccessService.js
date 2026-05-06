@@ -611,6 +611,11 @@ function buildRequestProfileApplicationUrl(token) {
   return `${baseUrl}/apply/${encodeURIComponent(token)}`;
 }
 
+function buildRequestProfileApplicationsAdminUrl(eventId) {
+  const baseUrl = env.appUrl.replace(/\/$/, '');
+  return `${baseUrl}/events/${encodeURIComponent(eventId)}/request-profiles/applications`;
+}
+
 function buildQuotaValueMap(entries = []) {
   return entries.reduce((map, entry) => {
     map[Number(entry.categoryId)] = Number(entry.quota || 0);
@@ -628,6 +633,16 @@ function buildQuotaSummary(entries = [], categories = []) {
     ...entry,
     categoryName: categoryMap[Number(entry.categoryId)]?.name || `#${entry.categoryId}`,
   }));
+}
+
+function buildRequestedQuotaText(entries = [], categories = []) {
+  const summary = buildQuotaSummary(entries, categories);
+
+  if (!summary.length) {
+    return '0';
+  }
+
+  return summary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ');
 }
 
 function buildQuotaUsageSummary(quotaUsage = []) {
@@ -1581,7 +1596,12 @@ class AccessService {
     const contactEmail = normalizeEmail(payload.contactEmail);
     const contactPhone = String(payload.contactPhone || '').trim();
     const notes = String(payload.notes || '').trim();
-    const { passQuotas, wristbandQuotas } = await this.normalizeProfileApplicationQuotas(
+    const {
+      passCategories,
+      wristbandCategories,
+      passQuotas,
+      wristbandQuotas,
+    } = await this.normalizeProfileApplicationQuotas(
       form.event.id,
       payload,
       tx,
@@ -1591,7 +1611,7 @@ class AccessService {
       throw new AppError(tx('service.requestProfileApplication.contactRequired'), 422);
     }
 
-    await this.requestProfileApplicationRepository.create({
+    const applicationId = await this.requestProfileApplicationRepository.create({
       eventId: form.event.id,
       profileName,
       contactEmail,
@@ -1601,7 +1621,76 @@ class AccessService {
       wristbandQuotas,
     });
 
+    await this.notifyManagersAboutRequestProfileApplication(form.event, {
+      applicationId,
+      profileName,
+      contactEmail,
+      contactPhone,
+      notes,
+      passQuotas,
+      wristbandQuotas,
+      passCategories,
+      wristbandCategories,
+    });
+
     return form;
+  }
+
+  async notifyManagersAboutRequestProfileApplication(event, application) {
+    if (!this.systemService) {
+      return;
+    }
+
+    try {
+      const recipients = await this.eventRepository.listManagementEmailRecipients(event.id);
+      const uniqueRecipients = Array.from(
+        recipients.reduce((map, recipient) => {
+          const email = normalizeEmail(recipient.email);
+
+          if (email && !map.has(email)) {
+            map.set(email, {
+              ...recipient,
+              email,
+            });
+          }
+
+          return map;
+        }, new Map()).values(),
+      );
+
+      if (!uniqueRecipients.length) {
+        return;
+      }
+
+      const passSummary = buildRequestedQuotaText(application.passQuotas, application.passCategories);
+      const wristbandSummary = buildRequestedQuotaText(application.wristbandQuotas, application.wristbandCategories);
+      const applicationsUrl = buildRequestProfileApplicationsAdminUrl(event.id);
+      const notes = String(application.notes || '').trim() || '-';
+      const submittedAt = dayjs().format('YYYY-MM-DD HH:mm');
+      const results = await Promise.allSettled(
+        uniqueRecipients.map((recipient) => this.systemService.sendProfileApplicationNotification({
+          to: recipient.email,
+          recipientName: recipient.full_name || 'Admin',
+          eventName: event.name,
+          applicationId: application.applicationId,
+          profileName: application.profileName,
+          contactEmail: application.contactEmail,
+          contactPhone: application.contactPhone,
+          passSummary,
+          wristbandSummary,
+          notes,
+          submittedAt,
+          applicationsUrl,
+        })),
+      );
+      const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+      if (failedCount) {
+        console.warn(`Profile application notification failed for ${failedCount} recipient(s).`);
+      }
+    } catch (error) {
+      console.warn('Profile application notification failed:', error.message);
+    }
   }
 
   async approveRequestProfileApplication(eventId, applicationId, actorId, payload, t) {

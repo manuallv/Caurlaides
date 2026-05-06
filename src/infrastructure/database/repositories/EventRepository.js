@@ -310,6 +310,28 @@ class EventRepository {
     return rows;
   }
 
+  async listManagementEmailRecipients(eventId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT DISTINCT
+          u.id,
+          u.full_name,
+          u.email,
+          eu.role
+        FROM event_users eu
+        INNER JOIN users u ON u.id = eu.user_id
+        WHERE eu.event_id = ?
+          AND eu.role IN ('owner', 'admin')
+          AND u.is_active = 1
+          AND u.deleted_at IS NULL
+        ORDER BY FIELD(eu.role, 'owner', 'admin'), u.full_name ASC
+      `,
+      [eventId],
+    );
+
+    return rows;
+  }
+
   async findMember(eventId, userId) {
     const [rows] = await this.pool.execute(
       `
