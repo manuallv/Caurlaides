@@ -297,6 +297,31 @@ class SystemService {
       },
     });
   }
+
+  async sendProfileApplicationRejected({
+    to,
+    eventName,
+    profileName,
+    contactEmail,
+    contactPhone,
+    rejectionReason,
+  }) {
+    if (!to) {
+      throw new Error('Recipient email is required.');
+    }
+
+    return this.emailService.sendTemplate('profile_application_rejected', {
+      to,
+      requireDelivery: true,
+      variables: {
+        eventName,
+        profileName,
+        contactEmail,
+        contactPhone,
+        rejectionReason,
+      },
+    });
+  }
 }
 
 module.exports = { SystemService };

@@ -1840,6 +1840,11 @@ class AccessService {
       throw new AppError(tx('service.requestProfileApplication.alreadyReviewed'), 409);
     }
 
+    await this.notifyApplicantAboutRequestProfileRejection(event, application, {
+      reason: String(payload.reason || '').trim() || null,
+      t: tx,
+    });
+
     await this.auditLogService.record({
       eventId,
       userId: actorId,
@@ -1858,6 +1863,31 @@ class AccessService {
         name: application.profile_name,
       }),
     });
+  }
+
+  async notifyApplicantAboutRequestProfileRejection(event, application, payload = {}) {
+    if (!this.systemService) {
+      return;
+    }
+
+    const contactEmail = normalizeEmail(application.contact_email);
+
+    if (!contactEmail) {
+      return;
+    }
+
+    try {
+      await this.systemService.sendProfileApplicationRejected({
+        to: contactEmail,
+        eventName: event.name,
+        profileName: String(application.profile_name || '').trim(),
+        contactEmail,
+        contactPhone: String(application.contact_phone || '').trim() || '-',
+        rejectionReason: payload.reason || payload.t('requestProfileApplications.rejectionReasonDefault'),
+      });
+    } catch (error) {
+      console.warn('Profile application rejection email failed:', error.message);
+    }
   }
 
   async createRequestProfile(eventId, actorId, payload, t) {

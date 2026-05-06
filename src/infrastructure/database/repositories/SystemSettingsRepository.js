@@ -39,6 +39,17 @@ const DEFAULT_EMAIL_TEMPLATES = {
     `,
     text_content: 'Hello {{recipientName}},\n\nA new profile application was submitted for {{eventName}}.\nApplication ID: {{applicationId}}\nProfile / company: {{profileName}}\nEmail: {{contactEmail}}\nPhone: {{contactPhone}}\nPasses: {{passSummary}}\nWristbands: {{wristbandSummary}}\nNotes: {{notes}}\nSubmitted: {{submittedAt}}\n\nOpen applications: {{applicationsUrl}}',
   },
+  profile_application_rejected: {
+    subject: 'Your profile application for {{eventName}} was not approved',
+    html_content: `
+      <p>Hello,</p>
+      <p>Your profile application for <strong>{{eventName}}</strong> was not approved.</p>
+      <p>Profile / company: <strong>{{profileName}}</strong></p>
+      <p>Reason: {{rejectionReason}}</p>
+      <p>If you have questions, please contact the event organizer.</p>
+    `,
+    text_content: 'Hello,\n\nYour profile application for {{eventName}} was not approved.\nProfile / company: {{profileName}}\nReason: {{rejectionReason}}\n\nIf you have questions, please contact the event organizer.',
+  },
   test_email: {
     subject: 'Caurlaides test email',
     html_content: `
@@ -69,6 +80,12 @@ const EMAIL_TEMPLATE_DEFINITIONS = [
     titleKey: 'system.settings.template.profileApplicationNotification.title',
     descriptionKey: 'system.settings.template.profileApplicationNotification.description',
     variables: ['{{recipientName}}', '{{eventName}}', '{{applicationId}}', '{{profileName}}', '{{contactEmail}}', '{{contactPhone}}', '{{passSummary}}', '{{wristbandSummary}}', '{{notes}}', '{{submittedAt}}', '{{applicationsUrl}}'],
+  },
+  {
+    key: 'profile_application_rejected',
+    titleKey: 'system.settings.template.profileApplicationRejected.title',
+    descriptionKey: 'system.settings.template.profileApplicationRejected.description',
+    variables: ['{{eventName}}', '{{profileName}}', '{{contactEmail}}', '{{contactPhone}}', '{{rejectionReason}}'],
   },
   {
     key: 'test_email',
