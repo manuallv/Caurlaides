@@ -605,6 +605,30 @@ function buildInviteUrl(accessCode) {
   return `${baseUrl}/p/${encodeURIComponent(accessCode)}`;
 }
 
+function buildRequestProfileApplicationUrl(token) {
+  const baseUrl = env.appUrl.replace(/\/$/, '');
+  return `${baseUrl}/apply/${encodeURIComponent(token)}`;
+}
+
+function buildQuotaValueMap(entries = []) {
+  return entries.reduce((map, entry) => {
+    map[Number(entry.categoryId)] = Number(entry.quota || 0);
+    return map;
+  }, {});
+}
+
+function buildQuotaSummary(entries = [], categories = []) {
+  const categoryMap = categories.reduce((map, category) => {
+    map[Number(category.id)] = category;
+    return map;
+  }, {});
+
+  return entries.map((entry) => ({
+    ...entry,
+    categoryName: categoryMap[Number(entry.categoryId)]?.name || `#${entry.categoryId}`,
+  }));
+}
+
 function normalizeImportHeader(header = '') {
   return String(header)
     .trim()
@@ -873,6 +897,7 @@ class AccessService {
     categoryRepository,
     eventRepository,
     requestProfileRepository,
+    requestProfileApplicationRepository,
     requestRepository,
     eventService,
     auditLogService,
@@ -882,6 +907,7 @@ class AccessService {
     this.categoryRepository = categoryRepository;
     this.eventRepository = eventRepository;
     this.requestProfileRepository = requestProfileRepository;
+    this.requestProfileApplicationRepository = requestProfileApplicationRepository;
     this.requestRepository = requestRepository;
     this.eventService = eventService;
     this.auditLogService = auditLogService;
@@ -950,6 +976,72 @@ class AccessService {
     } finally {
       connection.release();
     }
+  }
+
+  async generateUniqueRequestProfileApplicationToken() {
+    for (let index = 0; index < 12; index += 1) {
+      const token = uuidv4();
+      const existingEvent = await this.eventRepository.findByRequestProfileApplicationToken(token);
+
+      if (!existingEvent) {
+        return token;
+      }
+    }
+
+    throw new Error('Unable to generate a unique request profile application token');
+  }
+
+  async ensureRequestProfileApplicationToken(event) {
+    if (event.request_profile_application_token) {
+      return event.request_profile_application_token;
+    }
+
+    const token = await this.generateUniqueRequestProfileApplicationToken();
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateRequestProfileApplicationToken(connection, event.id, token);
+      await connection.commit();
+      event.request_profile_application_token = token;
+      return token;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async normalizeProfileApplicationQuotas(eventId, payload, t) {
+    const tx = resolveTranslate(t);
+    const [passCategories, wristbandCategories] = await Promise.all([
+      this.categoryRepository.listByEvent(eventId, 'pass'),
+      this.categoryRepository.listByEvent(eventId, 'wristband'),
+    ]);
+    const activePassCategories = passCategories.filter((category) => Number(category.is_active) === 1);
+    const activeWristbandCategories = wristbandCategories.filter((category) => Number(category.is_active) === 1);
+    const passQuotas = normalizeQuotaEntriesForCategories(payload.passQuota, activePassCategories);
+    const wristbandQuotas = normalizeQuotaEntriesForCategories(payload.wristbandQuota, activeWristbandCategories);
+    const validPassIds = new Set(activePassCategories.map((category) => Number(category.id)));
+    const validWristbandIds = new Set(activeWristbandCategories.map((category) => Number(category.id)));
+    const sanitizedPassQuotas = passQuotas.filter((entry) => validPassIds.has(Number(entry.categoryId)));
+    const sanitizedWristbandQuotas = wristbandQuotas.filter(
+      (entry) => validWristbandIds.has(Number(entry.categoryId)),
+    );
+
+    if (!hasAssignedRequestProfileQuota(sanitizedPassQuotas, sanitizedWristbandQuotas)) {
+      throw new AppError(tx('service.requestProfileApplication.quotaRequired'), 422);
+    }
+
+    return {
+      passCategories,
+      wristbandCategories,
+      activePassCategories,
+      activeWristbandCategories,
+      passQuotas: sanitizedPassQuotas,
+      wristbandQuotas: sanitizedWristbandQuotas,
+    };
   }
 
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
@@ -1277,9 +1369,14 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.manage'), 403);
     }
 
+    const applicationToken = await this.ensureRequestProfileApplicationToken(event);
     const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
     const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
-    const profiles = await this.requestProfileRepository.listByEvent(eventId);
+    const [profiles, applications, pendingApplicationCount] = await Promise.all([
+      this.requestProfileRepository.listByEvent(eventId),
+      this.requestProfileApplicationRepository.listByEvent(eventId),
+      this.requestProfileApplicationRepository.countPendingByEvent(eventId),
+    ]);
 
     const enrichedProfiles = await Promise.all(
       profiles.map(async (rawProfile) => {
@@ -1333,7 +1430,248 @@ class AccessService {
       passCategories,
       wristbandCategories,
       profiles: enrichedProfiles,
+      profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
+      profileApplications: applications.map((application) => ({
+        ...application,
+        requestedPassQuotaMap: buildQuotaValueMap(application.requested_pass_quota),
+        requestedWristbandQuotaMap: buildQuotaValueMap(application.requested_wristband_quota),
+        requestedPassSummary: buildQuotaSummary(application.requested_pass_quota, passCategories),
+        requestedWristbandSummary: buildQuotaSummary(application.requested_wristband_quota, wristbandCategories),
+      })),
+      pendingApplicationCount,
     };
+  }
+
+  async getRequestProfileApplicationForm(token, t) {
+    const tx = resolveTranslate(t);
+    const normalizedToken = String(token || '').trim();
+
+    if (!normalizedToken) {
+      throw new AppError(tx('service.requestProfileApplication.linkInvalid'), 404);
+    }
+
+    const event = await this.eventRepository.findByRequestProfileApplicationToken(normalizedToken);
+
+    if (!event) {
+      throw new AppError(tx('service.requestProfileApplication.linkInvalid'), 404);
+    }
+
+    const [passCategories, wristbandCategories] = await Promise.all([
+      this.categoryRepository.listByEvent(event.id, 'pass'),
+      this.categoryRepository.listByEvent(event.id, 'wristband'),
+    ]);
+
+    return {
+      event,
+      token: normalizedToken,
+      passCategories: passCategories.filter((category) => Number(category.is_active) === 1),
+      wristbandCategories: wristbandCategories.filter((category) => Number(category.is_active) === 1),
+    };
+  }
+
+  async submitRequestProfileApplication(token, payload, t) {
+    const tx = resolveTranslate(t);
+    const form = await this.getRequestProfileApplicationForm(token, tx);
+    const profileName = String(payload.profileName || '').trim();
+    const contactEmail = normalizeEmail(payload.contactEmail);
+    const contactPhone = String(payload.contactPhone || '').trim();
+    const notes = String(payload.notes || '').trim();
+    const { passQuotas, wristbandQuotas } = await this.normalizeProfileApplicationQuotas(
+      form.event.id,
+      payload,
+      tx,
+    );
+
+    if (!profileName || !contactEmail || !contactPhone) {
+      throw new AppError(tx('service.requestProfileApplication.contactRequired'), 422);
+    }
+
+    await this.requestProfileApplicationRepository.create({
+      eventId: form.event.id,
+      profileName,
+      contactEmail,
+      contactPhone,
+      notes: notes || null,
+      passQuotas,
+      wristbandQuotas,
+    });
+
+    return form;
+  }
+
+  async approveRequestProfileApplication(eventId, applicationId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.requestProfile.manage'), 403);
+    }
+
+    const application = await this.requestProfileApplicationRepository.findById(applicationId);
+
+    if (!application || Number(application.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.requestProfileApplication.notFound'), 404);
+    }
+
+    if (application.status !== 'pending') {
+      throw new AppError(tx('service.requestProfileApplication.alreadyReviewed'), 409);
+    }
+
+    const {
+      passCategories,
+      wristbandCategories,
+      passQuotas,
+      wristbandQuotas,
+    } = await this.normalizeProfileApplicationQuotas(eventId, payload, tx);
+    const accessCode = await this.generateUniqueAccessCode();
+    const accessCodeHash = await hashPassword(accessCode);
+    const maxPeople = [...passQuotas, ...wristbandQuotas].reduce((sum, entry) => sum + entry.quota, 0) || 1;
+    const profileName = String(application.profile_name || '').trim();
+    const contactEmail = normalizeEmail(application.contact_email);
+    const contactPhone = String(application.contact_phone || '').trim();
+    const notes = String(application.notes || '').trim();
+    const connection = await this.pool.getConnection();
+    let profileId;
+
+    try {
+      await connection.beginTransaction();
+
+      profileId = await this.requestProfileRepository.create(connection, {
+        eventId,
+        userId: actorId,
+        name: profileName,
+        publicSlug: uuidv4(),
+        accessCode,
+        accessCodeHash,
+        maxPeople,
+        isUnlimitedQuota: false,
+        contactEmail,
+        contactPhone,
+        notifyContactOnCreate: true,
+        notes: notes || null,
+        isActive: 1,
+      });
+
+      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'pass', passQuotas);
+      await this.requestProfileRepository.replaceQuotas(connection, profileId, 'wristband', wristbandQuotas);
+
+      const affectedRows = await this.requestProfileApplicationRepository.approve(connection, applicationId, {
+        profileId,
+        userId: actorId,
+      });
+
+      if (!affectedRows) {
+        throw new AppError(tx('service.requestProfileApplication.alreadyReviewed'), 409);
+      }
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'request_profile',
+          entityId: profileId,
+          action: 'created',
+          message: translate(DEFAULT_LOCALE, 'audit.message.requestProfileApplicationApproved', {
+            name: profileName,
+          }),
+          afterState: {
+            applicationId: Number(applicationId),
+            name: profileName,
+            contactEmail,
+            contactPhone,
+            passQuotas,
+            wristbandQuotas,
+          },
+          metadata: buildAuditMetadata('audit.message.requestProfileApplicationApproved', {
+            name: profileName,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    if (this.systemService && contactEmail) {
+      try {
+        await this.systemService.sendProfileInvite({
+          to: contactEmail,
+          eventName: event.name,
+          profileName,
+          accessCode,
+          inviteUrl: buildInviteUrl(accessCode),
+          wristbandSummary: wristbandQuotas.length
+            ? buildQuotaSummary(wristbandQuotas, wristbandCategories)
+              .map((entry) => `${entry.categoryName}: ${entry.quota}`)
+              .join(', ')
+            : '0',
+          passSummary: passQuotas.length
+            ? buildQuotaSummary(passQuotas, passCategories)
+              .map((entry) => `${entry.categoryName}: ${entry.quota}`)
+              .join(', ')
+            : '0',
+        });
+      } catch (error) {
+        console.warn('Profile invite email failed:', error.message);
+      }
+    }
+
+    return {
+      profileId,
+      accessCode,
+    };
+  }
+
+  async rejectRequestProfileApplication(eventId, applicationId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.requestProfile.manage'), 403);
+    }
+
+    const application = await this.requestProfileApplicationRepository.findById(applicationId);
+
+    if (!application || Number(application.event_id) !== Number(eventId)) {
+      throw new AppError(tx('service.requestProfileApplication.notFound'), 404);
+    }
+
+    if (application.status !== 'pending') {
+      throw new AppError(tx('service.requestProfileApplication.alreadyReviewed'), 409);
+    }
+
+    const affectedRows = await this.requestProfileApplicationRepository.reject(applicationId, {
+      userId: actorId,
+      reason: String(payload.reason || '').trim() || null,
+    });
+
+    if (!affectedRows) {
+      throw new AppError(tx('service.requestProfileApplication.alreadyReviewed'), 409);
+    }
+
+    await this.auditLogService.record({
+      eventId,
+      userId: actorId,
+      entityType: 'request_profile_application',
+      entityId: applicationId,
+      action: 'updated',
+      message: translate(DEFAULT_LOCALE, 'audit.message.requestProfileApplicationRejected', {
+        name: application.profile_name,
+      }),
+      beforeState: application,
+      afterState: {
+        status: 'rejected',
+        reason: String(payload.reason || '').trim() || null,
+      },
+      metadata: buildAuditMetadata('audit.message.requestProfileApplicationRejected', {
+        name: application.profile_name,
+      }),
+    });
   }
 
   async createRequestProfile(eventId, actorId, payload, t) {

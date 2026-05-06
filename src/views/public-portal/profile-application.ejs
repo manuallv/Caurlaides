@@ -1,0 +1,160 @@
+<section class="portal-application-shell">
+  <div class="portal-application-card shell-card">
+    <% if (submitted) { %>
+      <div class="portal-application-success">
+        <p class="worldnic-eyebrow"><%= t('requestProfileApplications.publicEyebrow') %></p>
+        <h1><%= t('requestProfileApplications.successTitle') %></h1>
+        <p><%= t('requestProfileApplications.successDescription') %></p>
+      </div>
+    <% } else { %>
+      <div class="portal-application-intro">
+        <p class="worldnic-eyebrow"><%= t('requestProfileApplications.publicEyebrow') %></p>
+        <h1><%= t('requestProfileApplications.publicTitle') %></h1>
+        <p><%= t('requestProfileApplications.publicDescription', { event: event.name }) %></p>
+      </div>
+
+      <form
+        action="/apply/<%= encodeURIComponent(token) %>"
+        method="POST"
+        class="portal-application-form"
+        data-request-profile-form
+        data-request-profile-quota-required-message="<%= t('service.requestProfileApplication.quotaRequired') %>"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+        <section class="request-profile-form-section">
+          <div class="request-profile-form-section__head">
+            <span class="request-profile-form-section__step">1</span>
+            <div class="request-profile-form-section__copy">
+              <p class="request-profile-form-section__eyebrow"><%= t('requestProfileApplications.contactSectionEyebrow') %></p>
+              <h2><%= t('requestProfileApplications.contactSectionTitle') %></h2>
+              <p><%= t('requestProfileApplications.contactSectionDescription') %></p>
+            </div>
+          </div>
+
+          <div class="request-profile-form-grid request-profile-form-grid--profile">
+            <label class="request-profile-form-grid__full">
+              <span class="field-label"><%= t('requestProfiles.fields.name') %></span>
+              <input
+                type="text"
+                name="profileName"
+                class="field-input"
+                autocomplete="organization"
+                required
+              />
+            </label>
+
+            <label class="request-profile-form-grid__span-6">
+              <span class="field-label"><%= t('profileApplication.email') %></span>
+              <input
+                type="email"
+                name="contactEmail"
+                class="field-input"
+                autocomplete="email"
+                required
+              />
+            </label>
+
+            <label class="request-profile-form-grid__span-6">
+              <span class="field-label"><%= t('profileApplication.phone') %></span>
+              <input
+                type="tel"
+                name="contactPhone"
+                class="field-input"
+                autocomplete="tel"
+                required
+              />
+            </label>
+
+            <label class="request-profile-form-grid__full">
+              <span class="field-label"><%= t('requestProfiles.fields.notes') %></span>
+              <textarea
+                name="notes"
+                class="field-input"
+                rows="3"
+                placeholder="<%= t('requestProfileApplications.notesPlaceholder') %>"
+              ></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="request-profile-form-section">
+          <div class="request-profile-form-section__head">
+            <span class="request-profile-form-section__step">2</span>
+            <div class="request-profile-form-section__copy">
+              <p class="request-profile-form-section__eyebrow"><%= t('requestProfileApplications.quotaSectionEyebrow') %></p>
+              <h2><%= t('requestProfileApplications.quotaSectionTitle') %></h2>
+              <p><%= t('requestProfileApplications.quotaSectionDescription') %></p>
+            </div>
+          </div>
+
+          <div class="portal-application-quotas">
+            <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
+              <div class="request-profile-quota-card__head">
+                <h2><%= t('requestProfiles.sections.passTitle') %></h2>
+              </div>
+
+              <% if (passCategories.length) { %>
+                <div class="request-profile-quota-list">
+                  <% passCategories.forEach((category) => { %>
+                    <label class="request-profile-quota-row">
+                      <span class="request-profile-quota-row__copy">
+                        <span class="request-profile-quota-row__title"><%= category.name %></span>
+                        <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        name="passQuota[<%= category.id %>]"
+                        class="field-input request-profile-quota-input"
+                        data-request-profile-quota-input
+                        value="0"
+                      />
+                    </label>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noPassTypes') %></p>
+              <% } %>
+            </section>
+
+            <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
+              <div class="request-profile-quota-card__head">
+                <h2><%= t('requestProfiles.sections.wristbandTitle') %></h2>
+              </div>
+
+              <% if (wristbandCategories.length) { %>
+                <div class="request-profile-quota-list">
+                  <% wristbandCategories.forEach((category) => { %>
+                    <label class="request-profile-quota-row">
+                      <span class="request-profile-quota-row__copy">
+                        <span class="request-profile-quota-row__title"><%= category.name %></span>
+                        <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        name="wristbandQuota[<%= category.id %>]"
+                        class="field-input request-profile-quota-input"
+                        data-request-profile-quota-input
+                        value="0"
+                      />
+                    </label>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
+              <% } %>
+            </section>
+          </div>
+        </section>
+
+        <button type="submit" class="btn-primary portal-application-submit">
+          <%= t('requestProfileApplications.submit') %>
+        </button>
+      </form>
+    <% } %>
+  </div>
+</section>

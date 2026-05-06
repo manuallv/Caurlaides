@@ -6,6 +6,7 @@ const { CategoryRepository } = require('../../../infrastructure/database/reposit
 const { AuditLogRepository } = require('../../../infrastructure/database/repositories/AuditLogRepository');
 const { DashboardRepository } = require('../../../infrastructure/database/repositories/DashboardRepository');
 const { RequestProfileRepository } = require('../../../infrastructure/database/repositories/RequestProfileRepository');
+const { RequestProfileApplicationRepository } = require('../../../infrastructure/database/repositories/RequestProfileApplicationRepository');
 const { RequestRepository } = require('../../../infrastructure/database/repositories/RequestRepository');
 const { SystemSettingsRepository } = require('../../../infrastructure/database/repositories/SystemSettingsRepository');
 const { PasswordResetTokenRepository } = require('../../../infrastructure/database/repositories/PasswordResetTokenRepository');
@@ -38,6 +39,7 @@ function buildRouter() {
   const auditLogRepository = new AuditLogRepository(pool);
   const dashboardRepository = new DashboardRepository(pool);
   const requestProfileRepository = new RequestProfileRepository(pool);
+  const requestProfileApplicationRepository = new RequestProfileApplicationRepository(pool);
   const requestRepository = new RequestRepository(pool);
   const systemSettingsRepository = new SystemSettingsRepository(pool);
   const passwordResetTokenRepository = new PasswordResetTokenRepository(pool);
@@ -48,6 +50,7 @@ function buildRouter() {
     userRepository,
     eventRepository,
     requestProfileRepository,
+    requestProfileApplicationRepository,
     requestRepository,
     systemSettingsRepository,
     passwordResetTokenRepository,

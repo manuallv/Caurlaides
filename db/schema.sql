@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS events (
   status ENUM('draft', 'active', 'completed', 'archived') NOT NULL DEFAULT 'draft',
   pass_request_deadline DATETIME NULL,
   wristband_request_deadline DATETIME NULL,
+  request_profile_application_token CHAR(36) NULL,
   vehicle_check_token CHAR(40) NULL,
   vehicle_check_token_created_at DATETIME NULL,
   vehicle_gate_api_token CHAR(40) NULL,
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS events (
   PRIMARY KEY (id),
   KEY idx_events_owner_id (owner_id),
   KEY idx_events_status (status),
+  UNIQUE KEY uq_events_request_profile_application_token (request_profile_application_token),
   UNIQUE KEY uq_events_vehicle_check_token (vehicle_check_token),
   UNIQUE KEY uq_events_vehicle_gate_api_token (vehicle_gate_api_token),
   UNIQUE KEY uq_events_vehicle_gate_api_key (vehicle_gate_api_key),
@@ -249,6 +251,39 @@ CREATE TABLE IF NOT EXISTS request_profile_wristband_categories (
   CONSTRAINT fk_profile_wristband_categories_category
     FOREIGN KEY (wristband_category_id) REFERENCES wristband_categories (id)
     ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS request_profile_applications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  profile_name VARCHAR(160) NOT NULL,
+  contact_email VARCHAR(190) NOT NULL,
+  contact_phone VARCHAR(40) NOT NULL,
+  notes TEXT NULL,
+  requested_pass_quota JSON NULL,
+  requested_wristband_quota JSON NULL,
+  approved_profile_id BIGINT UNSIGNED NULL,
+  reviewed_by_user_id BIGINT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  rejection_reason TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_profile_applications_event_status_created (event_id, status, created_at),
+  KEY idx_profile_applications_email (event_id, contact_email),
+  CONSTRAINT fk_profile_applications_event
+    FOREIGN KEY (event_id) REFERENCES events (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_profile_applications_profile
+    FOREIGN KEY (approved_profile_id) REFERENCES request_profiles (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_profile_applications_reviewed_by
+    FOREIGN KEY (reviewed_by_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 

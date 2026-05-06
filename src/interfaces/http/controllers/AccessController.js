@@ -87,6 +87,25 @@ function normalizeRequestProfilePayload(body) {
   };
 }
 
+function normalizeRequestProfileApplicationPayload(body) {
+  return {
+    profileName: body.profileName,
+    contactEmail: body.contactEmail || null,
+    contactPhone: body.contactPhone || null,
+    notes: body.notes || null,
+    passQuota: normalizeBracketMap(body, 'passQuota'),
+    wristbandQuota: normalizeBracketMap(body, 'wristbandQuota'),
+  };
+}
+
+function normalizeRequestProfileApplicationDecisionPayload(body) {
+  return {
+    reason: body.reason || null,
+    passQuota: normalizeBracketMap(body, 'passQuota'),
+    wristbandQuota: normalizeBracketMap(body, 'wristbandQuota'),
+  };
+}
+
 function normalizeAdminFilters(query) {
   const parsedPage = Number.parseInt(query.page, 10);
 
@@ -570,7 +589,57 @@ function buildAccessController({ categoryService, accessService }) {
         pageTitle: `${data.event.name} · ${req.t('nav.requestProfiles')}`,
         activeEvent: data.event,
         profiles: data.profiles,
+        passCategories: data.passCategories,
+        wristbandCategories: data.wristbandCategories,
+        profileApplicationUrl: data.profileApplicationUrl,
+        profileApplications: data.profileApplications,
+        pendingApplicationCount: data.pendingApplicationCount,
       });
+    },
+
+    async showRequestProfileApplication(req, res) {
+      const data = await accessService.getRequestProfileApplicationForm(req.params.token, req.t);
+
+      return res.render('public-portal/profile-application', {
+        pageTitle: `${data.event.name} · ${req.t('requestProfileApplications.publicTitle')}`,
+        isPublicPortal: true,
+        portalPageMode: 'application',
+        portalHeaderTitle: data.event.name,
+        event: data.event,
+        token: data.token,
+        passCategories: data.passCategories,
+        wristbandCategories: data.wristbandCategories,
+        submitted: false,
+      });
+    },
+
+    async submitRequestProfileApplication(req, res) {
+      try {
+        const data = await accessService.submitRequestProfileApplication(
+          req.params.token,
+          normalizeRequestProfileApplicationPayload(req.body),
+          req.t,
+        );
+
+        return res.render('public-portal/profile-application', {
+          pageTitle: `${data.event.name} · ${req.t('requestProfileApplications.publicTitle')}`,
+          isPublicPortal: true,
+          portalPageMode: 'application',
+          portalHeaderTitle: data.event.name,
+          event: data.event,
+          token: data.token,
+          passCategories: data.passCategories,
+          wristbandCategories: data.wristbandCategories,
+          submitted: true,
+        });
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/apply/${encodeURIComponent(req.params.token)}`);
+        }
+
+        throw error;
+      }
     },
 
     async showRequestProfileForm(req, res) {
@@ -690,6 +759,58 @@ function buildAccessController({ categoryService, accessService }) {
 
         throw error;
       }
+    },
+
+    async approveRequestProfileApplication(req, res) {
+      try {
+        const result = await accessService.approveRequestProfileApplication(
+          req.params.eventId,
+          req.params.applicationId,
+          req.currentUser.id,
+          normalizeRequestProfileApplicationDecisionPayload(req.body),
+          req.t,
+        );
+
+        emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+          eventId: req.params.eventId,
+        });
+        req.flash('success', req.t('flash.requestProfileApplicationApproved', { code: result.accessCode }));
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+        }
+
+        throw error;
+      }
+
+      return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+    },
+
+    async rejectRequestProfileApplication(req, res) {
+      try {
+        await accessService.rejectRequestProfileApplication(
+          req.params.eventId,
+          req.params.applicationId,
+          req.currentUser.id,
+          normalizeRequestProfileApplicationDecisionPayload(req.body),
+          req.t,
+        );
+
+        emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+          eventId: req.params.eventId,
+        });
+        req.flash('success', req.t('flash.requestProfileApplicationRejected'));
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+        }
+
+        throw error;
+      }
+
+      return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
     },
 
     async updateRequestProfile(req, res) {

@@ -14,6 +14,7 @@ const {
   requestStatusValidator,
   vehicleGateApiSettingsValidator,
   publicVehicleCheckValidator,
+  requestProfileApplicationValidator,
 } = require('../validators/event-validators');
 
 function buildEventRoutes({ eventController, accessController }) {
@@ -129,6 +130,20 @@ function buildEventRoutes({ eventController, accessController }) {
     requestProfileValidator,
     validateRequest,
     asyncHandler(accessController.createRequestProfile),
+  );
+  router.post(
+    '/events/:eventId/request-profile-applications/:applicationId/approve',
+    requireAuth,
+    requestProfileApplicationValidator.filter((validator) => !validator.builder.fields.includes('profileName')
+      && !validator.builder.fields.includes('contactEmail')
+      && !validator.builder.fields.includes('contactPhone')),
+    validateRequest,
+    asyncHandler(accessController.approveRequestProfileApplication),
+  );
+  router.post(
+    '/events/:eventId/request-profile-applications/:applicationId/reject',
+    requireAuth,
+    asyncHandler(accessController.rejectRequestProfileApplication),
   );
   router.put(
     '/events/:eventId/request-profiles/:profileId',

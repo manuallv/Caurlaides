@@ -181,6 +181,27 @@ const requestProfileValidator = [
     .withMessage((value, { req }) => req.t('validation.requestProfile.notesLength', { max: 3000 })),
 ];
 
+const requestProfileApplicationValidator = [
+  body('profileName')
+    .trim()
+    .isLength({ min: 2, max: 160 })
+    .withMessage((value, { req }) => req.t('validation.requestProfile.nameLength', { min: 2, max: 160 })),
+  body('contactEmail')
+    .trim()
+    .isEmail()
+    .withMessage((value, { req }) => req.t('validation.portal.email'))
+    .normalizeEmail(),
+  body('contactPhone')
+    .trim()
+    .isLength({ min: 3, max: 40 })
+    .withMessage((value, { req }) => req.t('validation.portal.phoneLength', { min: 3, max: 40 })),
+  body('notes')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 3000 })
+    .withMessage((value, { req }) => req.t('validation.requestProfile.notesLength', { max: 3000 })),
+];
+
 const requestStatusValidator = [
   body('status')
     .isIn(['pending', 'handed_out'])
@@ -357,6 +378,7 @@ module.exports = {
   portalCodeValidator,
   publicVehicleCheckValidator,
   portalRequestValidator,
+  requestProfileApplicationValidator,
   requestProfileValidator,
   requestStatusValidator,
   vehicleGateApiSettingsValidator,

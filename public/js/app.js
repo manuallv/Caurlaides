@@ -1489,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getRequestProfileElements = () => ({
     form: document.querySelector('[data-request-profile-form]'),
+    forms: [...document.querySelectorAll('[data-request-profile-form]')],
     searchInput: document.querySelector('[data-request-profile-search]'),
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
@@ -1536,6 +1537,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const initializeRequestProfileUI = () => {
     const {
       form,
+      forms,
       unlimitedToggle,
       quotaPanels,
       quotaInputs,
@@ -1563,15 +1565,15 @@ document.addEventListener('DOMContentLoaded', () => {
       syncUnlimitedQuotaMode();
     }
 
-    if (form) {
-      form.onsubmit = (event) => {
-        const isUnlimited = Boolean(unlimitedToggle?.checked);
+    forms.forEach((profileForm) => {
+      profileForm.onsubmit = (event) => {
+        const isUnlimited = profileForm === form && Boolean(unlimitedToggle?.checked);
 
         if (isUnlimited) {
           return;
         }
 
-        const formData = new FormData(form);
+        const formData = new FormData(profileForm);
         const hasPassQuota = [...formData.entries()].some(([key, value]) => (
           key.startsWith('passQuota[') && Number(value || 0) > 0
         ));
@@ -1586,12 +1588,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         event.preventDefault();
         showLiveNotice(
-          form.dataset.requestProfileQuotaRequiredMessage || 'Assign at least one pass or wristband quota before saving the profile.',
+          profileForm.dataset.requestProfileQuotaRequiredMessage || 'Assign at least one pass or wristband quota before saving the profile.',
           'error',
         );
-        quotaInputs[0]?.focus();
+        profileForm.querySelector('[data-request-profile-quota-input]')?.focus();
       };
-    }
+    });
 
     filterRequestProfileRows();
   };
