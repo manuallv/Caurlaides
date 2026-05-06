@@ -12,18 +12,24 @@
           <span><%= t('requestProfileApplications.adminButton', { count: pendingApplicationCount || 0 }) %></span>
         </a>
 
-        <button
-          type="button"
-          class="btn-secondary"
-          data-copy-text="<%= profileApplicationUrl %>"
-          data-copy-success-message="<%= t('requestProfileApplications.copySuccess') %>"
-        >
-          <span><%= t('requestProfileApplications.copyPublicLink') %></span>
-        </button>
+        <div class="request-profile-application-link-group" role="group" aria-label="<%= t('requestProfileApplications.publicLinkActions') %>">
+          <a href="<%= profileApplicationUrl %>" target="_blank" rel="noreferrer" class="btn-secondary request-profile-application-link-group__open">
+            <span><%= t('requestProfileApplications.openPublicLink') %></span>
+          </a>
 
-        <a href="<%= profileApplicationUrl %>" target="_blank" rel="noreferrer" class="btn-secondary">
-          <span><%= t('requestProfileApplications.openPublicLink') %></span>
-        </a>
+          <button
+            type="button"
+            class="btn-secondary request-profile-application-link-group__copy"
+            data-copy-text="<%= profileApplicationUrl %>"
+            data-copy-success-message="<%= t('requestProfileApplications.copySuccess') %>"
+            title="<%= t('requestProfileApplications.copyPublicLink') %>"
+            aria-label="<%= t('requestProfileApplications.copyPublicLink') %>"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
+            </svg>
+          </button>
+        </div>
 
         <div class="request-profile-search">
           <svg viewBox="0 0 20 20" aria-hidden="true">

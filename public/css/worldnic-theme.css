@@ -2855,6 +2855,46 @@ body.portal-modal-open {
   align-items: center;
 }
 
+.request-profile-application-link-group {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 0.95rem;
+  box-shadow: var(--wn-shadow-sm);
+}
+
+.request-profile-application-link-group .btn-secondary {
+  box-shadow: none;
+}
+
+.request-profile-application-link-group__open {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+
+.request-profile-application-link-group__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.65rem;
+  min-width: 2.65rem;
+  padding-left: 0;
+  padding-right: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.request-profile-application-link-group__copy svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .request-profile-search {
   display: flex;
   align-items: center;
