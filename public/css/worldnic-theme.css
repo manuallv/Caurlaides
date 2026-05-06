@@ -4501,6 +4501,11 @@ body.portal-modal-open {
   color: #42536a;
 }
 
+.portal-import-preview-loader.hidden,
+.portal-import-preview-loader[hidden] {
+  display: none;
+}
+
 .portal-import-preview-loader__spinner {
   flex: 0 0 auto;
   width: 1rem;

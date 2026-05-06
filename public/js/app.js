@@ -3735,6 +3735,7 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.importTypeInput.value = type;
     if (elements.importPreviewLoader) {
       elements.importPreviewLoader.classList.add('hidden');
+      elements.importPreviewLoader.hidden = true;
     }
     elements.importPreview.classList.add('hidden');
     elements.importPreview.innerHTML = '';
@@ -3758,6 +3759,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (importPreviewLoader) {
       importPreviewLoader.classList.toggle('hidden', !isLoading);
+      importPreviewLoader.hidden = !isLoading;
     }
 
     if (importPreview && isLoading) {
