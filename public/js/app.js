@@ -4567,13 +4567,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (form.matches('[data-portal-import-preview-form]')) {
       event.preventDefault();
+      const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
+      const formData = new FormData(form);
       setPortalImportPreviewLoading(true);
 
       try {
-        const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
         const response = await fetch('/p/import/preview', {
           method: 'POST',
-          body: new FormData(form),
+          body: formData,
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'CSRF-Token': csrfValue,
