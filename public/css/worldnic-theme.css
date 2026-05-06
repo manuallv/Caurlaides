@@ -3363,6 +3363,59 @@ body.portal-modal-open {
   color: #5f6d82;
 }
 
+.request-profile-application-quota-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.request-profile-application-quota-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.request-profile-application-quota-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 1.6rem;
+  padding: 0.16rem 0.18rem 0.16rem 0.58rem;
+  border: 1px solid rgba(213, 223, 238, 0.92);
+  border-radius: 999px;
+  background: rgba(248, 251, 255, 0.92);
+}
+
+.request-profile-application-quota-text .request-profile-application-quota-name {
+  color: #526177;
+  font-weight: 700;
+}
+
+.request-profile-application-quota-text .request-profile-application-quota-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.25rem;
+  padding: 0 0.38rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(27, 201, 231, 0.16), rgba(0, 116, 255, 0.13));
+  color: #005fd6;
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.request-profile-application-quota-text .request-profile-application-quota-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+  color: #7d8ca2;
+  font-weight: 700;
+}
+
 .request-profile-application-form__quotas,
 .portal-application-quotas {
   display: grid;

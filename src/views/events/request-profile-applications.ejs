@@ -40,14 +40,6 @@
     <% } else { %>
       <div class="request-profile-application-list">
         <% profileApplications.forEach((application) => { %>
-          <%
-            const passQuotaText = application.requestedPassSummary.length
-              ? application.requestedPassSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
-              : '0';
-            const wristbandQuotaText = application.requestedWristbandSummary.length
-              ? application.requestedWristbandSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
-              : '0';
-          %>
           <article class="request-profile-application-card request-profile-application-card--<%= application.status %>">
             <div class="request-profile-application-card__head">
               <div>
@@ -74,13 +66,35 @@
             <% } %>
 
             <div class="request-profile-application-quota-text">
-              <p>
+              <p class="request-profile-application-quota-line">
                 <strong><%= t('requestProfiles.sections.passTitle') %>:</strong>
-                <span><%= passQuotaText %></span>
+                <span class="request-profile-application-quota-chips">
+                  <% if (application.requestedPassSummary.length) { %>
+                    <% application.requestedPassSummary.forEach((entry) => { %>
+                      <span class="request-profile-application-quota-chip">
+                        <span class="request-profile-application-quota-name"><%= entry.categoryName %></span>
+                        <span class="request-profile-application-quota-count"><%= entry.quota %></span>
+                      </span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="request-profile-application-quota-empty">0</span>
+                  <% } %>
+                </span>
               </p>
-              <p>
+              <p class="request-profile-application-quota-line">
                 <strong><%= t('requestProfiles.sections.wristbandTitle') %>:</strong>
-                <span><%= wristbandQuotaText %></span>
+                <span class="request-profile-application-quota-chips">
+                  <% if (application.requestedWristbandSummary.length) { %>
+                    <% application.requestedWristbandSummary.forEach((entry) => { %>
+                      <span class="request-profile-application-quota-chip">
+                        <span class="request-profile-application-quota-name"><%= entry.categoryName %></span>
+                        <span class="request-profile-application-quota-count"><%= entry.quota %></span>
+                      </span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="request-profile-application-quota-empty">0</span>
+                  <% } %>
+                </span>
               </p>
               <% if (application.rejection_reason) { %>
                 <p>
