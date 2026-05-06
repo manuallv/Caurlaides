@@ -3149,6 +3149,31 @@ body.portal-modal-open {
   gap: 0.85rem;
 }
 
+.request-profile-application-quota-text {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(223, 229, 240, 0.86);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.request-profile-application-quota-text p {
+  margin: 0;
+  color: var(--wn-muted);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.request-profile-application-quota-text strong {
+  color: var(--wn-text);
+  font-weight: 800;
+}
+
+.request-profile-application-quota-text span {
+  color: #5f6d82;
+}
+
 .request-profile-application-form__quotas,
 .portal-application-quotas {
   display: grid;
@@ -3163,6 +3188,39 @@ body.portal-modal-open {
   justify-content: flex-end;
   gap: 0.75rem;
   align-items: center;
+}
+
+.request-profile-application-actions--primary form {
+  margin: 0;
+}
+
+.request-profile-application-edit {
+  display: block;
+  width: auto;
+}
+
+.request-profile-application-edit[open] {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.request-profile-application-edit > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin-left: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.request-profile-application-edit > summary::-webkit-details-marker {
+  display: none;
+}
+
+.request-profile-application-edit[open] > summary {
+  margin-left: auto;
+  margin-bottom: 0.9rem;
 }
 
 .request-profile-application-reject .field-input {
@@ -4465,6 +4523,12 @@ body.portal-modal-open {
   .request-profile-application-reject {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .request-profile-application-actions--primary form,
+  .request-profile-application-actions--primary button,
+  .request-profile-application-edit > summary {
+    width: 100%;
   }
 
   .worldnic-menu-btn {

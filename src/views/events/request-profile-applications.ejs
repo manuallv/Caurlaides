@@ -40,6 +40,14 @@
     <% } else { %>
       <div class="request-profile-application-list">
         <% profileApplications.forEach((application) => { %>
+          <%
+            const passQuotaText = application.requestedPassSummary.length
+              ? application.requestedPassSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
+              : '0';
+            const wristbandQuotaText = application.requestedWristbandSummary.length
+              ? application.requestedWristbandSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
+              : '0';
+          %>
           <article class="request-profile-application-card request-profile-application-card--<%= application.status %>">
             <div class="request-profile-application-card__head">
               <div>
@@ -65,123 +73,120 @@
               <p class="request-profile-application-card__notes"><%= application.notes %></p>
             <% } %>
 
+            <div class="request-profile-application-quota-text">
+              <p>
+                <strong><%= t('requestProfiles.sections.passTitle') %>:</strong>
+                <span><%= passQuotaText %></span>
+              </p>
+              <p>
+                <strong><%= t('requestProfiles.sections.wristbandTitle') %>:</strong>
+                <span><%= wristbandQuotaText %></span>
+              </p>
+              <% if (application.rejection_reason) { %>
+                <p>
+                  <strong><%= t('requestProfileApplications.rejectReason') %>:</strong>
+                  <span><%= application.rejection_reason %></span>
+                </p>
+              <% } %>
+            </div>
+
             <% if (application.status === 'pending') { %>
-              <form
-                action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/approve"
-                method="POST"
-                class="request-profile-application-form"
-                data-request-profile-form
-                data-request-profile-quota-required-message="<%= t('service.requestProfileApplication.quotaRequired') %>"
-              >
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-
-                <div class="request-profile-application-form__quotas">
-                  <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
-                    <div class="request-profile-quota-card__head">
-                      <h2><%= t('requestProfiles.sections.passTitle') %></h2>
-                    </div>
-
-                    <% if (passCategories.length) { %>
-                      <div class="request-profile-quota-list">
-                        <% passCategories.forEach((category) => { %>
-                          <label class="request-profile-quota-row">
-                            <span class="request-profile-quota-row__copy">
-                              <span class="request-profile-quota-row__title"><%= category.name %></span>
-                              <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              name="passQuota[<%= category.id %>]"
-                              class="field-input request-profile-quota-input"
-                              data-request-profile-quota-input
-                              value="<%= application.requestedPassQuotaMap[Number(category.id)] || 0 %>"
-                            />
-                          </label>
-                        <% }) %>
-                      </div>
-                    <% } else { %>
-                      <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noPassTypes') %></p>
-                    <% } %>
-                  </section>
-
-                  <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
-                    <div class="request-profile-quota-card__head">
-                      <h2><%= t('requestProfiles.sections.wristbandTitle') %></h2>
-                    </div>
-
-                    <% if (wristbandCategories.length) { %>
-                      <div class="request-profile-quota-list">
-                        <% wristbandCategories.forEach((category) => { %>
-                          <label class="request-profile-quota-row">
-                            <span class="request-profile-quota-row__copy">
-                              <span class="request-profile-quota-row__title"><%= category.name %></span>
-                              <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              name="wristbandQuota[<%= category.id %>]"
-                              class="field-input request-profile-quota-input"
-                              data-request-profile-quota-input
-                              value="<%= application.requestedWristbandQuotaMap[Number(category.id)] || 0 %>"
-                            />
-                          </label>
-                        <% }) %>
-                      </div>
-                    <% } else { %>
-                      <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
-                    <% } %>
-                  </section>
-                </div>
-
-                <div class="request-profile-application-actions">
+              <div class="request-profile-application-actions request-profile-application-actions--primary">
+                <form action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/approve" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <% passCategories.forEach((category) => { %>
+                    <input type="hidden" name="passQuota[<%= category.id %>]" value="<%= application.requestedPassQuotaMap[Number(category.id)] || 0 %>" />
+                  <% }) %>
+                  <% wristbandCategories.forEach((category) => { %>
+                    <input type="hidden" name="wristbandQuota[<%= category.id %>]" value="<%= application.requestedWristbandQuotaMap[Number(category.id)] || 0 %>" />
+                  <% }) %>
                   <button type="submit" class="btn-primary"><%= t('requestProfileApplications.approve') %></button>
-                </div>
-              </form>
+                </form>
 
-              <form
-                action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/reject"
-                method="POST"
-                class="request-profile-application-reject"
-              >
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                <input
-                  type="text"
-                  name="reason"
-                  class="field-input"
-                  placeholder="<%= t('requestProfileApplications.rejectReasonPlaceholder') %>"
-                />
-                <button type="submit" class="btn-secondary"><%= t('requestProfileApplications.reject') %></button>
-              </form>
-            <% } else { %>
-              <div class="request-profile-application-summary">
-                <div>
-                  <strong><%= t('requestProfiles.sections.passTitle') %></strong>
-                  <span>
-                    <%= application.requestedPassSummary.length
-                      ? application.requestedPassSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
-                      : '0'
-                    %>
-                  </span>
-                </div>
-                <div>
-                  <strong><%= t('requestProfiles.sections.wristbandTitle') %></strong>
-                  <span>
-                    <%= application.requestedWristbandSummary.length
-                      ? application.requestedWristbandSummary.map((entry) => `${entry.categoryName}: ${entry.quota}`).join(', ')
-                      : '0'
-                    %>
-                  </span>
-                </div>
-                <% if (application.rejection_reason) { %>
-                  <div>
-                    <strong><%= t('requestProfileApplications.rejectReason') %></strong>
-                    <span><%= application.rejection_reason %></span>
-                  </div>
-                <% } %>
+                <form action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/reject" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-secondary"><%= t('requestProfileApplications.reject') %></button>
+                </form>
+
+                <details class="request-profile-application-edit">
+                  <summary class="btn-secondary"><%= t('requestProfileApplications.edit') %></summary>
+
+                  <form
+                    action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/approve"
+                    method="POST"
+                    class="request-profile-application-form"
+                    data-request-profile-form
+                    data-request-profile-quota-required-message="<%= t('service.requestProfileApplication.quotaRequired') %>"
+                  >
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+                    <div class="request-profile-application-form__quotas">
+                      <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
+                        <div class="request-profile-quota-card__head">
+                          <h2><%= t('requestProfiles.sections.passTitle') %></h2>
+                        </div>
+
+                        <% if (passCategories.length) { %>
+                          <div class="request-profile-quota-list">
+                            <% passCategories.forEach((category) => { %>
+                              <label class="request-profile-quota-row">
+                                <span class="request-profile-quota-row__copy">
+                                  <span class="request-profile-quota-row__title"><%= category.name %></span>
+                                  <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  name="passQuota[<%= category.id %>]"
+                                  class="field-input request-profile-quota-input"
+                                  data-request-profile-quota-input
+                                  value="<%= application.requestedPassQuotaMap[Number(category.id)] || 0 %>"
+                                />
+                              </label>
+                            <% }) %>
+                          </div>
+                        <% } else { %>
+                          <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noPassTypes') %></p>
+                        <% } %>
+                      </section>
+
+                      <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
+                        <div class="request-profile-quota-card__head">
+                          <h2><%= t('requestProfiles.sections.wristbandTitle') %></h2>
+                        </div>
+
+                        <% if (wristbandCategories.length) { %>
+                          <div class="request-profile-quota-list">
+                            <% wristbandCategories.forEach((category) => { %>
+                              <label class="request-profile-quota-row">
+                                <span class="request-profile-quota-row__copy">
+                                  <span class="request-profile-quota-row__title"><%= category.name %></span>
+                                  <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  name="wristbandQuota[<%= category.id %>]"
+                                  class="field-input request-profile-quota-input"
+                                  data-request-profile-quota-input
+                                  value="<%= application.requestedWristbandQuotaMap[Number(category.id)] || 0 %>"
+                                />
+                              </label>
+                            <% }) %>
+                          </div>
+                        <% } else { %>
+                          <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
+                        <% } %>
+                      </section>
+                    </div>
+
+                    <div class="request-profile-application-actions">
+                      <button type="submit" class="btn-primary"><%= t('requestProfileApplications.approveEdited') %></button>
+                    </div>
+                  </form>
+                </details>
               </div>
             <% } %>
           </article>
