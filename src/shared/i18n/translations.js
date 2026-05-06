@@ -1481,7 +1481,7 @@ const translations = {
     'portal.closedForChanges': 'Slēgts',
     'portal.addWristbandButton': 'Pievienot aproci',
     'portal.manageWristbandButton': 'Pārvaldīt aproces',
-    'portal.importWristbandButton': 'Importēt aproces',
+    'portal.importWristbandButton': 'Importēt aproces (Excel)',
     'portal.addPassButton': 'Pievienot caurlaidi',
     'portal.managePassButton': 'Pārvaldīt caurlaides',
     'portal.importPassButton': 'Importēt caurlaides',
