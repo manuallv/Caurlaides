@@ -58,7 +58,7 @@ function normalizeBracketMap(body, prefix) {
   }
 
   const result = {};
-  const matcher = new RegExp(`^${prefix}\\[(\\d+)\\]$`);
+  const matcher = new RegExp(`^${prefix}\\[(?:category_)?(\\d+)\\]$`);
 
   Object.entries(body || {}).forEach(([key, value]) => {
     const match = key.match(matcher);

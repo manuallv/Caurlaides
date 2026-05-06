@@ -42,7 +42,7 @@ function resolveTranslate(t) {
 function normalizeQuotaEntries(input = {}) {
   return Object.entries(input)
     .map(([categoryId, quota]) => ({
-      categoryId: Number(categoryId),
+      categoryId: Number(String(categoryId).match(/\d+$/)?.[0] || categoryId),
       quota: Number(quota || 0),
     }))
     .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);
@@ -50,9 +50,11 @@ function normalizeQuotaEntries(input = {}) {
 
 function normalizeQuotaEntriesForCategories(input = {}, categories = []) {
   if (Array.isArray(input)) {
+    const categoriesById = [...categories].sort((left, right) => Number(left.id) - Number(right.id));
+
     return input
       .map((quota, index) => ({
-        categoryId: Number(categories[index]?.id),
+        categoryId: Number(categoriesById[index]?.id),
         quota: Number(quota || 0),
       }))
       .filter((entry) => Number.isInteger(entry.categoryId) && entry.categoryId > 0 && entry.quota > 0);

@@ -157,7 +157,7 @@
                   <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
                 </span>
                 <input
-                  name="passQuota[<%= category.id %>]"
+                  name="passQuota[category_<%= category.id %>]"
                   type="number"
                   min="0"
                   class="field-input request-profile-quota-input"
@@ -191,7 +191,7 @@
                   <span class="request-profile-quota-row__description"><%= category.description || t('common.noDescription') %></span>
                 </span>
                 <input
-                  name="wristbandQuota[<%= category.id %>]"
+                  name="wristbandQuota[category_<%= category.id %>]"
                   type="number"
                   min="0"
                   class="field-input request-profile-quota-input"
