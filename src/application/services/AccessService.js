@@ -1374,9 +1374,8 @@ class AccessService {
     const applicationToken = await this.ensureRequestProfileApplicationToken(event);
     const passCategories = await this.categoryRepository.listByEvent(eventId, 'pass');
     const wristbandCategories = await this.categoryRepository.listByEvent(eventId, 'wristband');
-    const [profiles, applications, pendingApplicationCount] = await Promise.all([
+    const [profiles, pendingApplicationCount] = await Promise.all([
       this.requestProfileRepository.listByEvent(eventId),
-      this.requestProfileApplicationRepository.listByEvent(eventId),
       this.requestProfileApplicationRepository.countPendingByEvent(eventId),
     ]);
 
@@ -1432,6 +1431,31 @@ class AccessService {
       passCategories,
       wristbandCategories,
       profiles: enrichedProfiles,
+      profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
+      pendingApplicationCount,
+    };
+  }
+
+  async getRequestProfileApplicationsPage(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.requestProfile.manage'), 403);
+    }
+
+    const applicationToken = await this.ensureRequestProfileApplicationToken(event);
+    const [passCategories, wristbandCategories, applications, pendingApplicationCount] = await Promise.all([
+      this.categoryRepository.listByEvent(eventId, 'pass'),
+      this.categoryRepository.listByEvent(eventId, 'wristband'),
+      this.requestProfileApplicationRepository.listByEvent(eventId),
+      this.requestProfileApplicationRepository.countPendingByEvent(eventId),
+    ]);
+
+    return {
+      event,
+      passCategories,
+      wristbandCategories,
       profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
       profileApplications: applications.map((application) => ({
         ...application,

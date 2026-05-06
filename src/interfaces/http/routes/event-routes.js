@@ -120,6 +120,11 @@ function buildEventRoutes({ eventController, accessController }) {
   router.get('/events/:eventId/request-profiles', requireAuth, asyncHandler(accessController.showRequestProfiles));
   router.get('/events/:eventId/request-profiles/new', requireAuth, asyncHandler(accessController.showRequestProfileForm));
   router.get(
+    '/events/:eventId/request-profiles/applications',
+    requireAuth,
+    asyncHandler(accessController.showRequestProfileApplications),
+  );
+  router.get(
     '/events/:eventId/request-profiles/:profileId/edit',
     requireAuth,
     asyncHandler(accessController.showRequestProfileForm),

@@ -384,6 +384,7 @@ const translations = {
     'passPrint.variables.eventName': 'Event name',
     'passPrint.variables.eventLocation': 'Event location',
     'requestProfiles.nav.list': 'Profile list',
+    'requestProfiles.nav.applications': 'Profile applications',
     'requestProfiles.nav.create': 'Create profile',
 
     'requestProfiles.title': 'Request profiles',
@@ -442,6 +443,7 @@ const translations = {
     'requestProfiles.regenerateCode': 'Generate new code',
     'requestProfiles.backToList': 'Back to list',
     'requestProfileApplications.publicEyebrow': 'Profile application',
+    'requestProfileApplications.pageTitle': 'Profile applications',
     'requestProfileApplications.publicTitle': 'Apply for event access',
     'requestProfileApplications.publicDescription': 'Fill in your contact details and requested pass and wristband slots for {event}. The event team will review your application before sending your access code.',
     'requestProfileApplications.contactSectionEyebrow': 'Contact',
@@ -1315,6 +1317,7 @@ const translations = {
     'passPrint.variables.eventName': 'Pasākuma nosaukums',
     'passPrint.variables.eventLocation': 'Pasākuma vieta',
     'requestProfiles.nav.list': 'Profilu saraksts',
+    'requestProfiles.nav.applications': 'Profilu pieteikumi',
     'requestProfiles.nav.create': 'Pieteikt profilu',
 
     'requestProfiles.title': 'Pieteikumu profili',
@@ -1373,6 +1376,7 @@ const translations = {
     'requestProfiles.regenerateCode': 'Ģenerēt jaunu kodu',
     'requestProfiles.backToList': 'Atpakaļ uz sarakstu',
     'requestProfileApplications.publicEyebrow': 'Profila pieteikums',
+    'requestProfileApplications.pageTitle': 'Profilu pieteikumi',
     'requestProfileApplications.publicTitle': 'Pieteikt piekļuvi pasākumam',
     'requestProfileApplications.publicDescription': 'Aizpildi kontaktinformāciju un vajadzīgos caurlaižu un aproču slotus pasākumam {event}. Organizators pieteikumu pārskatīs un pēc apstiprināšanas nosūtīs pieejas kodu.',
     'requestProfileApplications.contactSectionEyebrow': 'Kontakti',

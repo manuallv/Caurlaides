@@ -589,6 +589,17 @@ function buildAccessController({ categoryService, accessService }) {
         pageTitle: `${data.event.name} · ${req.t('nav.requestProfiles')}`,
         activeEvent: data.event,
         profiles: data.profiles,
+        profileApplicationUrl: data.profileApplicationUrl,
+        pendingApplicationCount: data.pendingApplicationCount,
+      });
+    },
+
+    async showRequestProfileApplications(req, res) {
+      const data = await accessService.getRequestProfileApplicationsPage(req.params.eventId, req.currentUser.id, req.t);
+
+      return res.render('events/request-profile-applications', {
+        pageTitle: `${data.event.name} · ${req.t('requestProfileApplications.pageTitle')}`,
+        activeEvent: data.event,
         passCategories: data.passCategories,
         wristbandCategories: data.wristbandCategories,
         profileApplicationUrl: data.profileApplicationUrl,
@@ -778,13 +789,13 @@ function buildAccessController({ categoryService, accessService }) {
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
           req.flash('error', error.message);
-          return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles/applications`);
         }
 
         throw error;
       }
 
-      return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+      return res.redirect(`/events/${req.params.eventId}/request-profiles/applications`);
     },
 
     async rejectRequestProfileApplication(req, res) {
@@ -804,13 +815,13 @@ function buildAccessController({ categoryService, accessService }) {
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {
           req.flash('error', error.message);
-          return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+          return res.redirect(`/events/${req.params.eventId}/request-profiles/applications`);
         }
 
         throw error;
       }
 
-      return res.redirect(`/events/${req.params.eventId}/request-profiles#profile-applications`);
+      return res.redirect(`/events/${req.params.eventId}/request-profiles/applications`);
     },
 
     async updateRequestProfile(req, res) {

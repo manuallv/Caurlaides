@@ -142,6 +142,11 @@
                 active: currentPath === `/events/${activeEvent.id}/request-profiles`,
               },
               {
+                href: `/events/${activeEvent.id}/request-profiles/applications`,
+                label: t('requestProfiles.nav.applications'),
+                active: currentPath === `/events/${activeEvent.id}/request-profiles/applications`,
+              },
+              {
                 href: `/events/${activeEvent.id}/request-profiles/new`,
                 label: t('requestProfiles.nav.create'),
                 active:
