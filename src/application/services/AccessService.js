@@ -10,6 +10,7 @@ const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
 const { comparePassword, hashPassword } = require('../../infrastructure/security/password');
+const { RequestProfileApplicationRepository } = require('../../infrastructure/database/repositories/RequestProfileApplicationRepository');
 
 const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
 const PUBLIC_PORTAL_IMPORTS_KEY = 'publicRequestProfileImports';
@@ -907,7 +908,8 @@ class AccessService {
     this.categoryRepository = categoryRepository;
     this.eventRepository = eventRepository;
     this.requestProfileRepository = requestProfileRepository;
-    this.requestProfileApplicationRepository = requestProfileApplicationRepository;
+    this.requestProfileApplicationRepository = requestProfileApplicationRepository
+      || new RequestProfileApplicationRepository(pool);
     this.requestRepository = requestRepository;
     this.eventService = eventService;
     this.auditLogService = auditLogService;
