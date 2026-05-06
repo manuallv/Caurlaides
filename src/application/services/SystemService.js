@@ -133,16 +133,35 @@ class SystemService {
   async saveEmailTemplates(payload, actor, t) {
     this.assertSuperAdmin(actor, t);
 
-    await this.systemSettingsRepository.upsertTemplate('forgot_password', {
+    await this.saveEmailTemplate('forgot_password', {
       subject: payload.forgotPasswordSubject,
-      html_content: payload.forgotPasswordHtml,
-      text_content: payload.forgotPasswordText,
-    }, actor.id);
+      htmlContent: payload.forgotPasswordHtml,
+      textContent: payload.forgotPasswordText,
+    }, actor, t);
 
-    await this.systemSettingsRepository.upsertTemplate('portal_invite', {
+    await this.saveEmailTemplate('portal_invite', {
       subject: payload.portalInviteSubject,
-      html_content: payload.portalInviteHtml,
-      text_content: payload.portalInviteText,
+      htmlContent: payload.portalInviteHtml,
+      textContent: payload.portalInviteText,
+    }, actor, t);
+  }
+
+  async saveEmailTemplate(templateKey, payload, actor, t) {
+    this.assertSuperAdmin(actor, t);
+    const templates = await this.systemSettingsRepository.listEmailTemplates();
+
+    if (!templates[templateKey]) {
+      throw new AppError(t('system.settings.error.templateNotFound'), 404);
+    }
+
+    if (!String(payload.subject || '').trim() || !String(payload.htmlContent || '').trim()) {
+      throw new AppError(t('system.settings.error.templateRequired'), 422);
+    }
+
+    await this.systemSettingsRepository.upsertTemplate(templateKey, {
+      subject: String(payload.subject || '').trim(),
+      html_content: payload.htmlContent,
+      text_content: payload.textContent || null,
     }, actor.id);
   }
 

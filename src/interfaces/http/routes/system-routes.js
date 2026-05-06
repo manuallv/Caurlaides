@@ -18,6 +18,11 @@ function buildSystemRoutes({ systemController }) {
   router.get('/system/settings/test', requireSuperAdmin, asyncHandler(systemController.showEmailTest));
   router.post('/system/settings/test', requireSuperAdmin, asyncHandler(systemController.sendTestEmail));
   router.get('/system/settings/templates', requireSuperAdmin, asyncHandler(systemController.showEmailTemplates));
+  router.post(
+    '/system/settings/templates/:templateKey',
+    requireSuperAdmin,
+    asyncHandler(systemController.updateEmailTemplate),
+  );
   router.post('/system/settings/templates', requireSuperAdmin, asyncHandler(systemController.updateEmailTemplates));
 
   return router;

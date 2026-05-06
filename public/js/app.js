@@ -1640,6 +1640,37 @@ document.addEventListener('DOMContentLoaded', () => {
     smtpPortInput?.addEventListener('change', syncSmtpSecure);
   };
 
+  const initializeSystemTemplateTabs = () => {
+    const root = document.querySelector('[data-system-template-tabs]');
+
+    if (!root) {
+      return;
+    }
+
+    const tabs = [...root.querySelectorAll('[data-system-template-tab]')];
+    const panels = [...root.querySelectorAll('[data-system-template-panel]')];
+
+    const activateTemplate = (templateKey) => {
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.systemTemplateTab === templateKey;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+
+      panels.forEach((panel) => {
+        panel.classList.toggle('is-active', panel.dataset.systemTemplatePanel === templateKey);
+      });
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('template', templateKey);
+      window.history.replaceState({}, '', url.toString());
+    };
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => activateTemplate(tab.dataset.systemTemplateTab));
+    });
+  };
+
   const filterPortalRows = () => {
     const table = document.querySelector('[data-portal-table]');
     const tbody = table?.querySelector('tbody');
@@ -4642,6 +4673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializePortalUI();
     initializeRequestProfileUI();
     initializeSystemEmailSettings();
+    initializeSystemTemplateTabs();
   });
 
   initializeEventDashboardTabs();
@@ -4651,4 +4683,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initializePortalUI();
   initializeRequestProfileUI();
   initializeSystemEmailSettings();
+  initializeSystemTemplateTabs();
 });

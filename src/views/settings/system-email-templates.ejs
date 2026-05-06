@@ -1,5 +1,12 @@
+<%
+  const templateEntries = Object.values(templates || {});
+  const selectedTemplateKey = templateEntries.some((template) => template.template_key === activeTemplateKey)
+    ? activeTemplateKey
+    : templateEntries[0]?.template_key;
+%>
+
 <section class="space-y-6">
-  <section class="shell-card request-profile-editor request-profile-editor--compact">
+  <section class="shell-card request-profile-editor request-profile-editor--compact system-template-editor">
     <div class="request-profile-editor__head">
       <div>
         <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
@@ -8,51 +15,81 @@
       </div>
     </div>
 
-    <form action="/system/settings/templates" method="POST" class="request-profile-editor__form">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-
-      <div class="request-profile-editor__quotas">
-        <section class="request-profile-quota-card panel">
-          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.forgotTemplate') %></h2></div>
-          <div class="request-profile-quota-list">
-            <label>
-              <span class="field-label"><%= t('system.settings.subject') %></span>
-              <input name="forgotPasswordSubject" type="text" class="field-input" value="<%= templates.forgot_password.subject %>" />
-            </label>
-            <label>
-              <span class="field-label">HTML</span>
-              <textarea name="forgotPasswordHtml" rows="8" class="field-input"><%= templates.forgot_password.html_content %></textarea>
-            </label>
-            <label>
-              <span class="field-label">Text</span>
-              <textarea name="forgotPasswordText" rows="5" class="field-input"><%= templates.forgot_password.text_content || '' %></textarea>
-            </label>
-          </div>
-        </section>
-
-        <section class="request-profile-quota-card panel">
-          <div class="request-profile-quota-card__head"><h2><%= t('system.settings.inviteTemplate') %></h2></div>
-          <div class="request-profile-quota-list">
-            <label>
-              <span class="field-label"><%= t('system.settings.subject') %></span>
-              <input name="portalInviteSubject" type="text" class="field-input" value="<%= templates.portal_invite.subject %>" />
-            </label>
-            <label>
-              <span class="field-label">HTML</span>
-              <textarea name="portalInviteHtml" rows="8" class="field-input"><%= templates.portal_invite.html_content %></textarea>
-            </label>
-            <label>
-              <span class="field-label">Text</span>
-              <textarea name="portalInviteText" rows="5" class="field-input"><%= templates.portal_invite.text_content || '' %></textarea>
-            </label>
-          </div>
-        </section>
+    <div class="system-template-tabs" data-system-template-tabs>
+      <div class="system-template-tabs__nav" role="tablist" aria-label="<%= t('system.settings.templateTabsLabel') %>">
+        <% templateEntries.forEach((template) => { %>
+          <button
+            type="button"
+            class="system-template-tabs__button <%= template.template_key === selectedTemplateKey ? 'is-active' : '' %>"
+            role="tab"
+            aria-selected="<%= template.template_key === selectedTemplateKey ? 'true' : 'false' %>"
+            data-system-template-tab="<%= template.template_key %>"
+          >
+            <span><%= t(template.definition.titleKey) %></span>
+          </button>
+        <% }) %>
       </div>
 
-      <div class="request-profile-editor__actions">
-        <span class="system-settings-help"><%= t('system.settings.description') %></span>
-        <button type="submit" class="btn-primary"><%= t('buttons.save') %></button>
+      <div class="system-template-tabs__panels">
+        <% templateEntries.forEach((template) => { %>
+          <section
+            class="system-template-panel <%= template.template_key === selectedTemplateKey ? 'is-active' : '' %>"
+            data-system-template-panel="<%= template.template_key %>"
+            role="tabpanel"
+          >
+            <form
+              action="/system/settings/templates/<%= template.template_key %>"
+              method="POST"
+              class="request-profile-editor__form"
+            >
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+              <section class="request-profile-quota-card panel">
+                <div class="request-profile-quota-card__head system-template-panel__head">
+                  <div>
+                    <h2><%= t(template.definition.titleKey) %></h2>
+                    <p><%= t(template.definition.descriptionKey) %></p>
+                  </div>
+                  <% if (template.updated_at) { %>
+                    <span class="system-template-panel__updated">
+                      <%= t('system.settings.templateUpdatedAt', { time: helpers.formatDateTime(template.updated_at) }) %>
+                    </span>
+                  <% } %>
+                </div>
+
+                <div class="system-template-variables">
+                  <span><%= t('system.settings.templateVariables') %></span>
+                  <% (template.definition.variables || []).forEach((variable) => { %>
+                    <code><%= variable %></code>
+                  <% }) %>
+                </div>
+
+                <div class="request-profile-quota-list">
+                  <label>
+                    <span class="field-label"><%= t('system.settings.subject') %></span>
+                    <input name="subject" type="text" class="field-input" value="<%= template.subject %>" required />
+                  </label>
+
+                  <label>
+                    <span class="field-label"><%= t('system.settings.templateHtml') %></span>
+                    <textarea name="htmlContent" rows="12" class="field-input" required><%= template.html_content %></textarea>
+                  </label>
+
+                  <label>
+                    <span class="field-label"><%= t('system.settings.templateText') %></span>
+                    <textarea name="textContent" rows="7" class="field-input"><%= template.text_content || '' %></textarea>
+                  </label>
+                </div>
+              </section>
+
+              <div class="request-profile-editor__actions">
+                <span class="system-settings-help"><%= t('system.settings.templateSaveHelp') %></span>
+                <button type="submit" class="btn-primary"><%= t('system.settings.saveTemplate') %></button>
+              </div>
+            </form>
+          </section>
+        <% }) %>
       </div>
-    </form>
+    </div>
   </section>
 </section>

@@ -22,7 +22,38 @@ const DEFAULT_EMAIL_TEMPLATES = {
     `,
     text_content: 'You have been granted access to {{eventName}}.\nProfile: {{profileName}}\nCode: {{accessCode}}\nLink: {{inviteUrl}}\nWristbands: {{wristbandSummary}}\nPasses: {{passSummary}}',
   },
+  test_email: {
+    subject: 'Caurlaides test email',
+    html_content: `
+      <p>Hello,</p>
+      <p>This is a test email from {{appName}}.</p>
+      <p>Sent by: <strong>{{actorName}}</strong></p>
+      <p>If you received this, your current provider settings are working.</p>
+    `,
+    text_content: 'Hello,\n\nThis is a test email from {{appName}}.\nSent by: {{actorName}}\n\nIf you received this, your current provider settings are working.',
+  },
 };
+
+const EMAIL_TEMPLATE_DEFINITIONS = [
+  {
+    key: 'forgot_password',
+    titleKey: 'system.settings.template.forgotPassword.title',
+    descriptionKey: 'system.settings.template.forgotPassword.description',
+    variables: ['{{appName}}', '{{userName}}', '{{resetUrl}}'],
+  },
+  {
+    key: 'portal_invite',
+    titleKey: 'system.settings.template.portalInvite.title',
+    descriptionKey: 'system.settings.template.portalInvite.description',
+    variables: ['{{eventName}}', '{{profileName}}', '{{accessCode}}', '{{inviteUrl}}', '{{wristbandSummary}}', '{{passSummary}}'],
+  },
+  {
+    key: 'test_email',
+    titleKey: 'system.settings.template.testEmail.title',
+    descriptionKey: 'system.settings.template.testEmail.description',
+    variables: ['{{appName}}', '{{actorName}}'],
+  },
+];
 
 class SystemSettingsRepository {
   constructor(pool) {
@@ -78,16 +109,16 @@ class SystemSettingsRepository {
       return accumulator;
     }, {});
 
-    return {
-      forgot_password: templateMap.forgot_password || {
-        template_key: 'forgot_password',
-        ...DEFAULT_EMAIL_TEMPLATES.forgot_password,
-      },
-      portal_invite: templateMap.portal_invite || {
-        template_key: 'portal_invite',
-        ...DEFAULT_EMAIL_TEMPLATES.portal_invite,
-      },
-    };
+    return EMAIL_TEMPLATE_DEFINITIONS.reduce((accumulator, definition) => {
+      accumulator[definition.key] = {
+        template_key: definition.key,
+        definition,
+        ...(DEFAULT_EMAIL_TEMPLATES[definition.key] || {}),
+        ...(templateMap[definition.key] || {}),
+      };
+
+      return accumulator;
+    }, {});
   }
 
   async getEmailTemplate(templateKey) {
@@ -117,4 +148,4 @@ class SystemSettingsRepository {
   }
 }
 
-module.exports = { SystemSettingsRepository, DEFAULT_EMAIL_TEMPLATES };
+module.exports = { SystemSettingsRepository, DEFAULT_EMAIL_TEMPLATES, EMAIL_TEMPLATE_DEFINITIONS };

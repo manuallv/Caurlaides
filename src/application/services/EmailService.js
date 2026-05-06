@@ -153,14 +153,14 @@ class EmailService {
     }
 
     const config = await this.getConfig();
-    const subject = 'Caurlaides test email';
-    const html = `
-      <p>Hello,</p>
-      <p>This is a test email from Caurlaides.</p>
-      <p>Sent by: <strong>${actorName || 'System admin'}</strong></p>
-      <p>If you received this, your current provider settings are working.</p>
-    `;
-    const text = `Hello,\n\nThis is a test email from Caurlaides.\nSent by: ${actorName || 'System admin'}\n\nIf you received this, your current provider settings are working.`;
+    const template = await this.systemSettingsRepository.getEmailTemplate('test_email');
+    const variables = {
+      appName: 'Caurlaides',
+      actorName: actorName || 'System admin',
+    };
+    const subject = interpolateTemplate(template.subject, variables);
+    const html = interpolateTemplate(template.html_content, variables);
+    const text = interpolateTemplate(template.text_content || '', variables);
 
     if (config.provider === 'resend') {
       if (!config.resend.apiKey || !config.resend.fromEmail) {

@@ -35,6 +35,14 @@ function normalizeEmailTemplatesPayload(body) {
   };
 }
 
+function normalizeEmailTemplatePayload(body) {
+  return {
+    subject: body.subject || '',
+    htmlContent: body.htmlContent || '',
+    textContent: body.textContent || '',
+  };
+}
+
 function buildSystemController({ systemService }) {
   return {
     async showUsers(req, res) {
@@ -137,6 +145,7 @@ function buildSystemController({ systemService }) {
       return res.render('settings/system-email-templates', {
         pageTitle: req.t('system.settings.templatesTitle'),
         templates: data.templates,
+        activeTemplateKey: req.query.template || '',
         activeEvent: null,
       });
     },
@@ -150,6 +159,25 @@ function buildSystemController({ systemService }) {
 
       req.flash('success', req.t('system.settings.saved'));
       return res.redirect('/system/settings/templates');
+    },
+
+    async updateEmailTemplate(req, res) {
+      const templateKey = req.params.templateKey;
+
+      try {
+        await systemService.saveEmailTemplate(
+          templateKey,
+          normalizeEmailTemplatePayload(req.body),
+          req.currentUser,
+          req.t,
+        );
+
+        req.flash('success', req.t('system.settings.templateSaved'));
+      } catch (error) {
+        req.flash('error', error.message || req.t('errors.generic'));
+      }
+
+      return res.redirect(`/system/settings/templates?template=${encodeURIComponent(templateKey)}`);
     },
   };
 }

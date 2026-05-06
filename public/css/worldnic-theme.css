@@ -2849,6 +2849,99 @@ body.portal-modal-open {
   line-height: 1.45;
 }
 
+.system-template-tabs {
+  display: grid;
+  gap: 1rem;
+}
+
+.system-template-tabs__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(220, 228, 240, 0.92);
+  border-radius: 1.25rem;
+  background: rgba(245, 248, 252, 0.92);
+}
+
+.system-template-tabs__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.68rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.95rem;
+  background: transparent;
+  color: #66758c;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.system-template-tabs__button:hover,
+.system-template-tabs__button.is-active {
+  border-color: rgba(0, 116, 255, 0.16);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--wn-primary);
+  box-shadow: var(--wn-shadow-sm);
+}
+
+.system-template-panel {
+  display: none;
+}
+
+.system-template-panel.is-active {
+  display: block;
+}
+
+.system-template-panel__head {
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.system-template-panel__head p {
+  max-width: 46rem;
+  margin: 0.35rem 0 0;
+  color: var(--wn-muted);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.system-template-panel__updated {
+  flex: 0 0 auto;
+  color: var(--wn-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.system-template-variables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  color: var(--wn-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.system-template-variables code {
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(205, 215, 230, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #42536a;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
 .request-profile-table-card {
   overflow: hidden;
   width: 100%;
