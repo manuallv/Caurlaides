@@ -106,6 +106,57 @@ class RequestProfileRepository {
     return rows[0] || null;
   }
 
+  async findByEventIdentity(eventId, payload = {}) {
+    if (!payload.name || !payload.contactEmail) {
+      return null;
+    }
+
+    const excludeCondition = payload.excludeProfileId ? 'AND rp.id <> ?' : '';
+    const params = [
+      eventId,
+      payload.name,
+      payload.contactEmail,
+    ];
+
+    if (payload.excludeProfileId) {
+      params.push(payload.excludeProfileId);
+    }
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          rp.id,
+          rp.event_id,
+          rp.name,
+          rp.public_slug,
+          rp.access_code,
+          rp.access_code_hash,
+          rp.max_people,
+          rp.is_unlimited_quota,
+          rp.contact_email,
+          rp.contact_phone,
+          rp.notify_contact_on_create,
+          rp.notes,
+          rp.is_active,
+          rp.locked_at,
+          rp.deleted_at,
+          rp.created_at,
+          rp.updated_at
+        FROM request_profiles rp
+        WHERE rp.event_id = ?
+          AND rp.deleted_at IS NULL
+          AND LOWER(TRIM(rp.name)) = LOWER(TRIM(?))
+          AND LOWER(TRIM(COALESCE(rp.contact_email, ''))) = LOWER(TRIM(?))
+          ${excludeCondition}
+        ORDER BY rp.is_active DESC, rp.created_at ASC, rp.id ASC
+        LIMIT 1
+      `,
+      params,
+    );
+
+    return rows[0] || null;
+  }
+
   async findAnyById(profileId) {
     const [rows] = await this.pool.execute(
       `

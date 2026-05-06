@@ -41,6 +41,61 @@ class RequestProfileApplicationRepository {
     this.pool = pool;
   }
 
+  async findDuplicateByIdentity(eventId, payload = {}) {
+    const allowedStatuses = new Set(['pending', 'approved', 'rejected']);
+    const statuses = (payload.statuses || ['pending', 'approved'])
+      .filter((status) => allowedStatuses.has(status));
+
+    if (!statuses.length || !payload.profileName || !payload.contactEmail) {
+      return null;
+    }
+
+    const statusPlaceholders = statuses.map(() => '?').join(', ');
+    const excludeCondition = payload.excludeId ? 'AND id <> ?' : '';
+    const params = [
+      eventId,
+      ...statuses,
+      payload.profileName,
+      payload.contactEmail,
+    ];
+
+    if (payload.excludeId) {
+      params.push(payload.excludeId);
+    }
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          event_id,
+          status,
+          profile_name,
+          contact_email,
+          contact_phone,
+          notes,
+          requested_pass_quota,
+          requested_wristband_quota,
+          approved_profile_id,
+          reviewed_by_user_id,
+          reviewed_at,
+          rejection_reason,
+          created_at,
+          updated_at
+        FROM request_profile_applications
+        WHERE event_id = ?
+          AND status IN (${statusPlaceholders})
+          AND LOWER(TRIM(profile_name)) = LOWER(TRIM(?))
+          AND LOWER(TRIM(contact_email)) = LOWER(TRIM(?))
+          ${excludeCondition}
+        ORDER BY FIELD(status, 'approved', 'pending', 'rejected'), created_at ASC, id ASC
+        LIMIT 1
+      `,
+      params,
+    );
+
+    return normalizeApplication(rows[0] || null);
+  }
+
   async create(payload) {
     const [result] = await this.pool.execute(
       `

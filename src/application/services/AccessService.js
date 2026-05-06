@@ -1142,6 +1142,41 @@ class AccessService {
     };
   }
 
+  async assertRequestProfileIdentityAvailable(eventId, payload, t) {
+    const tx = resolveTranslate(t);
+    const profileName = String(payload.profileName || payload.name || '').trim();
+    const contactEmail = normalizeEmail(payload.contactEmail);
+
+    if (!profileName || !contactEmail) {
+      return;
+    }
+
+    const duplicateProfile = await this.requestProfileRepository.findByEventIdentity(eventId, {
+      name: profileName,
+      contactEmail,
+      excludeProfileId: payload.excludeProfileId,
+    });
+
+    if (duplicateProfile) {
+      throw new AppError(tx(payload.messageKey || 'service.requestProfile.duplicate'), 409);
+    }
+
+    if (payload.includeApplications === false) {
+      return;
+    }
+
+    const duplicateApplication = await this.requestProfileApplicationRepository.findDuplicateByIdentity(eventId, {
+      profileName,
+      contactEmail,
+      statuses: payload.applicationStatuses || ['pending', 'approved'],
+      excludeId: payload.excludeApplicationId,
+    });
+
+    if (duplicateApplication) {
+      throw new AppError(tx(payload.applicationMessageKey || 'service.requestProfileApplication.duplicate'), 409);
+    }
+  }
+
   async getTypeManagementPage(eventId, actorId, type, filters, t) {
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, t);
     const pageSize = 50;
@@ -1613,6 +1648,13 @@ class AccessService {
       throw new AppError(tx('service.requestProfileApplication.contactRequired'), 422);
     }
 
+    await this.assertRequestProfileIdentityAvailable(form.event.id, {
+      profileName,
+      contactEmail,
+      messageKey: 'service.requestProfileApplication.duplicate',
+      applicationMessageKey: 'service.requestProfileApplication.duplicate',
+    }, tx);
+
     const applicationId = await this.requestProfileApplicationRepository.create({
       eventId: form.event.id,
       profileName,
@@ -1726,6 +1768,16 @@ class AccessService {
     const contactEmail = normalizeEmail(application.contact_email);
     const contactPhone = String(application.contact_phone || '').trim();
     const notes = String(application.notes || '').trim();
+
+    await this.assertRequestProfileIdentityAvailable(eventId, {
+      profileName,
+      contactEmail,
+      excludeApplicationId: applicationId,
+      applicationStatuses: ['approved'],
+      messageKey: 'service.requestProfile.duplicate',
+      applicationMessageKey: 'service.requestProfile.duplicate',
+    }, tx);
+
     const connection = await this.pool.getConnection();
     let profileId;
 
@@ -1919,6 +1971,16 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
+    const profileName = String(payload.name || '').trim();
+    const contactEmail = normalizeEmail(payload.contactEmail);
+
+    await this.assertRequestProfileIdentityAvailable(eventId, {
+      name: profileName,
+      contactEmail,
+      messageKey: 'service.requestProfile.duplicate',
+      applicationMessageKey: 'service.requestProfile.duplicate',
+    }, tx);
+
     const accessCode = await this.generateUniqueAccessCode();
     const accessCodeHash = await hashPassword(accessCode);
     const maxPeople = isUnlimitedQuota
@@ -1935,13 +1997,13 @@ class AccessService {
       const profileId = await this.requestProfileRepository.create(connection, {
         eventId,
         userId: actorId,
-        name: payload.name,
+        name: profileName,
         publicSlug: uuidv4(),
         accessCode,
         accessCodeHash,
         maxPeople,
         isUnlimitedQuota,
-        contactEmail: normalizeEmail(payload.contactEmail),
+        contactEmail,
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
         notes: payload.notes || null,
@@ -1970,10 +2032,10 @@ class AccessService {
           action: 'created',
           message: translate(DEFAULT_LOCALE, 'audit.message.requestProfileCreated', { name: payload.name }),
           afterState: {
-            name: payload.name,
+            name: profileName,
             notes: payload.notes || null,
             isActive: payload.isActive ? 1 : 0,
-            contactEmail: normalizeEmail(payload.contactEmail),
+            contactEmail,
             contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
             notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
             isUnlimitedQuota: isUnlimitedQuota ? 1 : 0,
@@ -2049,6 +2111,17 @@ class AccessService {
       throw new AppError(tx('service.requestProfile.quotaRequired'), 422);
     }
 
+    const profileName = String(payload.name || '').trim();
+    const contactEmail = normalizeEmail(payload.contactEmail);
+
+    await this.assertRequestProfileIdentityAvailable(eventId, {
+      name: profileName,
+      contactEmail,
+      excludeProfileId: profileId,
+      includeApplications: false,
+      messageKey: 'service.requestProfile.duplicate',
+    }, tx);
+
     const maxPeople = isUnlimitedQuota
       ? 0
       : [...sanitizedPassQuotas, ...sanitizedWristbandQuotas]
@@ -2062,10 +2135,10 @@ class AccessService {
 
       await this.requestProfileRepository.update(connection, profileId, {
         userId: actorId,
-        name: payload.name,
+        name: profileName,
         maxPeople,
         isUnlimitedQuota,
-        contactEmail: normalizeEmail(payload.contactEmail),
+        contactEmail,
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
         notes: payload.notes || null,
@@ -2095,10 +2168,10 @@ class AccessService {
           message: translate(DEFAULT_LOCALE, 'audit.message.requestProfileUpdated', { name: payload.name }),
           beforeState: existingProfile,
           afterState: {
-            name: payload.name,
+            name: profileName,
             notes: payload.notes || null,
             isActive: payload.isActive ? 1 : 0,
-            contactEmail: normalizeEmail(payload.contactEmail),
+            contactEmail,
             contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
             notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
             isUnlimitedQuota: isUnlimitedQuota ? 1 : 0,
