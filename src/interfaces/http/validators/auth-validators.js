@@ -1,5 +1,9 @@
 const { body } = require('express-validator');
 
+function preserveEmailLocalPart(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 const registerValidator = [
   body('fullName')
     .trim()
@@ -9,7 +13,7 @@ const registerValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.auth.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   body('password')
     .isLength({ min: 8 })
     .withMessage((value, { req }) => req.t('validation.auth.passwordLength', { min: 8 })),
@@ -23,7 +27,7 @@ const loginValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.auth.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   body('password')
     .notEmpty()
     .withMessage((value, { req }) => req.t('validation.auth.passwordRequired')),
@@ -34,7 +38,7 @@ const forgotPasswordValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.auth.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
 ];
 
 const resetPasswordValidator = [

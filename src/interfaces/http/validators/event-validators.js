@@ -3,6 +3,10 @@ const { EVENT_ROLE_OPTIONS } = require('../../../shared/constants/event-roles');
 
 const EVENT_STATUSES = ['draft', 'active', 'completed', 'archived'];
 
+function preserveEmailLocalPart(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function buildVehiclePlateValidator(fieldName = 'vehiclePlate') {
   return body(fieldName)
     .custom((value, { req }) => {
@@ -79,7 +83,7 @@ const memberValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.member.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   body('role')
     .isIn(EVENT_ROLE_OPTIONS.filter((role) => role !== 'owner'))
     .withMessage((value, { req }) => req.t('validation.member.role')),
@@ -168,7 +172,7 @@ const requestProfileValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   body('contactPhone')
     .optional({ values: 'falsy' })
     .trim()
@@ -190,7 +194,7 @@ const requestProfileApplicationValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   body('contactPhone')
     .trim()
     .isLength({ min: 3, max: 40 })
@@ -235,7 +239,7 @@ const adminRequestEditorValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   buildPassVehiclePlateRequiredValidator(),
   buildVehiclePlateValidator(),
   body('notes')
@@ -275,7 +279,7 @@ const portalRequestValidator = [
     .trim()
     .isEmail()
     .withMessage((value, { req }) => req.t('validation.portal.email'))
-    .normalizeEmail(),
+    .customSanitizer(preserveEmailLocalPart),
   buildPassVehiclePlateRequiredValidator(),
   buildVehiclePlateValidator(),
   body('notes')

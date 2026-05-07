@@ -1,3 +1,28 @@
+function normalizeStoredEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function buildEmailLookupCandidates(email) {
+  const normalizedEmail = normalizeStoredEmail(email);
+  const candidates = [normalizedEmail].filter(Boolean);
+  const [localPart, domain] = normalizedEmail.split('@');
+
+  if (localPart && ['gmail.com', 'googlemail.com'].includes(domain)) {
+    const dotlessLocalPart = localPart.split('+')[0].replace(/\./g, '');
+    const domains = domain === 'googlemail.com' ? ['googlemail.com', 'gmail.com'] : ['gmail.com', 'googlemail.com'];
+
+    for (const candidateDomain of domains) {
+      const candidate = `${dotlessLocalPart}@${candidateDomain}`;
+
+      if (!candidates.includes(candidate)) {
+        candidates.push(candidate);
+      }
+    }
+  }
+
+  return candidates;
+}
+
 class UserRepository {
   constructor(pool) {
     this.pool = pool;
@@ -9,13 +34,20 @@ class UserRepository {
         INSERT INTO users (full_name, email, phone, password_hash, is_active)
         VALUES (?, ?, ?, ?, ?)
       `,
-      [fullName, email.toLowerCase(), phone, passwordHash, isActive ? 1 : 0],
+      [fullName, normalizeStoredEmail(email), phone, passwordHash, isActive ? 1 : 0],
     );
 
     return this.findById(result.insertId);
   }
 
   async findByEmail(email) {
+    const candidates = buildEmailLookupCandidates(email);
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const placeholders = candidates.map(() => '?').join(', ');
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -30,10 +62,11 @@ class UserRepository {
           created_at,
           updated_at
         FROM users
-        WHERE email = ?
+        WHERE email IN (${placeholders})
+        ORDER BY FIELD(email, ${placeholders})
         LIMIT 1
       `,
-      [email.toLowerCase()],
+      [...candidates, ...candidates],
     );
 
     return rows[0] || null;
@@ -63,16 +96,24 @@ class UserRepository {
   }
 
   async findForInvitation(email) {
+    const candidates = buildEmailLookupCandidates(email);
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const placeholders = candidates.map(() => '?').join(', ');
     const [rows] = await this.pool.execute(
       `
         SELECT id, full_name, email, phone, is_active, deleted_at
         FROM users
-        WHERE email = ?
+        WHERE email IN (${placeholders})
           AND is_active = 1
           AND deleted_at IS NULL
+        ORDER BY FIELD(email, ${placeholders})
         LIMIT 1
       `,
-      [email.toLowerCase()],
+      [...candidates, ...candidates],
     );
 
     return rows[0] || null;
@@ -143,7 +184,7 @@ class UserRepository {
           deleted_by_user_id = CASE WHEN ? = 1 THEN NULL ELSE deleted_by_user_id END
         WHERE id = ?
       `,
-      [fullName, email.toLowerCase(), phone, isActive ? 1 : 0, isActive ? 1 : 0, isActive ? 1 : 0, userId],
+      [fullName, normalizeStoredEmail(email), phone, isActive ? 1 : 0, isActive ? 1 : 0, isActive ? 1 : 0, userId],
     );
   }
 
