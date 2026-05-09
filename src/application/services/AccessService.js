@@ -2842,6 +2842,153 @@ class AccessService {
     };
   }
 
+  async getPublicPortalRecoveryDiagnostics(session, t) {
+    const tx = resolveTranslate(t);
+    const profile = await this.getPortalProfileOrFail(session, tx);
+    const normalizeText = (value) => String(value || '').trim().toLowerCase();
+    const profileNameKey = normalizeText(profile.name);
+    const [profileRequestCounts, sameNameProfiles, sameCompanyPassGroups, sameCompanyWristbandGroups, recentPassRows, recentWristbandRows, auditMatches] = await Promise.all([
+      this.pool.execute(
+        `
+          SELECT 'pass' AS request_type, deleted_at IS NULL AS is_active, COUNT(*) AS total_count
+          FROM pass_requests
+          WHERE event_id = ?
+            AND request_profile_id = ?
+          GROUP BY deleted_at IS NULL
+          UNION ALL
+          SELECT 'wristband' AS request_type, deleted_at IS NULL AS is_active, COUNT(*) AS total_count
+          FROM wristband_requests
+          WHERE event_id = ?
+            AND request_profile_id = ?
+          GROUP BY deleted_at IS NULL
+        `,
+        [profile.event_id, profile.id, profile.event_id, profile.id],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT
+            rp.id AS profile_id,
+            rp.access_code,
+            rp.is_active,
+            rp.deleted_at,
+            COUNT(DISTINCT pr.id) AS pass_count,
+            COUNT(DISTINCT wr.id) AS wristband_count
+          FROM request_profiles rp
+          LEFT JOIN pass_requests pr
+            ON pr.request_profile_id = rp.id
+           AND pr.deleted_at IS NULL
+          LEFT JOIN wristband_requests wr
+            ON wr.request_profile_id = rp.id
+           AND wr.deleted_at IS NULL
+          WHERE rp.event_id = ?
+            AND LOWER(TRIM(rp.name)) = ?
+          GROUP BY rp.id, rp.access_code, rp.is_active, rp.deleted_at
+          ORDER BY rp.id ASC
+        `,
+        [profile.event_id, profileNameKey],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT
+            COALESCE(pr.request_profile_id, 0) AS profile_id,
+            COALESCE(rp.access_code, '') AS access_code,
+            pr.deleted_at IS NULL AS is_active,
+            COUNT(*) AS total_count
+          FROM pass_requests pr
+          LEFT JOIN request_profiles rp ON rp.id = pr.request_profile_id
+          WHERE pr.event_id = ?
+            AND LOWER(TRIM(COALESCE(pr.company_name, ''))) = ?
+          GROUP BY COALESCE(pr.request_profile_id, 0), COALESCE(rp.access_code, ''), pr.deleted_at IS NULL
+          ORDER BY total_count DESC
+        `,
+        [profile.event_id, profileNameKey],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT
+            COALESCE(wr.request_profile_id, 0) AS profile_id,
+            COALESCE(rp.access_code, '') AS access_code,
+            wr.deleted_at IS NULL AS is_active,
+            COUNT(*) AS total_count
+          FROM wristband_requests wr
+          LEFT JOIN request_profiles rp ON rp.id = wr.request_profile_id
+          WHERE wr.event_id = ?
+            AND LOWER(TRIM(COALESCE(wr.company_name, ''))) = ?
+          GROUP BY COALESCE(wr.request_profile_id, 0), COALESCE(rp.access_code, ''), wr.deleted_at IS NULL
+          ORDER BY total_count DESC
+        `,
+        [profile.event_id, profileNameKey],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT id, request_profile_id, pass_category_id AS category_id, status, deleted_at, created_at, updated_at
+          FROM pass_requests
+          WHERE event_id = ?
+            AND request_profile_id = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT 20
+        `,
+        [profile.event_id, profile.id],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT id, request_profile_id, wristband_category_id AS category_id, status, deleted_at, created_at, updated_at
+          FROM wristband_requests
+          WHERE event_id = ?
+            AND request_profile_id = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT 20
+        `,
+        [profile.event_id, profile.id],
+      ).then(([rows]) => rows),
+      this.pool.execute(
+        `
+          SELECT id, entity_type, entity_id, action, message, created_at
+          FROM audit_logs
+          WHERE event_id = ?
+            AND (
+              before_state LIKE ?
+              OR after_state LIKE ?
+              OR before_state LIKE ?
+              OR after_state LIKE ?
+              OR before_state LIKE ?
+              OR after_state LIKE ?
+              OR message LIKE ?
+            )
+          ORDER BY created_at DESC
+          LIMIT 50
+        `,
+        [
+          profile.event_id,
+          `%"requestProfileId":${profile.id}%`,
+          `%"requestProfileId":${profile.id}%`,
+          `%"request_profile_id":${profile.id}%`,
+          `%"request_profile_id":${profile.id}%`,
+          `%${profile.name}%`,
+          `%${profile.name}%`,
+          `%${profile.name}%`,
+        ],
+      ).then(([rows]) => rows),
+    ]);
+
+    return {
+      profile: {
+        id: Number(profile.id),
+        eventId: Number(profile.event_id),
+        name: profile.name,
+        accessCode: profile.access_code,
+        isUnlimitedQuota: Boolean(profile.is_unlimited_quota),
+      },
+      profileRequestCounts,
+      sameNameProfiles,
+      sameCompanyPassGroups,
+      sameCompanyWristbandGroups,
+      recentPassRows,
+      recentWristbandRows,
+      auditMatches,
+    };
+  }
+
   async createPortalRequest(session, type, body, t) {
     const tx = resolveTranslate(t);
     const portal = await this.getPublicPortal(session, tx);
