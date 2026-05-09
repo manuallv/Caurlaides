@@ -2847,8 +2847,7 @@ class AccessService {
     const profile = await this.getPortalProfileOrFail(session, tx);
     const normalizeText = (value) => String(value || '').trim().toLowerCase();
     const profileNameKey = normalizeText(profile.name);
-    const profileNameLike = `%${profileNameKey}%`;
-    const [profileRequestCounts, sameNameProfiles, relatedProfiles, sameCompanyPassGroups, sameCompanyWristbandGroups, companyLikePassGroups, companyLikeWristbandGroups, recentPassRows, recentWristbandRows, auditMatches] = await Promise.all([
+    const [profileRequestCounts, sameNameProfiles, sameCompanyPassGroups, sameCompanyWristbandGroups, recentPassRows, recentWristbandRows, auditMatches] = await Promise.all([
       this.pool.execute(
         `
           SELECT 'pass' AS request_type, deleted_at IS NULL AS is_active, COUNT(*) AS total_count
@@ -2891,30 +2890,6 @@ class AccessService {
       this.pool.execute(
         `
           SELECT
-            rp.id AS profile_id,
-            rp.access_code,
-            rp.name,
-            rp.is_active,
-            rp.deleted_at,
-            COUNT(DISTINCT pr.id) AS pass_count,
-            COUNT(DISTINCT wr.id) AS wristband_count
-          FROM request_profiles rp
-          LEFT JOIN pass_requests pr
-            ON pr.request_profile_id = rp.id
-           AND pr.deleted_at IS NULL
-          LEFT JOIN wristband_requests wr
-            ON wr.request_profile_id = rp.id
-           AND wr.deleted_at IS NULL
-          WHERE rp.event_id = ?
-            AND LOWER(TRIM(rp.name)) LIKE ?
-          GROUP BY rp.id, rp.access_code, rp.name, rp.is_active, rp.deleted_at
-          ORDER BY rp.id ASC
-        `,
-        [profile.event_id, profileNameLike],
-      ).then(([rows]) => rows),
-      this.pool.execute(
-        `
-          SELECT
             COALESCE(pr.request_profile_id, 0) AS profile_id,
             COALESCE(rp.access_code, '') AS access_code,
             pr.deleted_at IS NULL AS is_active,
@@ -2927,38 +2902,6 @@ class AccessService {
           ORDER BY total_count DESC
         `,
         [profile.event_id, profileNameKey],
-      ).then(([rows]) => rows),
-      this.pool.execute(
-        `
-          SELECT
-            COALESCE(pr.request_profile_id, 0) AS profile_id,
-            COALESCE(rp.access_code, '') AS access_code,
-            pr.deleted_at IS NULL AS is_active,
-            COUNT(*) AS total_count
-          FROM pass_requests pr
-          LEFT JOIN request_profiles rp ON rp.id = pr.request_profile_id
-          WHERE pr.event_id = ?
-            AND LOWER(TRIM(COALESCE(pr.company_name, ''))) LIKE ?
-          GROUP BY COALESCE(pr.request_profile_id, 0), COALESCE(rp.access_code, ''), pr.deleted_at IS NULL
-          ORDER BY total_count DESC
-        `,
-        [profile.event_id, profileNameLike],
-      ).then(([rows]) => rows),
-      this.pool.execute(
-        `
-          SELECT
-            COALESCE(wr.request_profile_id, 0) AS profile_id,
-            COALESCE(rp.access_code, '') AS access_code,
-            wr.deleted_at IS NULL AS is_active,
-            COUNT(*) AS total_count
-          FROM wristband_requests wr
-          LEFT JOIN request_profiles rp ON rp.id = wr.request_profile_id
-          WHERE wr.event_id = ?
-            AND LOWER(TRIM(COALESCE(wr.company_name, ''))) LIKE ?
-          GROUP BY COALESCE(wr.request_profile_id, 0), COALESCE(rp.access_code, ''), wr.deleted_at IS NULL
-          ORDER BY total_count DESC
-        `,
-        [profile.event_id, profileNameLike],
       ).then(([rows]) => rows),
       this.pool.execute(
         `
@@ -3038,11 +2981,8 @@ class AccessService {
       },
       profileRequestCounts,
       sameNameProfiles,
-      relatedProfiles,
       sameCompanyPassGroups,
       sameCompanyWristbandGroups,
-      companyLikePassGroups,
-      companyLikeWristbandGroups,
       recentPassRows,
       recentWristbandRows,
       auditMatches,
