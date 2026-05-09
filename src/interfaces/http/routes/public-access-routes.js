@@ -31,7 +31,6 @@ function buildPublicAccessRoutes({ accessController }) {
   router.post('/check/:token', publicVehicleCheckValidator, validateRequest, asyncHandler(accessController.submitPublicVehicleCheck));
   router.post('/p/access', portalCodeValidator, validateRequest, asyncHandler(accessController.authorizePortal));
   router.get('/p/manage', asyncHandler(accessController.showPortal));
-  router.get('/p/_person-recovery', asyncHandler(accessController.findPortalPersonRecovery));
   router.post('/p/logout', asyncHandler(accessController.logoutPortal));
   router.get('/p/import/template', asyncHandler(accessController.downloadImportTemplate));
   router.get('/p/:accessCode', asyncHandler(accessController.authorizePortalFromLink));
