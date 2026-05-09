@@ -3692,9 +3692,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const source = type === 'pass' ? state.passQuotaUsage || [] : state.wristbandQuotaUsage || [];
     const eligible = source.filter(
-      (entry) => entry.is_unlimited
+      (entry) => (
+        entry.can_create !== false
+        || Number(entry.category_id) === Number(currentCategoryId)
+      ) && (
+        entry.is_unlimited
         || Number(entry.remaining_count) > 0
-        || Number(entry.category_id) === Number(currentCategoryId),
+        || Number(entry.category_id) === Number(currentCategoryId)
+      ),
     );
     const explicitCategoryId = currentCategoryId ? String(currentCategoryId) : '';
     const preferredCategoryId = explicitCategoryId || getPortalPreferredCategoryId(type);

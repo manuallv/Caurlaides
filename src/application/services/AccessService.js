@@ -556,20 +556,44 @@ function buildQuotaMap(quotaUsage = []) {
 }
 
 function buildUnlimitedQuotaUsage(categories = [], requests = []) {
-  const usedByCategory = requests.reduce((map, request) => {
-    const categoryId = Number(request.category_id || 0);
-    map[categoryId] = (map[categoryId] || 0) + 1;
-    return map;
-  }, {});
+  const usageByCategory = new Map();
 
-  return categories.map((category) => ({
-    category_id: Number(category.id),
-    quota: null,
-    category_name: category.name,
-    used_count: Number(usedByCategory[Number(category.id)] || 0),
-    remaining_count: null,
-    is_unlimited: true,
-  }));
+  categories.forEach((category) => {
+    usageByCategory.set(Number(category.id), {
+      category_id: Number(category.id),
+      quota: null,
+      category_name: category.name,
+      used_count: 0,
+      remaining_count: null,
+      is_unlimited: true,
+      can_create: true,
+    });
+  });
+
+  requests.forEach((request) => {
+    const categoryId = Number(request.category_id || 0);
+
+    if (!categoryId) {
+      return;
+    }
+
+    if (!usageByCategory.has(categoryId)) {
+      usageByCategory.set(categoryId, {
+        category_id: categoryId,
+        quota: null,
+        category_name: request.category_name || '-',
+        used_count: 0,
+        remaining_count: null,
+        is_unlimited: true,
+        can_create: false,
+      });
+    }
+
+    const entry = usageByCategory.get(categoryId);
+    entry.used_count += 1;
+  });
+
+  return [...usageByCategory.values()];
 }
 
 function buildUnlimitedQuotaTotals(quotaUsage = []) {
@@ -2014,13 +2038,13 @@ class AccessService {
         connection,
         profileId,
         'pass',
-        isUnlimitedQuota ? [] : sanitizedPassQuotas,
+        sanitizedPassQuotas,
       );
       await this.requestProfileRepository.replaceQuotas(
         connection,
         profileId,
         'wristband',
-        isUnlimitedQuota ? [] : sanitizedWristbandQuotas,
+        sanitizedWristbandQuotas,
       );
 
       await this.auditLogService.record(
@@ -2145,18 +2169,20 @@ class AccessService {
         isActive: payload.isActive ? 1 : 0,
       });
 
-      await this.requestProfileRepository.replaceQuotas(
-        connection,
-        profileId,
-        'pass',
-        isUnlimitedQuota ? [] : sanitizedPassQuotas,
-      );
-      await this.requestProfileRepository.replaceQuotas(
-        connection,
-        profileId,
-        'wristband',
-        isUnlimitedQuota ? [] : sanitizedWristbandQuotas,
-      );
+      if (!isUnlimitedQuota) {
+        await this.requestProfileRepository.replaceQuotas(
+          connection,
+          profileId,
+          'pass',
+          sanitizedPassQuotas,
+        );
+        await this.requestProfileRepository.replaceQuotas(
+          connection,
+          profileId,
+          'wristband',
+          sanitizedWristbandQuotas,
+        );
+      }
 
       await this.auditLogService.record(
         {
@@ -2801,10 +2827,15 @@ class AccessService {
       passPortalOpen,
       wristbandPortalOpen,
       canCreatePassRequests:
-        passPortalOpen && passQuotaUsage.some((quota) => quota.is_unlimited || Number(quota.remaining_count) > 0),
+        passPortalOpen
+        && passQuotaUsage.some(
+          (quota) => quota.can_create !== false && (quota.is_unlimited || Number(quota.remaining_count) > 0),
+        ),
       canCreateWristbandRequests:
         wristbandPortalOpen
-        && wristbandQuotaUsage.some((quota) => quota.is_unlimited || Number(quota.remaining_count) > 0),
+        && wristbandQuotaUsage.some(
+          (quota) => quota.can_create !== false && (quota.is_unlimited || Number(quota.remaining_count) > 0),
+        ),
       passRequests,
       wristbandRequests,
       combinedRequests: buildCombinedRequests(passRequests, wristbandRequests),
@@ -3017,7 +3048,7 @@ class AccessService {
     const category = (type === 'pass' ? portal.passQuotaUsage : portal.wristbandQuotaUsage)
       .find((entry) => Number(entry.category_id) === Number(categoryId));
 
-    if (!category) {
+    if (!category || category.can_create === false) {
       throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
     }
 
@@ -3054,7 +3085,7 @@ class AccessService {
     const quotaUsage = type === 'pass' ? portal.passQuotaUsage : portal.wristbandQuotaUsage;
     const category = quotaUsage.find((entry) => Number(entry.category_id) === Number(categoryId));
 
-    if (!category) {
+    if (!category || category.can_create === false) {
       throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
     }
 
@@ -3918,12 +3949,27 @@ class AccessService {
       if (
         !category
         || Number(category.event_id) !== Number(profile.event_id)
-        || Number(category.is_active) !== 1
       ) {
         throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
       }
 
-      return;
+      if (Number(category.is_active) === 1) {
+        return;
+      }
+
+      if (excludeRequestId) {
+        const existingRequest = await this.requestRepository.findById(type, excludeRequestId);
+
+        if (
+          existingRequest
+          && Number(existingRequest.request_profile_id) === Number(profile.id)
+          && Number(existingRequest.category_id) === Number(categoryId)
+        ) {
+          return;
+        }
+      }
+
+      throw new AppError(tx('service.portal.categoryNotAllowed'), 422);
     }
 
     const quotaUsage = await this.requestRepository.listQuotaUsage(profile.id, type);
