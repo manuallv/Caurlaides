@@ -2755,6 +2755,35 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessActionMenus({ except: menu });
   };
 
+  const buildPassIssuedQuickAction = ({
+    request = {},
+    ui = {},
+    csrfValue = '',
+  } = {}) => {
+    const issuedLabel = ui.statusHandedOutLabel || 'Issued';
+    const isIssued = request.status === 'handed_out';
+
+    return `
+      <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+        <input type="hidden" name="_csrf" value="${csrfValue}" />
+        <input type="hidden" name="status" value="handed_out" data-request-status-input />
+        <button
+          type="submit"
+          class="table-icon-button table-icon-button--success access-issued-quick-button ${isIssued ? 'is-active' : ''}"
+          data-request-status-button
+          title="${escapeHtml(issuedLabel)}"
+          aria-label="${escapeHtml(issuedLabel)}"
+          ${isIssued ? 'disabled' : ''}
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
+            <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"></path>
+          </svg>
+        </button>
+      </form>
+    `;
+  };
+
   const buildPassActionsMenu = ({
     request = {},
     ui = {},
@@ -2958,7 +2987,9 @@ document.addEventListener('DOMContentLoaded', () => {
       </td>
       <td>
         <div class="access-row-actions ${isPass ? 'access-row-actions--menu' : ''}">
-          ${isPass ? buildPassActionsMenu({
+          ${isPass ? `
+            ${buildPassIssuedQuickAction({ request, ui, csrfValue })}
+            ${buildPassActionsMenu({
             request,
             ui,
             csrfValue,
@@ -2966,7 +2997,8 @@ document.addEventListener('DOMContentLoaded', () => {
             issuedButtonToneClass,
             entryButtonToneClass,
             exitButtonToneClass,
-          }) : `
+          })}
+          ` : `
           <button
             type="button"
             class="table-icon-button"

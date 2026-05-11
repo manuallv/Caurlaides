@@ -345,6 +345,24 @@
                     <td>
                       <div class="access-row-actions <%= isPass ? 'access-row-actions--menu' : '' %>">
                         <% if (isPass) { %>
+                          <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                            <input type="hidden" name="status" value="handed_out" data-request-status-input />
+                            <button
+                              type="submit"
+                              class="table-icon-button table-icon-button--success access-issued-quick-button <%= requestDisplayStatus === 'handed_out' ? 'is-active' : '' %>"
+                              data-request-status-button
+                              title="<%= t('access.passState.handed_out') %>"
+                              aria-label="<%= t('access.passState.handed_out') %>"
+                              <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
+                            >
+                              <svg viewBox="0 0 20 20" aria-hidden="true">
+                                <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
+                                <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+                              </svg>
+                            </button>
+                          </form>
+
                           <div class="access-actions-menu" data-access-actions-menu>
                             <button
                               type="button"

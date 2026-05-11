@@ -1711,6 +1711,10 @@ body.is-access-fullscreen {
   justify-content: flex-end;
 }
 
+.access-row-actions .access-status-form {
+  margin: 0;
+}
+
 .access-row-actions--menu {
   position: relative;
   flex-wrap: nowrap;
@@ -1727,6 +1731,28 @@ body.is-access-fullscreen {
 .access-actions-menu__trigger svg {
   width: 1rem;
   height: 1rem;
+}
+
+.access-issued-quick-button {
+  color: #087f5b;
+  border-color: rgba(16, 185, 129, 0.22);
+  background: rgba(236, 253, 245, 0.98);
+}
+
+.access-issued-quick-button:hover,
+.access-issued-quick-button:focus-visible {
+  color: #fff;
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.access-issued-quick-button.is-active,
+.access-issued-quick-button:disabled {
+  color: #fff;
+  border-color: #10b981;
+  background: #10b981;
+  opacity: 0.72;
+  box-shadow: none;
 }
 
 .access-actions-menu__panel {
