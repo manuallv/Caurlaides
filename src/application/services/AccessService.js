@@ -1582,14 +1582,18 @@ class AccessService {
     );
     const profileSummary = enrichedProfiles.reduce(
       (summary, profile) => {
-        summary.totalRequested += Number(profile.passTotals?.used || 0);
-        summary.totalRequested += Number(profile.wristbandTotals?.used || 0);
+        const passTotals = profile.passTotals || {};
+        const wristbandTotals = profile.wristbandTotals || {};
 
-        if (profile.passTotals?.isUnlimited || profile.wristbandTotals?.isUnlimited) {
-          summary.hasUnlimitedAssigned = true;
-        } else {
-          summary.totalAssigned += Number(profile.passTotals?.quota || 0);
-          summary.totalAssigned += Number(profile.wristbandTotals?.quota || 0);
+        summary.totalRequested += Number(passTotals.used || 0);
+        summary.totalRequested += Number(wristbandTotals.used || 0);
+
+        if (!passTotals.isUnlimited) {
+          summary.totalAssigned += Number(passTotals.quota || 0);
+        }
+
+        if (!wristbandTotals.isUnlimited) {
+          summary.totalAssigned += Number(wristbandTotals.quota || 0);
         }
 
         return summary;
@@ -1597,7 +1601,6 @@ class AccessService {
       {
         totalRequested: 0,
         totalAssigned: 0,
-        hasUnlimitedAssigned: false,
       },
     );
 

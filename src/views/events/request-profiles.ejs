@@ -18,7 +18,7 @@
             <small><%= t('requestProfiles.summary.requested') %></small>
           </span>
           <span>
-            <strong><%= profileSummary?.hasUnlimitedAssigned ? '∞' : (profileSummary?.totalAssigned || 0) %></strong>
+            <strong><%= profileSummary?.totalAssigned || 0 %></strong>
             <small><%= t('requestProfiles.summary.assigned') %></small>
           </span>
         </div>
