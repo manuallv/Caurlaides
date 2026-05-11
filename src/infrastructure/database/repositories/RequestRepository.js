@@ -112,6 +112,78 @@ function buildAdminRequestQuerySpec(config, type, eventId, filters = {}) {
   };
 }
 
+function buildRequestBackupSnapshot(config) {
+  const vehicleFields = config.supportsVehiclePlate
+    ? `
+          'vehicle_plate', request.vehicle_plate,
+          'vehicle_plate_normalized', request.vehicle_plate_normalized,
+          'entered_at', request.entered_at,
+          'last_entry_at', request.last_entry_at,
+          'last_exit_at', request.last_exit_at,`
+    : `
+          'vehicle_plate', NULL,
+          'vehicle_plate_normalized', NULL,
+          'entered_at', NULL,
+          'last_entry_at', NULL,
+          'last_exit_at', NULL,`;
+
+  return `
+        JSON_OBJECT(
+          'id', request.id,
+          'event_id', request.event_id,
+          'request_profile_id', request.request_profile_id,
+          '${config.categoryIdField}', request.${config.categoryIdField},
+          'full_name', request.full_name,
+          'company_name', request.company_name,
+          'phone', request.phone,
+          'email', request.email,
+          ${vehicleFields}
+          'notes', request.notes,
+          'status', request.status,
+          'submitted_by_user_id', request.submitted_by_user_id,
+          'handed_out_by_user_id', request.handed_out_by_user_id,
+          'returned_by_user_id', request.returned_by_user_id,
+          'handed_out_at', request.handed_out_at,
+          'returned_at', request.returned_at,
+          'finalized_at', request.finalized_at,
+          'deleted_at', request.deleted_at,
+          'deleted_by_user_id', request.deleted_by_user_id,
+          'status_updated_at', request.status_updated_at,
+          'status_updated_by_user_id', request.status_updated_by_user_id,
+          'created_at', request.created_at,
+          'updated_at', request.updated_at
+        )
+  `;
+}
+
+async function backupRequestRow(executor, config, requestId, operation) {
+  await executor.execute(
+    `
+      INSERT INTO request_data_backups (
+        source_table,
+        source_id,
+        source_key,
+        event_id,
+        request_profile_id,
+        operation,
+        row_snapshot
+      )
+      SELECT
+        ?,
+        request.id,
+        CAST(request.id AS CHAR),
+        request.event_id,
+        request.request_profile_id,
+        ?,
+        ${buildRequestBackupSnapshot(config)}
+      FROM ${config.requestTable} request
+      WHERE request.id = ?
+      LIMIT 1
+    `,
+    [config.requestTable, operation, requestId],
+  );
+}
+
 class RequestRepository {
   constructor(pool) {
     this.pool = pool;
@@ -390,6 +462,7 @@ class RequestRepository {
         ],
       );
 
+      await backupRequestRow(connection, config, result.insertId, 'insert');
       return result.insertId;
     }
 
@@ -421,11 +494,13 @@ class RequestRepository {
       ],
     );
 
+    await backupRequestRow(connection, config, result.insertId, 'insert');
     return result.insertId;
   }
 
   async update(connection, type, requestId, payload) {
     const config = this.resolveConfig(type);
+    await backupRequestRow(connection, config, requestId, 'update_before');
 
     if (config.supportsVehiclePlate) {
       await connection.execute(
@@ -491,6 +566,7 @@ class RequestRepository {
 
   async softDelete(connection, type, requestId, userId = null) {
     const config = this.resolveConfig(type);
+    await backupRequestRow(connection, config, requestId, 'delete_before');
     await connection.execute(
       `
         UPDATE ${config.requestTable}
@@ -505,6 +581,7 @@ class RequestRepository {
 
   async restore(type, requestId) {
     const config = this.resolveConfig(type);
+    await backupRequestRow(this.pool, config, requestId, 'restore_before');
     await this.pool.execute(
       `
         UPDATE ${config.requestTable}
@@ -519,6 +596,7 @@ class RequestRepository {
 
   async setStatus(type, requestId, payload) {
     const config = this.resolveConfig(type);
+    await backupRequestRow(this.pool, config, requestId, 'status_before');
 
     if (payload.status === 'handed_out') {
       await this.pool.execute(
@@ -802,6 +880,7 @@ class RequestRepository {
 
   async registerPassVehicleMovement(connection, requestId, payload) {
     const metadata = payload.metadata ? JSON.stringify(payload.metadata) : null;
+    const config = this.resolveConfig('pass');
     const [insertResult] = await connection.execute(
       `
         INSERT INTO pass_request_entry_logs (
@@ -827,6 +906,8 @@ class RequestRepository {
         metadata,
       ],
     );
+
+    await backupRequestRow(connection, config, requestId, 'movement_before');
 
     if (payload.direction === 'exit') {
       await connection.execute(

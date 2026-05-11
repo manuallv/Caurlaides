@@ -36,6 +36,56 @@ function normalizeApplication(row) {
   };
 }
 
+function buildApplicationBackupSnapshot() {
+  return `
+        JSON_OBJECT(
+          'id', application.id,
+          'event_id', application.event_id,
+          'status', application.status,
+          'profile_name', application.profile_name,
+          'contact_email', application.contact_email,
+          'contact_phone', application.contact_phone,
+          'notes', application.notes,
+          'requested_pass_quota', application.requested_pass_quota,
+          'requested_wristband_quota', application.requested_wristband_quota,
+          'approved_profile_id', application.approved_profile_id,
+          'reviewed_by_user_id', application.reviewed_by_user_id,
+          'reviewed_at', application.reviewed_at,
+          'rejection_reason', application.rejection_reason,
+          'created_at', application.created_at,
+          'updated_at', application.updated_at
+        )
+  `;
+}
+
+async function backupApplicationRow(executor, applicationId, operation) {
+  await executor.execute(
+    `
+      INSERT INTO request_data_backups (
+        source_table,
+        source_id,
+        source_key,
+        event_id,
+        request_profile_id,
+        operation,
+        row_snapshot
+      )
+      SELECT
+        'request_profile_applications',
+        application.id,
+        CAST(application.id AS CHAR),
+        application.event_id,
+        application.approved_profile_id,
+        ?,
+        ${buildApplicationBackupSnapshot()}
+      FROM request_profile_applications application
+      WHERE application.id = ?
+      LIMIT 1
+    `,
+    [operation, applicationId],
+  );
+}
+
 class RequestProfileApplicationRepository {
   constructor(pool) {
     this.pool = pool;
@@ -121,6 +171,7 @@ class RequestProfileApplicationRepository {
       ],
     );
 
+    await backupApplicationRow(this.pool, result.insertId, 'insert');
     return result.insertId;
   }
 
@@ -206,6 +257,7 @@ class RequestProfileApplicationRepository {
   }
 
   async approve(connection, applicationId, payload) {
+    await backupApplicationRow(connection, applicationId, 'approve_before');
     const [result] = await connection.execute(
       `
         UPDATE request_profile_applications
@@ -225,6 +277,7 @@ class RequestProfileApplicationRepository {
   }
 
   async reject(applicationId, payload) {
+    await backupApplicationRow(this.pool, applicationId, 'reject_before');
     const [result] = await this.pool.execute(
       `
         UPDATE request_profile_applications

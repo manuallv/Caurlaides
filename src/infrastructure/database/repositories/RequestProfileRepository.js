@@ -11,6 +11,93 @@ const QUOTA_CONFIG = {
   },
 };
 
+function buildRequestProfileBackupSnapshot() {
+  return `
+        JSON_OBJECT(
+          'id', profile.id,
+          'event_id', profile.event_id,
+          'name', profile.name,
+          'public_slug', profile.public_slug,
+          'contact_email', profile.contact_email,
+          'contact_phone', profile.contact_phone,
+          'access_code', profile.access_code,
+          'access_code_hash', profile.access_code_hash,
+          'max_people', profile.max_people,
+          'is_unlimited_quota', profile.is_unlimited_quota,
+          'notes', profile.notes,
+          'notify_contact_on_create', profile.notify_contact_on_create,
+          'is_active', profile.is_active,
+          'locked_at', profile.locked_at,
+          'deleted_at', profile.deleted_at,
+          'deleted_by_user_id', profile.deleted_by_user_id,
+          'created_by_user_id', profile.created_by_user_id,
+          'updated_by_user_id', profile.updated_by_user_id,
+          'created_at', profile.created_at,
+          'updated_at', profile.updated_at
+        )
+  `;
+}
+
+async function backupRequestProfileRow(executor, profileId, operation) {
+  await executor.execute(
+    `
+      INSERT INTO request_data_backups (
+        source_table,
+        source_id,
+        source_key,
+        event_id,
+        request_profile_id,
+        operation,
+        row_snapshot
+      )
+      SELECT
+        'request_profiles',
+        profile.id,
+        CAST(profile.id AS CHAR),
+        profile.event_id,
+        profile.id,
+        ?,
+        ${buildRequestProfileBackupSnapshot()}
+      FROM request_profiles profile
+      WHERE profile.id = ?
+      LIMIT 1
+    `,
+    [operation, profileId],
+  );
+}
+
+async function backupRequestProfileQuotaRows(executor, config, profileId, operation) {
+  await executor.execute(
+    `
+      INSERT INTO request_data_backups (
+        source_table,
+        source_id,
+        source_key,
+        event_id,
+        request_profile_id,
+        operation,
+        row_snapshot
+      )
+      SELECT
+        ?,
+        NULL,
+        CONCAT(quota.request_profile_id, ':', quota.${config.categoryIdField}),
+        profile.event_id,
+        quota.request_profile_id,
+        ?,
+        JSON_OBJECT(
+          'request_profile_id', quota.request_profile_id,
+          '${config.categoryIdField}', quota.${config.categoryIdField},
+          'quota', quota.quota
+        )
+      FROM ${config.table} quota
+      LEFT JOIN request_profiles profile ON profile.id = quota.request_profile_id
+      WHERE quota.request_profile_id = ?
+    `,
+    [config.table, operation, profileId],
+  );
+}
+
 class RequestProfileRepository {
   constructor(pool) {
     this.pool = pool;
@@ -341,10 +428,12 @@ class RequestProfileRepository {
       values,
     );
 
+    await backupRequestProfileRow(connection, result.insertId, 'insert');
     return result.insertId;
   }
 
   async update(connection, profileId, payload) {
+    await backupRequestProfileRow(connection, profileId, 'update_before');
     await connection.execute(
       `
         UPDATE request_profiles
@@ -378,6 +467,7 @@ class RequestProfileRepository {
   }
 
   async updateAccessCode(connection, profileId, payload) {
+    await backupRequestProfileRow(connection, profileId, 'access_code_before');
     await connection.execute(
       `
         UPDATE request_profiles
@@ -462,6 +552,7 @@ class RequestProfileRepository {
   }
 
   async delete(profileId, userId) {
+    await backupRequestProfileRow(this.pool, profileId, 'delete_before');
     await this.pool.execute(
       `
         UPDATE request_profiles
@@ -476,6 +567,7 @@ class RequestProfileRepository {
   }
 
   async restore(profileId) {
+    await backupRequestProfileRow(this.pool, profileId, 'restore_before');
     await this.pool.execute(
       `
         UPDATE request_profiles
@@ -492,6 +584,7 @@ class RequestProfileRepository {
   async replaceQuotas(connection, profileId, type, quotas = []) {
     const config = this.resolveQuotaConfig(type);
 
+    await backupRequestProfileQuotaRows(connection, config, profileId, 'delete_before');
     await connection.execute(`DELETE FROM ${config.table} WHERE request_profile_id = ?`, [profileId]);
 
     if (!quotas.length) {
@@ -508,6 +601,8 @@ class RequestProfileRepository {
       `,
       values,
     );
+
+    await backupRequestProfileQuotaRows(connection, config, profileId, 'insert');
   }
 
   async listQuotasByProfile(profileId, type) {

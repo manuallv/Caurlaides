@@ -467,6 +467,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS request_data_backups (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  source_table VARCHAR(80) NOT NULL,
+  source_id BIGINT UNSIGNED NULL,
+  source_key VARCHAR(160) NOT NULL,
+  event_id BIGINT UNSIGNED NULL,
+  request_profile_id BIGINT UNSIGNED NULL,
+  operation VARCHAR(40) NOT NULL,
+  row_snapshot JSON NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_request_data_backups_source (source_table, source_key, created_at),
+  KEY idx_request_data_backups_event_created (event_id, created_at),
+  KEY idx_request_data_backups_profile_created (request_profile_id, created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS sessions (
   session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
   expires INT UNSIGNED NOT NULL,
