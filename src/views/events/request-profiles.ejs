@@ -12,6 +12,17 @@
           <span><%= t('requestProfileApplications.adminButton', { count: pendingApplicationCount || 0 }) %></span>
         </a>
 
+        <div class="request-profile-summary-card" aria-label="<%= t('requestProfiles.summary.title') %>">
+          <span>
+            <strong><%= profileSummary?.totalRequested || 0 %></strong>
+            <small><%= t('requestProfiles.summary.requested') %></small>
+          </span>
+          <span>
+            <strong><%= profileSummary?.hasUnlimitedAssigned ? '∞' : (profileSummary?.totalAssigned || 0) %></strong>
+            <small><%= t('requestProfiles.summary.assigned') %></small>
+          </span>
+        </div>
+
         <div class="request-profile-application-link-group" role="group" aria-label="<%= t('requestProfileApplications.publicLinkActions') %>">
           <a href="<%= profileApplicationUrl %>" target="_blank" rel="noreferrer" class="btn-secondary request-profile-application-link-group__open">
             <span><%= t('requestProfileApplications.openPublicLink') %></span>

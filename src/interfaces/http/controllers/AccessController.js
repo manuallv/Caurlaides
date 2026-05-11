@@ -604,6 +604,7 @@ function buildAccessController({ categoryService, accessService }) {
         pageTitle: `${data.event.name} · ${req.t('nav.requestProfiles')}`,
         activeEvent: data.event,
         profiles: data.profiles,
+        profileSummary: data.profileSummary,
         profileApplicationUrl: data.profileApplicationUrl,
         pendingApplicationCount: data.pendingApplicationCount,
       });

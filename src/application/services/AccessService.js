@@ -1580,12 +1580,33 @@ class AccessService {
         };
       }),
     );
+    const profileSummary = enrichedProfiles.reduce(
+      (summary, profile) => {
+        summary.totalRequested += Number(profile.passTotals?.used || 0);
+        summary.totalRequested += Number(profile.wristbandTotals?.used || 0);
+
+        if (profile.passTotals?.isUnlimited || profile.wristbandTotals?.isUnlimited) {
+          summary.hasUnlimitedAssigned = true;
+        } else {
+          summary.totalAssigned += Number(profile.passTotals?.quota || 0);
+          summary.totalAssigned += Number(profile.wristbandTotals?.quota || 0);
+        }
+
+        return summary;
+      },
+      {
+        totalRequested: 0,
+        totalAssigned: 0,
+        hasUnlimitedAssigned: false,
+      },
+    );
 
     return {
       event,
       passCategories,
       wristbandCategories,
       profiles: enrichedProfiles,
+      profileSummary,
       profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
       pendingApplicationCount,
     };
