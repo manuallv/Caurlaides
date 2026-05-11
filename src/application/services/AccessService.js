@@ -1623,29 +1623,6 @@ class AccessService {
         };
       }),
     );
-    const profileSummary = enrichedProfiles.reduce(
-      (summary, profile) => {
-        const passTotals = profile.passTotals || {};
-        const wristbandTotals = profile.wristbandTotals || {};
-
-        summary.totalRequested += Number(passTotals.used || 0);
-        summary.totalRequested += Number(wristbandTotals.used || 0);
-
-        if (!passTotals.isUnlimited) {
-          summary.totalAssigned += Number(passTotals.quota || 0);
-        }
-
-        if (!wristbandTotals.isUnlimited) {
-          summary.totalAssigned += Number(wristbandTotals.quota || 0);
-        }
-
-        return summary;
-      },
-      {
-        totalRequested: 0,
-        totalAssigned: 0,
-      },
-    );
     const profileCategoryStats = {
       pass: buildProfileCategoryStats(passCategories, enrichedProfiles, 'passQuotaUsage'),
       wristband: buildProfileCategoryStats(wristbandCategories, enrichedProfiles, 'wristbandQuotaUsage'),
@@ -1656,7 +1633,6 @@ class AccessService {
       passCategories,
       wristbandCategories,
       profiles: enrichedProfiles,
-      profileSummary,
       profileCategoryStats,
       profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
       pendingApplicationCount,

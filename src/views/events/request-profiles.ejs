@@ -16,17 +16,6 @@
           <span><%= t('requestProfileApplications.adminButton', { count: pendingApplicationCount || 0 }) %></span>
         </a>
 
-        <div class="request-profile-summary-card" aria-label="<%= t('requestProfiles.summary.title') %>">
-          <span>
-            <strong><%= profileSummary?.totalRequested || 0 %></strong>
-            <small><%= t('requestProfiles.summary.requested') %></small>
-          </span>
-          <span>
-            <strong><%= profileSummary?.totalAssigned || 0 %></strong>
-            <small><%= t('requestProfiles.summary.assigned') %></small>
-          </span>
-        </div>
-
         <button type="button" class="btn-secondary request-profile-statistics-button" data-request-profile-statistics-open>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M4 16V9"></path>

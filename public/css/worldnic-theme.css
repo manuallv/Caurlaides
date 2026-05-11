@@ -3185,45 +3185,6 @@ body.portal-modal-open {
   stroke-linejoin: round;
 }
 
-.request-profile-summary-card {
-  display: inline-flex;
-  align-items: stretch;
-  min-height: 2.7rem;
-  overflow: hidden;
-  border: 1px solid rgba(205, 215, 230, 0.96);
-  border-radius: 0.95rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 253, 0.98));
-  box-shadow: var(--wn-shadow-sm);
-}
-
-.request-profile-summary-card span {
-  display: grid;
-  min-width: 5.5rem;
-  padding: 0.45rem 0.75rem;
-  gap: 0.02rem;
-  align-content: center;
-}
-
-.request-profile-summary-card span + span {
-  border-left: 1px solid rgba(218, 226, 238, 0.9);
-}
-
-.request-profile-summary-card strong {
-  color: var(--wn-text);
-  font-size: 0.95rem;
-  line-height: 1.05;
-  font-weight: 850;
-}
-
-.request-profile-summary-card small {
-  color: var(--wn-muted);
-  font-size: 0.62rem;
-  line-height: 1.25;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .request-profile-statistics-button {
   display: inline-flex;
   align-items: center;
@@ -5061,14 +5022,6 @@ body.portal-modal-open {
     min-width: 0;
     max-width: none;
     width: 100%;
-  }
-
-  .request-profile-summary-card {
-    width: 100%;
-  }
-
-  .request-profile-summary-card span {
-    flex: 1;
   }
 
   .request-profile-statistics-button {
