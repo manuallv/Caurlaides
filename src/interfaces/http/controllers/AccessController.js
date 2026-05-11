@@ -1359,20 +1359,6 @@ function buildAccessController({ categoryService, accessService }) {
       });
     },
 
-    async findPortalPersonRecovery(req, res) {
-      if (Number(req.session[PUBLIC_PORTAL_SESSION_KEY] || 0) <= 0) {
-        return res.status(403).json({ error: 'portal-session-required' });
-      }
-
-      const report = await accessService.findPublicPortalPersonRecovery(
-        req.session,
-        req.query.name || 'Aira Leita',
-        req.t,
-      );
-
-      return res.json(report);
-    },
-
     async createPortalRequest(req, res) {
       const result = await accessService.createPortalRequest(
         req.session,
