@@ -86,6 +86,42 @@ function buildSystemController({ systemService }) {
       return res.redirect('/system/users');
     },
 
+    async showBackups(req, res) {
+      const filters = {
+        sourceTable: req.query.sourceTable || '',
+        eventId: req.query.eventId || '',
+        query: req.query.q || '',
+      };
+      const [backups, sourceOptions] = await Promise.all([
+        systemService.listRequestDataBackups(filters, req.currentUser, req.t),
+        Promise.resolve(systemService.getBackupSourceOptions(req.currentUser, req.t)),
+      ]);
+
+      return res.render('settings/backups', {
+        pageTitle: req.t('system.backups.title'),
+        backups,
+        filters,
+        sourceOptions,
+        activeEvent: null,
+      });
+    },
+
+    async restoreBackup(req, res) {
+      try {
+        const backup = await systemService.restoreRequestDataBackup(
+          req.params.backupId,
+          req.currentUser,
+          req.t,
+        );
+
+        req.flash('success', req.t('system.backups.restored', { title: backup.title }));
+      } catch (error) {
+        req.flash('error', error.message || req.t('system.backups.restoreFailed'));
+      }
+
+      return res.redirect('/system/backups');
+    },
+
     async redirectSettings(req, res) {
       return res.redirect('/system/settings/email');
     },

@@ -3,12 +3,80 @@ const { AppError } = require('../../shared/errors/AppError');
 const { hashPassword } = require('../../infrastructure/security/password');
 const { env } = require('../../config/env');
 
+const BACKUP_SENSITIVE_FIELDS = new Set([
+  'access_code_hash',
+]);
+
+const BACKUP_SOURCE_OPTIONS = [
+  'request_profiles',
+  'request_profile_pass_categories',
+  'request_profile_wristband_categories',
+  'request_profile_applications',
+  'pass_requests',
+  'wristband_requests',
+];
+
+function formatBackupValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function humanizeBackupField(key) {
+  return String(key || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function buildBackupTitle(backup) {
+  const snapshot = backup.snapshot || {};
+
+  return (
+    snapshot.full_name ||
+    snapshot.profile_name ||
+    snapshot.name ||
+    snapshot.contact_email ||
+    snapshot.email ||
+    snapshot.vehicle_plate ||
+    snapshot.access_code ||
+    `${backup.source_table} #${backup.source_key}`
+  );
+}
+
+function decorateBackup(backup) {
+  const snapshot = backup.snapshot || {};
+  const details = Object.entries(snapshot)
+    .filter(([key]) => !BACKUP_SENSITIVE_FIELDS.has(key))
+    .map(([key, value]) => ({
+      key,
+      label: humanizeBackupField(key),
+      value: formatBackupValue(value),
+    }));
+
+  return {
+    ...backup,
+    title: buildBackupTitle(backup),
+    details,
+  };
+}
+
 class SystemService {
   constructor({
     userRepository,
     eventRepository,
     requestProfileRepository,
     requestRepository,
+    requestDataBackupRepository,
     systemSettingsRepository,
     passwordResetTokenRepository,
     emailService,
@@ -17,6 +85,7 @@ class SystemService {
     this.eventRepository = eventRepository;
     this.requestProfileRepository = requestProfileRepository;
     this.requestRepository = requestRepository;
+    this.requestDataBackupRepository = requestDataBackupRepository;
     this.systemSettingsRepository = systemSettingsRepository;
     this.passwordResetTokenRepository = passwordResetTokenRepository;
     this.emailService = emailService;
@@ -110,6 +179,34 @@ class SystemService {
       settings,
       templates,
     };
+  }
+
+  getBackupSourceOptions(actor, t) {
+    this.assertSuperAdmin(actor, t);
+    return BACKUP_SOURCE_OPTIONS;
+  }
+
+  async listRequestDataBackups(filters, actor, t) {
+    this.assertSuperAdmin(actor, t);
+    const backups = await this.requestDataBackupRepository.list({
+      sourceTable: filters.sourceTable,
+      eventId: filters.eventId,
+      query: String(filters.query || '').trim(),
+      limit: 200,
+    });
+
+    return backups.map(decorateBackup);
+  }
+
+  async restoreRequestDataBackup(backupId, actor, t) {
+    this.assertSuperAdmin(actor, t);
+    const backup = await this.requestDataBackupRepository.restore(backupId);
+
+    if (!backup) {
+      throw new AppError(t('system.backups.notFound'), 404);
+    }
+
+    return decorateBackup(backup);
   }
 
   async saveEmailSettings(payload, actor, t) {

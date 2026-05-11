@@ -8,6 +8,7 @@ const { DashboardRepository } = require('../../../infrastructure/database/reposi
 const { RequestProfileRepository } = require('../../../infrastructure/database/repositories/RequestProfileRepository');
 const { RequestProfileApplicationRepository } = require('../../../infrastructure/database/repositories/RequestProfileApplicationRepository');
 const { RequestRepository } = require('../../../infrastructure/database/repositories/RequestRepository');
+const { RequestDataBackupRepository } = require('../../../infrastructure/database/repositories/RequestDataBackupRepository');
 const { SystemSettingsRepository } = require('../../../infrastructure/database/repositories/SystemSettingsRepository');
 const { PasswordResetTokenRepository } = require('../../../infrastructure/database/repositories/PasswordResetTokenRepository');
 const { AuthService } = require('../../../application/services/AuthService');
@@ -41,6 +42,7 @@ function buildRouter() {
   const requestProfileRepository = new RequestProfileRepository(pool);
   const requestProfileApplicationRepository = new RequestProfileApplicationRepository(pool);
   const requestRepository = new RequestRepository(pool);
+  const requestDataBackupRepository = new RequestDataBackupRepository(pool);
   const systemSettingsRepository = new SystemSettingsRepository(pool);
   const passwordResetTokenRepository = new PasswordResetTokenRepository(pool);
 
@@ -52,6 +54,7 @@ function buildRouter() {
     requestProfileRepository,
     requestProfileApplicationRepository,
     requestRepository,
+    requestDataBackupRepository,
     systemSettingsRepository,
     passwordResetTokenRepository,
     emailService,

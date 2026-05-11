@@ -1,0 +1,128 @@
+<section class="space-y-6">
+  <section class="shell-card request-profile-table-card">
+    <div class="request-profile-table-card__head">
+      <div>
+        <p class="request-profile-table-card__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1><%= t('system.backups.title') %></h1>
+        <p><%= t('system.backups.description') %></p>
+      </div>
+    </div>
+
+    <form action="/system/backups" method="GET" class="system-backup-filters">
+      <label>
+        <span class="field-label"><%= t('system.backups.search') %></span>
+        <input
+          type="search"
+          name="q"
+          class="field-input"
+          value="<%= filters.query || '' %>"
+          placeholder="<%= t('system.backups.searchPlaceholder') %>"
+        />
+      </label>
+
+      <label>
+        <span class="field-label"><%= t('system.backups.source') %></span>
+        <select name="sourceTable" class="field-input">
+          <option value=""><%= t('system.backups.allSources') %></option>
+          <% sourceOptions.forEach((source) => { %>
+            <option value="<%= source %>" <%= filters.sourceTable === source ? 'selected' : '' %>>
+              <%= t(`system.backups.source.${source}`) %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+
+      <label>
+        <span class="field-label"><%= t('system.backups.eventId') %></span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          name="eventId"
+          class="field-input"
+          value="<%= filters.eventId || '' %>"
+          placeholder="4"
+        />
+      </label>
+
+      <div class="system-backup-filters__actions">
+        <button type="submit" class="btn-primary"><%= t('buttons.filter') %></button>
+        <a href="/system/backups" class="btn-secondary"><%= t('buttons.reset') %></a>
+      </div>
+    </form>
+
+    <div class="request-profile-table-scroll">
+      <table class="request-profile-table system-backup-table">
+        <thead>
+          <tr>
+            <th><%= t('system.backups.createdAt') %></th>
+            <th><%= t('system.backups.source') %></th>
+            <th><%= t('system.backups.operation') %></th>
+            <th><%= t('system.backups.item') %></th>
+            <th><%= t('system.backups.eventId') %></th>
+            <th><%= t('requestProfiles.table.actions') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!backups.length) { %>
+            <tr>
+              <td colspan="6">
+                <div class="request-profile-empty"><%= t('system.backups.empty') %></div>
+              </td>
+            </tr>
+          <% } %>
+
+          <% backups.forEach((backup) => { %>
+            <tr>
+              <td><%= helpers.formatDateTime(backup.created_at) %></td>
+              <td>
+                <span class="system-backup-pill"><%= t(`system.backups.source.${backup.source_table}`) %></span>
+              </td>
+              <td><%= t(`system.backups.operation.${backup.operation}`) %></td>
+              <td>
+                <strong><%= backup.title %></strong>
+                <small class="system-backup-meta">
+                  ID: <%= backup.source_key %>
+                  <% if (backup.current_profile_name) { %>
+                    · <%= backup.current_profile_name %>
+                  <% } %>
+                </small>
+                <details class="system-backup-details">
+                  <summary><%= t('system.backups.showDetails') %></summary>
+                  <dl>
+                    <% backup.details.forEach((detail) => { %>
+                      <div>
+                        <dt><%= detail.label %></dt>
+                        <dd><%= detail.value || t('common.notSet') %></dd>
+                      </div>
+                    <% }) %>
+                  </dl>
+                </details>
+              </td>
+              <td>
+                <% if (backup.event_id) { %>
+                  <a href="/events/<%= backup.event_id %>" class="system-backup-event-link">#<%= backup.event_id %></a>
+                  <% if (backup.event_name) { %>
+                    <small class="system-backup-meta"><%= backup.event_name %></small>
+                  <% } %>
+                <% } else { %>
+                  <%= t('common.notSet') %>
+                <% } %>
+              </td>
+              <td>
+                <form
+                  action="/system/backups/<%= backup.id %>/restore"
+                  method="POST"
+                  data-confirm-message="<%= t('system.backups.confirmRestore') %>"
+                >
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn-secondary btn-secondary-sm"><%= t('system.backups.restore') %></button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>

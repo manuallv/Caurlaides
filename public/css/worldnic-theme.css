@@ -3014,6 +3014,93 @@ body.portal-modal-open {
   font-weight: 800;
 }
 
+.system-backup-filters {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1.5fr) minmax(13rem, 1fr) minmax(8rem, 0.6fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+  padding: 1rem 1.45rem 0;
+}
+
+.system-backup-filters__actions {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.system-backup-table {
+  min-width: 1120px;
+}
+
+.system-backup-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid rgba(0, 116, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 116, 255, 0.07);
+  color: #1259b2;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.system-backup-meta {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--wn-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.system-backup-details {
+  margin-top: 0.55rem;
+}
+
+.system-backup-details summary {
+  width: max-content;
+  color: var(--wn-primary);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.system-backup-details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(223, 229, 240, 0.86);
+  border-radius: 1rem;
+  background: rgba(248, 251, 255, 0.86);
+}
+
+.system-backup-details div {
+  min-width: 0;
+}
+
+.system-backup-details dt {
+  color: #73839a;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.system-backup-details dd {
+  margin: 0.18rem 0 0;
+  color: var(--wn-text);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.system-backup-event-link {
+  color: var(--wn-primary);
+  font-weight: 850;
+}
+
 .request-profile-table-card {
   overflow: hidden;
   width: 100%;
@@ -4750,8 +4837,18 @@ body.portal-modal-open {
   }
 
   .system-settings-provider-row,
-  .system-settings-fields {
+  .system-settings-fields,
+  .system-backup-filters {
     grid-template-columns: 1fr;
+  }
+
+  .system-backup-filters__actions {
+    justify-content: stretch;
+  }
+
+  .system-backup-filters__actions .btn-primary,
+  .system-backup-filters__actions .btn-secondary {
+    width: 100%;
   }
 
   .request-profile-table-card__head,
@@ -4957,6 +5054,7 @@ body.portal-modal-open {
   .request-profile-editor,
   .request-profile-table-card__head,
   .request-profile-table-scroll,
+  .system-backup-filters,
   .request-profile-application-toolbar,
   .request-profile-application-list,
   .request-profile-applications-empty,
@@ -4979,6 +5077,10 @@ body.portal-modal-open {
   }
 
   .request-profile-form-section__head {
+    grid-template-columns: 1fr;
+  }
+
+  .system-backup-details dl {
     grid-template-columns: 1fr;
   }
 

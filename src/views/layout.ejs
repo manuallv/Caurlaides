@@ -51,15 +51,17 @@
       icon: 'calendar',
       active: currentPath === '/dashboard',
     };
-    const systemSection = currentPath.startsWith('/system/settings/templates')
-      ? 'templates'
-      : currentPath.startsWith('/system/settings/test')
-        ? 'test'
-        : currentPath.startsWith('/system/settings')
-          ? 'email'
-          : currentPath.startsWith('/system/users')
-            ? 'users'
-            : '';
+    const systemSection = currentPath.startsWith('/system/backups')
+      ? 'backups'
+      : currentPath.startsWith('/system/settings/templates')
+        ? 'templates'
+        : currentPath.startsWith('/system/settings/test')
+          ? 'test'
+          : currentPath.startsWith('/system/settings')
+            ? 'email'
+            : currentPath.startsWith('/system/users')
+              ? 'users'
+              : '';
     const systemLinks = isSuperAdmin
       ? [
           {
@@ -90,6 +92,12 @@
                 active: systemSection === 'templates',
               },
             ],
+          },
+          {
+            href: '/system/backups',
+            label: t('system.backups.title'),
+            icon: 'layers',
+            active: systemSection === 'backups',
           },
         ]
       : [];
