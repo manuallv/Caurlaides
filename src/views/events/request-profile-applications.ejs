@@ -38,9 +38,44 @@
         <%= t('requestProfileApplications.empty') %>
       </div>
     <% } else { %>
-      <div class="request-profile-application-list">
+      <div class="request-profile-application-toolbar">
+        <div class="request-profile-search request-profile-application-search">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M8.5 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 1.6a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Zm5.38 8.64 3.02 3.02-1.13 1.13-3.02-3.02z" />
+          </svg>
+          <input
+            type="search"
+            class="field-input"
+            placeholder="<%= t('requestProfileApplications.searchPlaceholder') %>"
+            aria-label="<%= t('requestProfileApplications.searchPlaceholder') %>"
+            data-request-profile-application-search
+          />
+        </div>
+      </div>
+
+      <div class="request-profile-applications-empty hidden" data-request-profile-application-search-empty>
+        <%= t('requestProfileApplications.emptySearch') %>
+      </div>
+
+      <div class="request-profile-application-list" data-request-profile-application-list>
         <% profileApplications.forEach((application) => { %>
-          <article class="request-profile-application-card request-profile-application-card--<%= application.status %>">
+          <% const applicationSearchIndex = [
+            application.profile_name,
+            application.contact_email,
+            application.contact_phone,
+            t(`requestProfileApplications.status.${application.status}`),
+            helpers.formatDateTime(application.created_at),
+            application.approved_access_code,
+            application.notes,
+            application.rejection_reason,
+            ...application.requestedPassSummary.map((entry) => `${entry.categoryName} ${entry.quota}`),
+            ...application.requestedWristbandSummary.map((entry) => `${entry.categoryName} ${entry.quota}`),
+          ].filter(Boolean).join(' ').toLowerCase(); %>
+          <article
+            class="request-profile-application-card request-profile-application-card--<%= application.status %>"
+            data-request-profile-application-card
+            data-search-index="<%= applicationSearchIndex %>"
+          >
             <div class="request-profile-application-card__head">
               <div>
                 <span class="request-profile-application-status request-profile-application-status--<%= application.status %>">

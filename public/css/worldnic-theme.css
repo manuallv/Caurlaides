@@ -3262,6 +3262,16 @@ body.portal-modal-open {
   line-height: 1.7;
 }
 
+.request-profile-application-toolbar {
+  display: flex;
+  padding: 1rem 1.45rem 0;
+}
+
+.request-profile-application-search {
+  width: min(100%, 34rem);
+  max-width: 34rem;
+}
+
 .request-profile-application-list {
   display: grid;
   gap: 1rem;
@@ -4947,6 +4957,7 @@ body.portal-modal-open {
   .request-profile-editor,
   .request-profile-table-card__head,
   .request-profile-table-scroll,
+  .request-profile-application-toolbar,
   .request-profile-application-list,
   .request-profile-applications-empty,
   .portal-application-card {

@@ -1583,6 +1583,44 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRequestProfileEmptyState();
   };
 
+  const getRequestProfileApplicationElements = () => ({
+    searchInput: document.querySelector('[data-request-profile-application-search]'),
+    list: document.querySelector('[data-request-profile-application-list]'),
+    emptyState: document.querySelector('[data-request-profile-application-search-empty]'),
+    cards: [...document.querySelectorAll('[data-request-profile-application-card]')],
+  });
+
+  const filterRequestProfileApplications = () => {
+    const {
+      searchInput,
+      list,
+      emptyState,
+      cards,
+    } = getRequestProfileApplicationElements();
+
+    if (!searchInput || !cards.length) {
+      return;
+    }
+
+    const query = String(searchInput.value || '').trim().toLowerCase();
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const haystack = card.dataset.searchIndex || '';
+      const isVisible = !query || haystack.includes(query);
+
+      card.classList.toggle('hidden', !isVisible);
+
+      if (isVisible) {
+        visibleCount += 1;
+      }
+    });
+
+    const hasSearchWithoutResults = Boolean(query) && visibleCount === 0;
+    list?.classList.toggle('hidden', hasSearchWithoutResults);
+    emptyState?.classList.toggle('hidden', !hasSearchWithoutResults);
+  };
+
   const initializeRequestProfileUI = () => {
     const {
       form,
@@ -1645,6 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     filterRequestProfileRows();
+    filterRequestProfileApplications();
   };
 
   const initializeSystemEmailSettings = () => {
@@ -4557,6 +4596,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.target.matches('[data-request-profile-search]')) {
       filterRequestProfileRows();
+    }
+
+    if (event.target.matches('[data-request-profile-application-search]')) {
+      filterRequestProfileApplications();
     }
 
     if (event.target.matches('[data-portal-table-search]')) {
