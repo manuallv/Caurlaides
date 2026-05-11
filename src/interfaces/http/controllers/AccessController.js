@@ -605,6 +605,7 @@ function buildAccessController({ categoryService, accessService }) {
         activeEvent: data.event,
         profiles: data.profiles,
         profileSummary: data.profileSummary,
+        profileCategoryStats: data.profileCategoryStats,
         profileApplicationUrl: data.profileApplicationUrl,
         pendingApplicationCount: data.pendingApplicationCount,
       });

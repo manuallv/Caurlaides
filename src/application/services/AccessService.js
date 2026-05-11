@@ -548,6 +548,49 @@ function buildQuotaTotals(quotaUsage = []) {
   );
 }
 
+function buildProfileCategoryStats(categories = [], profiles = [], usageKey) {
+  const statsByCategory = new Map();
+
+  categories.forEach((category) => {
+    statsByCategory.set(Number(category.id), {
+      categoryId: Number(category.id),
+      name: category.name,
+      requested: 0,
+      assigned: 0,
+    });
+  });
+
+  profiles.forEach((profile) => {
+    const usage = Array.isArray(profile[usageKey]) ? profile[usageKey] : [];
+
+    usage.forEach((entry) => {
+      const categoryId = Number(entry.category_id || 0);
+
+      if (!categoryId) {
+        return;
+      }
+
+      if (!statsByCategory.has(categoryId)) {
+        statsByCategory.set(categoryId, {
+          categoryId,
+          name: entry.category_name || '-',
+          requested: 0,
+          assigned: 0,
+        });
+      }
+
+      const stat = statsByCategory.get(categoryId);
+      stat.requested += Number(entry.used_count || 0);
+
+      if (!entry.is_unlimited) {
+        stat.assigned += Number(entry.quota || 0);
+      }
+    });
+  });
+
+  return [...statsByCategory.values()].filter((stat) => stat.requested > 0 || stat.assigned > 0);
+}
+
 function buildQuotaMap(quotaUsage = []) {
   return quotaUsage.reduce((map, entry) => {
     map[entry.category_id] = Number(entry.quota || 0);
@@ -1603,6 +1646,10 @@ class AccessService {
         totalAssigned: 0,
       },
     );
+    const profileCategoryStats = {
+      pass: buildProfileCategoryStats(passCategories, enrichedProfiles, 'passQuotaUsage'),
+      wristband: buildProfileCategoryStats(wristbandCategories, enrichedProfiles, 'wristbandQuotaUsage'),
+    };
 
     return {
       event,
@@ -1610,6 +1657,7 @@ class AccessService {
       wristbandCategories,
       profiles: enrichedProfiles,
       profileSummary,
+      profileCategoryStats,
       profileApplicationUrl: buildRequestProfileApplicationUrl(applicationToken),
       pendingApplicationCount,
     };

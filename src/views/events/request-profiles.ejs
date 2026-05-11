@@ -1,3 +1,7 @@
+<%
+  const passCategoryStats = profileCategoryStats?.pass || [];
+  const wristbandCategoryStats = profileCategoryStats?.wristband || [];
+%>
 <section class="request-profile-page request-profile-page--list space-y-6">
   <section class="shell-card request-profile-table-card">
     <div class="request-profile-table-card__head">
@@ -22,6 +26,15 @@
             <small><%= t('requestProfiles.summary.assigned') %></small>
           </span>
         </div>
+
+        <button type="button" class="btn-secondary request-profile-statistics-button" data-request-profile-statistics-open>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M4 16V9"></path>
+            <path d="M10 16V4"></path>
+            <path d="M16 16v-6"></path>
+          </svg>
+          <span><%= t('requestProfiles.statistics.button') %></span>
+        </button>
 
         <div class="request-profile-application-link-group" role="group" aria-label="<%= t('requestProfileApplications.publicLinkActions') %>">
           <a href="<%= profileApplicationUrl %>" target="_blank" rel="noreferrer" class="btn-secondary request-profile-application-link-group__open">
@@ -196,4 +209,91 @@
       </table>
     </div>
   </section>
+
+  <div class="portal-modal request-profile-statistics-modal" data-request-profile-statistics-modal>
+    <button type="button" class="portal-modal__backdrop" data-request-profile-statistics-close></button>
+    <div class="portal-modal__dialog portal-modal__dialog-wide shell-card" role="dialog" aria-modal="true" aria-labelledby="request-profile-statistics-title">
+      <div class="portal-modal__header">
+        <div class="portal-modal__title-block">
+          <p class="worldnic-eyebrow"><%= t('requestProfiles.statistics.eyebrow') %></p>
+          <h2 id="request-profile-statistics-title"><%= t('requestProfiles.statistics.title') %></h2>
+        </div>
+        <button
+          type="button"
+          class="table-icon-button"
+          data-request-profile-statistics-close
+          title="<%= t('requestProfiles.statistics.close') %>"
+          aria-label="<%= t('requestProfiles.statistics.close') %>"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5 5 15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="request-profile-statistics-shell">
+        <p><%= t('requestProfiles.statistics.description') %></p>
+
+        <div class="request-profile-statistics-grid">
+          <section class="request-profile-statistics-panel">
+            <div class="request-profile-statistics-panel__head">
+              <div>
+                <p><%= t('requestProfiles.statistics.passes') %></p>
+                <span><%= t('requestProfiles.statistics.sectionHint') %></span>
+              </div>
+            </div>
+
+            <% if (passCategoryStats.length) { %>
+              <div class="request-profile-statistics-list">
+                <% passCategoryStats.forEach((stat) => { %>
+                  <div class="request-profile-statistics-row">
+                    <strong><%= stat.name %></strong>
+                    <span>
+                      <b><%= stat.requested %></b>
+                      <small><%= t('requestProfiles.statistics.requested') %></small>
+                    </span>
+                    <span>
+                      <b><%= stat.assigned %></b>
+                      <small><%= t('requestProfiles.statistics.assigned') %></small>
+                    </span>
+                  </div>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <div class="request-profile-statistics-empty"><%= t('requestProfiles.statistics.empty') %></div>
+            <% } %>
+          </section>
+
+          <section class="request-profile-statistics-panel">
+            <div class="request-profile-statistics-panel__head">
+              <div>
+                <p><%= t('requestProfiles.statistics.wristbands') %></p>
+                <span><%= t('requestProfiles.statistics.sectionHint') %></span>
+              </div>
+            </div>
+
+            <% if (wristbandCategoryStats.length) { %>
+              <div class="request-profile-statistics-list">
+                <% wristbandCategoryStats.forEach((stat) => { %>
+                  <div class="request-profile-statistics-row">
+                    <strong><%= stat.name %></strong>
+                    <span>
+                      <b><%= stat.requested %></b>
+                      <small><%= t('requestProfiles.statistics.requested') %></small>
+                    </span>
+                    <span>
+                      <b><%= stat.assigned %></b>
+                      <small><%= t('requestProfiles.statistics.assigned') %></small>
+                    </span>
+                  </div>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <div class="request-profile-statistics-empty"><%= t('requestProfiles.statistics.empty') %></div>
+            <% } %>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>

@@ -1542,6 +1542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput: document.querySelector('[data-request-profile-search]'),
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
+    statisticsModal: document.querySelector('[data-request-profile-statistics-modal]'),
     unlimitedToggle: document.querySelector('[data-request-profile-unlimited-toggle]'),
     quotaPanels: [...document.querySelectorAll('[data-request-profile-quotas]')],
     quotaInputs: [...document.querySelectorAll('[data-request-profile-quota-input]')],
@@ -1619,6 +1620,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasSearchWithoutResults = Boolean(query) && visibleCount === 0;
     list?.classList.toggle('hidden', hasSearchWithoutResults);
     emptyState?.classList.toggle('hidden', !hasSearchWithoutResults);
+  };
+
+  const openRequestProfileStatisticsModal = () => {
+    const { statisticsModal } = getRequestProfileElements();
+
+    if (!statisticsModal) {
+      return;
+    }
+
+    statisticsModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+  };
+
+  const closeRequestProfileStatisticsModal = () => {
+    const { statisticsModal } = getRequestProfileElements();
+
+    if (!statisticsModal) {
+      return;
+    }
+
+    statisticsModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
   };
 
   const initializeRequestProfileUI = () => {
@@ -4066,6 +4089,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAccessHistoryModal();
       closeAccessRequestModal();
       closeAccessExportModal();
+      closeRequestProfileStatisticsModal();
     }
   });
 
@@ -4216,6 +4240,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (portalSummaryToggle) {
       togglePortalSummaryCard(portalSummaryToggle.closest('[data-portal-summary-card]'));
+      return;
+    }
+
+    const requestProfileStatisticsOpenTrigger = closest('[data-request-profile-statistics-open]');
+
+    if (requestProfileStatisticsOpenTrigger) {
+      event.preventDefault();
+      openRequestProfileStatisticsModal();
+      return;
+    }
+
+    const requestProfileStatisticsCloseTrigger = closest('[data-request-profile-statistics-close]');
+
+    if (requestProfileStatisticsCloseTrigger) {
+      event.preventDefault();
+      closeRequestProfileStatisticsModal();
       return;
     }
 
@@ -4815,6 +4855,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccessHistoryModal();
     closeAccessRequestModal();
     closeAccessExportModal();
+    closeRequestProfileStatisticsModal();
     initializeEventDashboardTabs();
     initializeAccessUI();
     initializeCheckUI();
