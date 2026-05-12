@@ -68,7 +68,7 @@
   }, null, 2);
 %>
 <section class="space-y-6" data-event-dashboard-app>
-  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" data-live-section="event-dashboard-summary">
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6" data-live-section="event-dashboard-summary">
     <div class="metric-card">
       <p class="text-sm font-medium text-slate-500"><%= t('event.passRequests') %></p>
       <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= summary.totalPassRequests %></p>
@@ -84,6 +84,10 @@
     <div class="metric-card">
       <p class="text-sm font-medium text-slate-500"><%= t('event.wristbandCategories') %></p>
       <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= summary.totalWristbandCategories %></p>
+    </div>
+    <div class="metric-card">
+      <p class="text-sm font-medium text-slate-500"><%= t('event.requestProfiles') %></p>
+      <p class="mt-3 text-3xl font-extrabold text-slate-900"><%= summary.totalRequestProfiles %></p>
     </div>
     <div class="metric-card">
       <p class="text-sm font-medium text-slate-500"><%= t('event.collaborators') %></p>

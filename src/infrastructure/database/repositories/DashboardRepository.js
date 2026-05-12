@@ -26,6 +26,12 @@ class DashboardRepository {
           ) AS total_wristband_categories,
           (
             SELECT COUNT(*)
+            FROM request_profiles
+            WHERE event_id = ?
+              AND deleted_at IS NULL
+          ) AS total_request_profiles,
+          (
+            SELECT COUNT(*)
             FROM pass_requests
             WHERE event_id = ?
               AND deleted_at IS NULL
@@ -37,13 +43,14 @@ class DashboardRepository {
               AND deleted_at IS NULL
           ) AS total_wristband_requests
       `,
-      [eventId, eventId, eventId, eventId, eventId],
+      [eventId, eventId, eventId, eventId, eventId, eventId],
     );
 
     return {
       totalMembers: Number(summary.total_members || 0),
       totalPassCategories: Number(summary.total_pass_categories || 0),
       totalWristbandCategories: Number(summary.total_wristband_categories || 0),
+      totalRequestProfiles: Number(summary.total_request_profiles || 0),
       totalPassRequests: Number(summary.total_pass_requests || 0),
       totalWristbandRequests: Number(summary.total_wristband_requests || 0),
     };
