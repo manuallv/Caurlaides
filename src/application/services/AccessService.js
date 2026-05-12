@@ -37,6 +37,8 @@ const PASS_PRINT_FIELD_DEFINITIONS = [
 ];
 const PASS_PRINT_FIELD_TYPE_SET = new Set(PASS_PRINT_FIELD_DEFINITIONS.map((field) => field.type));
 const PASS_PRINT_ORIENTATION_SET = new Set(['portrait', 'landscape']);
+const PASS_PRINT_FONT_WEIGHT_SET = new Set(['400', '600', '700', '800']);
+const PASS_PRINT_TEXT_ALIGN_SET = new Set(['left', 'center', 'right']);
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -293,6 +295,8 @@ function normalizePassPrintTemplateFields(rawFields) {
       const x = Number(rawField?.x);
       const y = Number(rawField?.y);
       const fontSize = Number(rawField?.fontSize);
+      const variableFontSize = Number(rawField?.variableFontSize ?? rawField?.fontSize);
+      const prefixFontSize = Number(rawField?.prefixFontSize ?? rawField?.fontSize);
       const width = Number(rawField?.width);
       const rotation = Number(rawField?.rotation);
 
@@ -301,6 +305,7 @@ function normalizePassPrintTemplateFields(rawFields) {
       }
 
       const normalizedRotation = normalizePassPrintRotation(rotation);
+      const normalizedVariableFontSize = normalizePassPrintFontSize(variableFontSize, Number.isFinite(fontSize) ? fontSize : 18);
 
       return {
         id: rawField?.id ? String(rawField.id).trim().slice(0, 80) : `field-${index + 1}`,
@@ -308,7 +313,12 @@ function normalizePassPrintTemplateFields(rawFields) {
         text: String(text || '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200),
         x: Number.isFinite(x) ? Math.min(Math.max(x, 0), 0.96) : 0.15,
         y: Number.isFinite(y) ? Math.min(Math.max(y, 0), 0.96) : 0.15,
-        fontSize: Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 64) : 18,
+        fontSize: normalizedVariableFontSize,
+        variableFontSize: normalizedVariableFontSize,
+        variableFontWeight: normalizePassPrintFontWeight(rawField?.variableFontWeight, '700'),
+        prefixFontSize: normalizePassPrintFontSize(prefixFontSize, Number.isFinite(fontSize) ? fontSize : 18),
+        prefixFontWeight: normalizePassPrintFontWeight(rawField?.prefixFontWeight, '600'),
+        textAlign: normalizePassPrintTextAlign(rawField?.textAlign),
         width: Number.isFinite(width) ? Math.min(Math.max(width, 0.08), 0.9) : 0.24,
         rotation: normalizedRotation,
       };
@@ -329,6 +339,26 @@ function normalizePassPrintRotation(value) {
 function normalizePassPrintOrientation(value) {
   const orientation = String(value || '').trim();
   return PASS_PRINT_ORIENTATION_SET.has(orientation) ? orientation : 'portrait';
+}
+
+function normalizePassPrintFontSize(value, fallback = 18) {
+  const fontSize = Number(value);
+  const fallbackSize = Number(fallback);
+  const safeFallback = Number.isFinite(fallbackSize) ? fallbackSize : 18;
+
+  return Number.isFinite(fontSize)
+    ? Math.min(Math.max(fontSize, 8), 96)
+    : Math.min(Math.max(safeFallback, 8), 96);
+}
+
+function normalizePassPrintFontWeight(value, fallback = '700') {
+  const fontWeight = String(value || '').trim();
+  return PASS_PRINT_FONT_WEIGHT_SET.has(fontWeight) ? fontWeight : fallback;
+}
+
+function normalizePassPrintTextAlign(value) {
+  const textAlign = String(value || '').trim();
+  return PASS_PRINT_TEXT_ALIGN_SET.has(textAlign) ? textAlign : 'left';
 }
 
 function sanitizePassPrintTemplateFields(rawFields, t) {
@@ -403,58 +433,105 @@ function renderPassPrintBackground(document, backgroundPath, rotation = 0) {
   }
 }
 
-function resolvePassPrintFieldValue(field, request, event) {
+function getPassPrintPdfFont(weight) {
+  return Number(weight) >= 600 ? 'Helvetica-Bold' : 'Helvetica';
+}
+
+function resolvePassPrintVariableValue(type, request, event) {
+  switch (type) {
+    case 'id':
+      return request.id || '';
+    case 'vehiclePlate':
+      return request.vehicle_plate || '';
+    case 'fullName':
+      return request.full_name || '';
+    case 'phone':
+      return request.phone || '';
+    case 'email':
+      return request.email || '';
+    case 'companyName':
+      return request.company_name || '';
+    case 'categoryName':
+      return request.category_name || '';
+    case 'profileName':
+      return request.profile_name || '';
+    case 'notes':
+      return request.notes || '';
+    case 'createdAt':
+      return request.created_at ? dayjs(request.created_at).format('DD.MM.YYYY HH:mm') : '';
+    case 'eventName':
+      return event.name || '';
+    case 'eventLocation':
+      return event.location || '';
+    default:
+      return '';
+  }
+}
+
+function resolvePassPrintFieldParts(field, request, event) {
   const type = String(field?.type || '').trim();
   const prefix = String(field?.text || '');
 
   if (type === 'customText') {
-    return prefix;
+    return {
+      prefix,
+      variable: '',
+    };
   }
 
-  let value = '';
+  return {
+    prefix,
+    variable: String(resolvePassPrintVariableValue(type, request, event) || ''),
+  };
+}
 
-  switch (type) {
-    case 'id':
-      value = request.id || '';
-      break;
-    case 'vehiclePlate':
-      value = request.vehicle_plate || '';
-      break;
-    case 'fullName':
-      value = request.full_name || '';
-      break;
-    case 'phone':
-      value = request.phone || '';
-      break;
-    case 'email':
-      value = request.email || '';
-      break;
-    case 'companyName':
-      value = request.company_name || '';
-      break;
-    case 'categoryName':
-      value = request.category_name || '';
-      break;
-    case 'profileName':
-      value = request.profile_name || '';
-      break;
-    case 'notes':
-      value = request.notes || '';
-      break;
-    case 'createdAt':
-      value = request.created_at ? dayjs(request.created_at).format('DD.MM.YYYY HH:mm') : '';
-      break;
-    case 'eventName':
-      value = event.name || '';
-      break;
-    case 'eventLocation':
-      value = event.location || '';
-      break;
-    default:
-      value = '';
+function renderPassPrintFieldText(document, field, request, event, textWidth) {
+  const parts = resolvePassPrintFieldParts(field, request, event);
+  const prefixText = String(parts.prefix || '');
+  const variableText = String(parts.variable || '');
+
+  if (!prefixText && !variableText) {
+    return false;
   }
 
-  return value ? `${prefix}${value}` : prefix;
+  const prefixFontSize = normalizePassPrintFontSize(field.prefixFontSize ?? field.fontSize, 18);
+  const variableFontSize = normalizePassPrintFontSize(field.variableFontSize ?? field.fontSize, 18);
+  const prefixFontWeight = normalizePassPrintFontWeight(field.prefixFontWeight, '600');
+  const variableFontWeight = normalizePassPrintFontWeight(field.variableFontWeight, '700');
+  const textAlign = normalizePassPrintTextAlign(field.textAlign);
+
+  document.font(getPassPrintPdfFont(prefixFontWeight)).fontSize(prefixFontSize);
+  const prefixWidth = prefixText ? document.widthOfString(prefixText) : 0;
+  document.font(getPassPrintPdfFont(variableFontWeight)).fontSize(variableFontSize);
+  const variableWidth = variableText ? document.widthOfString(variableText) : 0;
+  const totalWidth = prefixWidth + variableWidth;
+  const offsetX = textAlign === 'center'
+    ? Math.max(0, (textWidth - totalWidth) / 2)
+    : (textAlign === 'right' ? Math.max(0, textWidth - totalWidth) : 0);
+  let cursorX = offsetX;
+
+  if (prefixText) {
+    document
+      .font(getPassPrintPdfFont(prefixFontWeight))
+      .fontSize(prefixFontSize)
+      .fillColor('#0f172a')
+      .text(prefixText, cursorX, 0, {
+        lineBreak: false,
+      });
+    cursorX += prefixWidth;
+  }
+
+  if (variableText) {
+    document
+      .font(getPassPrintPdfFont(variableFontWeight))
+      .fontSize(variableFontSize)
+      .fillColor('#0f172a')
+      .text(variableText, cursorX, 0, {
+        lineBreak: false,
+      });
+  }
+
+  return true;
 }
 
 async function buildPassPrintPdfBuffer({ event, requests, template }) {
@@ -501,12 +578,6 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
       }
 
       template.fields.forEach((field) => {
-        const value = resolvePassPrintFieldValue(field, request, event);
-
-        if (!value) {
-          return;
-        }
-
         const x = Math.max(0, Math.min(document.page.width - 24, document.page.width * Number(field.x || 0)));
         const y = Math.max(0, Math.min(document.page.height - 24, document.page.height * Number(field.y || 0)));
         const textWidth = Math.max(48, document.page.width * Number(field.width || 0.24));
@@ -519,14 +590,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
           document.rotate(rotation, { origin: [0, 0] });
         }
 
-        document
-          .font('Helvetica')
-          .fontSize(Number(field.fontSize || 18))
-          .fillColor('#0f172a')
-          .text(String(value), 0, 0, {
-            width: textWidth,
-            lineBreak: false,
-          });
+        renderPassPrintFieldText(document, field, request, event, textWidth);
         document.restore();
       });
     });

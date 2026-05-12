@@ -909,7 +909,11 @@ document.addEventListener('DOMContentLoaded', () => {
       inspectorTitle: document.querySelector('[data-pass-print-inspector-title]'),
       fieldType: document.querySelector('[data-pass-print-field-type]'),
       fieldText: document.querySelector('[data-pass-print-field-text]'),
-      fieldFontSize: document.querySelector('[data-pass-print-field-font-size]'),
+      fieldVariableFontSize: document.querySelector('[data-pass-print-field-variable-font-size]'),
+      fieldVariableFontWeight: document.querySelector('[data-pass-print-field-variable-font-weight]'),
+      fieldPrefixFontSize: document.querySelector('[data-pass-print-field-prefix-font-size]'),
+      fieldPrefixFontWeight: document.querySelector('[data-pass-print-field-prefix-font-weight]'),
+      fieldTextAlign: document.querySelector('[data-pass-print-field-text-align]'),
       fieldWidth: document.querySelector('[data-pass-print-field-width]'),
       positionX: document.querySelector('[data-pass-print-field-position-x]'),
       positionY: document.querySelector('[data-pass-print-field-position-y]'),
@@ -951,6 +955,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const normalizePassPrintOrientation = (value) => (
     value === 'landscape' ? 'landscape' : 'portrait'
   );
+
+  const normalizePassPrintTextAlign = (value) => (
+    ['left', 'center', 'right'].includes(value) ? value : 'left'
+  );
+
+  const normalizePassPrintFontWeight = (value, fallback = '700') => {
+    const fontWeight = String(value || '').trim();
+    return ['400', '600', '700', '800'].includes(fontWeight) ? fontWeight : fallback;
+  };
+
+  const normalizePassPrintFontSize = (value, fallback = 18) => {
+    const fontSize = Number(value);
+    return Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 96) : fallback;
+  };
 
   const getPassPrintPageDimensions = (orientation) => (
     normalizePassPrintOrientation(orientation) === 'landscape'
@@ -1026,14 +1044,21 @@ document.addEventListener('DOMContentLoaded', () => {
     passPrintEditorState.variables.find((variable) => variable.type === type)?.label || type || ''
   );
 
-  const getPassPrintFieldPreviewLabel = (field) => {
+  const getPassPrintFieldPreviewHtml = (field) => {
     const text = String(field?.text || '');
+    const variableLabel = getPassPrintVariableLabel(field?.type);
+    const prefixFontSize = normalizePassPrintFontSize(field?.prefixFontSize ?? field?.fontSize, 18);
+    const variableFontSize = normalizePassPrintFontSize(field?.variableFontSize ?? field?.fontSize, 18);
+    const prefixFontWeight = normalizePassPrintFontWeight(field?.prefixFontWeight, '600');
+    const variableFontWeight = normalizePassPrintFontWeight(field?.variableFontWeight, '700');
+    const prefixStyle = `font-size:${prefixFontSize}px;font-weight:${prefixFontWeight};`;
+    const variableStyle = `font-size:${variableFontSize}px;font-weight:${variableFontWeight};`;
 
     if (field?.type === 'customText') {
-      return text || getPassPrintVariableLabel(field.type);
+      return `<span class="pass-print-field__prefix${text ? '' : ' is-placeholder'}" style="${prefixStyle}">${escapeHtml(text || variableLabel)}</span>`;
     }
 
-    return `${text}${getPassPrintVariableLabel(field?.type)}`;
+    return `${text ? `<span class="pass-print-field__prefix" style="${prefixStyle}">${escapeHtml(text)}</span>` : ''}<span class="pass-print-field__variable" style="${variableStyle}">${escapeHtml(variableLabel)}</span>`;
   };
 
   const syncPassPrintFieldsInput = () => {
@@ -1050,7 +1075,12 @@ document.addEventListener('DOMContentLoaded', () => {
         text: String(field.text || ''),
         x: Number(field.x || 0),
         y: Number(field.y || 0),
-        fontSize: Number(field.fontSize || 18),
+        fontSize: normalizePassPrintFontSize(field.variableFontSize ?? field.fontSize, 18),
+        variableFontSize: normalizePassPrintFontSize(field.variableFontSize ?? field.fontSize, 18),
+        variableFontWeight: normalizePassPrintFontWeight(field.variableFontWeight, '700'),
+        prefixFontSize: normalizePassPrintFontSize(field.prefixFontSize ?? field.fontSize, 18),
+        prefixFontWeight: normalizePassPrintFontWeight(field.prefixFontWeight, '600'),
+        textAlign: normalizePassPrintTextAlign(field.textAlign),
         width: Number(field.width || 0.24),
         rotation: Number(field.rotation || 0),
       })),
@@ -1167,9 +1197,9 @@ document.addEventListener('DOMContentLoaded', () => {
         type="button"
         class="pass-print-field${field.id === passPrintEditorState.selectedId ? ' is-active' : ''}"
         data-pass-print-field-id="${escapeHtml(field.id || '')}"
-        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;font-size:${Number(field.fontSize || 18)}px;--pass-print-rotation:${Number(field.rotation || 0)}deg;"
+        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;--pass-print-rotation:${Number(field.rotation || 0)}deg;--pass-print-text-align:${normalizePassPrintTextAlign(field.textAlign)};"
       >
-        <span>${escapeHtml(getPassPrintFieldPreviewLabel(field))}</span>
+        <span class="pass-print-field__content">${getPassPrintFieldPreviewHtml(field)}</span>
         <span class="pass-print-field__resize" data-pass-print-field-resize="${escapeHtml(field.id || '')}"></span>
       </button>
     `).join('');
@@ -1185,7 +1215,11 @@ document.addEventListener('DOMContentLoaded', () => {
       inspectorTitle,
       fieldType,
       fieldText,
-      fieldFontSize,
+      fieldVariableFontSize,
+      fieldVariableFontWeight,
+      fieldPrefixFontSize,
+      fieldPrefixFontWeight,
+      fieldTextAlign,
       fieldWidth,
       positionX,
       positionY,
@@ -1221,9 +1255,33 @@ document.addEventListener('DOMContentLoaded', () => {
       fieldText.value = hasSelection ? String(selectedField.text || '') : '';
     }
 
-    if (fieldFontSize) {
-      fieldFontSize.disabled = !canEdit;
-      fieldFontSize.value = hasSelection ? Number(selectedField.fontSize || 18) : '';
+    if (fieldVariableFontSize) {
+      fieldVariableFontSize.disabled = !canEdit;
+      fieldVariableFontSize.value = hasSelection
+        ? normalizePassPrintFontSize(selectedField.variableFontSize ?? selectedField.fontSize, 18)
+        : '';
+    }
+
+    if (fieldVariableFontWeight) {
+      fieldVariableFontWeight.disabled = !canEdit;
+      fieldVariableFontWeight.value = hasSelection ? normalizePassPrintFontWeight(selectedField.variableFontWeight, '700') : '700';
+    }
+
+    if (fieldPrefixFontSize) {
+      fieldPrefixFontSize.disabled = !canEdit;
+      fieldPrefixFontSize.value = hasSelection
+        ? normalizePassPrintFontSize(selectedField.prefixFontSize ?? selectedField.fontSize, 18)
+        : '';
+    }
+
+    if (fieldPrefixFontWeight) {
+      fieldPrefixFontWeight.disabled = !canEdit;
+      fieldPrefixFontWeight.value = hasSelection ? normalizePassPrintFontWeight(selectedField.prefixFontWeight, '600') : '600';
+    }
+
+    if (fieldTextAlign) {
+      fieldTextAlign.disabled = !canEdit;
+      fieldTextAlign.value = hasSelection ? normalizePassPrintTextAlign(selectedField.textAlign) : 'left';
     }
 
     if (fieldWidth) {
@@ -1293,6 +1351,11 @@ document.addEventListener('DOMContentLoaded', () => {
       x: Math.min(0.18 + (nextIndex % 4) * 0.08, 0.78),
       y: Math.min(0.12 + Math.floor(nextIndex / 4) * 0.07, 0.88),
       fontSize: 18,
+      variableFontSize: 18,
+      variableFontWeight: '700',
+      prefixFontSize: 18,
+      prefixFontWeight: '600',
+      textAlign: 'left',
       width: 0.24,
       rotation: 0,
     };
@@ -1464,7 +1527,12 @@ document.addEventListener('DOMContentLoaded', () => {
         text: String(field.text || ''),
         x: Number(field.x || 0),
         y: Number(field.y || 0),
-        fontSize: Number(field.fontSize || 18),
+        fontSize: normalizePassPrintFontSize(field.variableFontSize ?? field.fontSize, 18),
+        variableFontSize: normalizePassPrintFontSize(field.variableFontSize ?? field.fontSize, 18),
+        variableFontWeight: normalizePassPrintFontWeight(field.variableFontWeight, '700'),
+        prefixFontSize: normalizePassPrintFontSize(field.prefixFontSize ?? field.fontSize, 18),
+        prefixFontWeight: normalizePassPrintFontWeight(field.prefixFontWeight, '600'),
+        textAlign: normalizePassPrintTextAlign(field.textAlign),
         width: Number(field.width || 0.24),
         rotation: Number(field.rotation || 0),
       })),
@@ -4713,6 +4781,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (event.target.matches('[data-pass-print-field-variable-font-weight]')) {
+      upsertSelectedPassPrintField({
+        variableFontWeight: normalizePassPrintFontWeight(event.target.value, '700'),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-prefix-font-weight]')) {
+      upsertSelectedPassPrintField({
+        prefixFontWeight: normalizePassPrintFontWeight(event.target.value, '600'),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-text-align]')) {
+      upsertSelectedPassPrintField({
+        textAlign: normalizePassPrintTextAlign(event.target.value),
+      });
+      return;
+    }
+
     if (event.target.matches('[data-pass-print-background-input]')) {
       handlePassPrintBackgroundChange(event.target.files?.[0] || null);
       return;
@@ -4763,9 +4852,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('input', (event) => {
-    if (event.target.matches('[data-pass-print-field-font-size]')) {
+    if (event.target.matches('[data-pass-print-field-variable-font-size]')) {
       upsertSelectedPassPrintField({
-        fontSize: Number(event.target.value || 18),
+        fontSize: normalizePassPrintFontSize(event.target.value, 18),
+        variableFontSize: normalizePassPrintFontSize(event.target.value, 18),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-prefix-font-size]')) {
+      upsertSelectedPassPrintField({
+        prefixFontSize: normalizePassPrintFontSize(event.target.value, 18),
       });
       return;
     }

@@ -103,63 +103,65 @@
           <input type="hidden" name="backgroundRotation" value="<%= backgroundRotation %>" data-pass-print-background-rotation-input />
 
           <div class="pass-print-toolbar">
-            <div>
-              <label class="field-label" for="pass-print-template-name"><%= t('passPrint.editor.templateName') %></label>
-              <input
-                id="pass-print-template-name"
-                name="templateName"
-                type="text"
-                class="field-input"
-                value="<%= template.name %>"
-                maxlength="160"
-                <%= canManage ? '' : 'disabled' %>
-              />
-            </div>
+            <div class="pass-print-toolbar__main">
+              <div>
+                <label class="field-label" for="pass-print-template-name"><%= t('passPrint.editor.templateName') %></label>
+                <input
+                  id="pass-print-template-name"
+                  name="templateName"
+                  type="text"
+                  class="field-input"
+                  value="<%= template.name %>"
+                  maxlength="160"
+                  <%= canManage ? '' : 'disabled' %>
+                />
+              </div>
 
-            <div>
-              <label class="field-label" for="pass-print-template-orientation"><%= t('passPrint.editor.orientation') %></label>
-              <select
-                id="pass-print-template-orientation"
-                name="templateOrientation"
-                class="field-input"
-                data-pass-print-template-orientation
-                <%= canManage ? '' : 'disabled' %>
-              >
-                <option value="portrait" <%= templateOrientation === 'portrait' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.portrait') %></option>
-                <option value="landscape" <%= templateOrientation === 'landscape' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.landscape') %></option>
-              </select>
-            </div>
+              <div>
+                <label class="field-label" for="pass-print-template-orientation"><%= t('passPrint.editor.orientation') %></label>
+                <select
+                  id="pass-print-template-orientation"
+                  name="templateOrientation"
+                  class="field-input"
+                  data-pass-print-template-orientation
+                  <%= canManage ? '' : 'disabled' %>
+                >
+                  <option value="portrait" <%= templateOrientation === 'portrait' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.portrait') %></option>
+                  <option value="landscape" <%= templateOrientation === 'landscape' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.landscape') %></option>
+                </select>
+              </div>
 
-            <div>
-              <label class="field-label" for="pass-print-background-image"><%= t('passPrint.editor.backgroundImage') %></label>
-              <input
-                id="pass-print-background-image"
-                name="backgroundImage"
-                type="file"
-                class="field-input"
-                accept="image/png,image/jpeg"
-                data-pass-print-background-input
-                <%= canManage ? '' : 'disabled' %>
-              />
+              <div>
+                <label class="field-label" for="pass-print-background-image"><%= t('passPrint.editor.backgroundImage') %></label>
+                <input
+                  id="pass-print-background-image"
+                  name="backgroundImage"
+                  type="file"
+                  class="field-input"
+                  accept="image/png,image/jpeg"
+                  data-pass-print-background-input
+                  <%= canManage ? '' : 'disabled' %>
+                />
+              </div>
             </div>
 
             <input type="checkbox" name="removeBackground" value="1" class="sr-only" data-pass-print-remove-background <%= canManage ? '' : 'disabled' %> />
 
-            <div class="pass-print-toolbar__background-controls">
-              <button type="button" class="btn-secondary w-full" data-pass-print-rotate-background <%= canManage ? '' : 'disabled' %>>
-                <%= t('passPrint.editor.rotateBackground90') %>
-              </button>
-              <button type="button" class="btn-secondary w-full" data-pass-print-remove-background-button <%= canManage ? '' : 'disabled' %>>
-                <%= t('passPrint.editor.removeBackground') %>
-              </button>
-              <span class="pass-print-toolbar__rotation-chip" data-pass-print-background-rotation-value><%= backgroundRotation %>°</span>
-            </div>
-
-            <% if (canManage) { %>
-              <div class="pass-print-toolbar__save">
-                <button type="submit" class="btn-primary w-full"><%= t('passPrint.editor.saveTemplate') %></button>
+            <div class="pass-print-toolbar__actions">
+              <div class="pass-print-toolbar__background-controls">
+                <button type="button" class="btn-secondary" data-pass-print-rotate-background <%= canManage ? '' : 'disabled' %>>
+                  <%= t('passPrint.editor.rotateBackground90') %>
+                </button>
+                <span class="pass-print-toolbar__rotation-chip" data-pass-print-background-rotation-value><%= backgroundRotation %>°</span>
+                <button type="button" class="btn-secondary" data-pass-print-remove-background-button <%= canManage ? '' : 'disabled' %>>
+                  <%= t('passPrint.editor.removeBackground') %>
+                </button>
               </div>
-            <% } %>
+
+              <% if (canManage) { %>
+                <button type="submit" class="btn-primary pass-print-toolbar__save"><%= t('passPrint.editor.saveTemplate') %></button>
+              <% } %>
+            </div>
           </div>
 
           <div class="pass-print-workspace">
@@ -244,21 +246,65 @@
                     />
                   </div>
 
-                  <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label class="field-label" for="pass-print-field-font-size"><%= t('passPrint.editor.fontSize') %></label>
-                      <input
-                        id="pass-print-field-font-size"
-                        type="number"
-                        min="8"
-                        max="64"
-                        step="1"
-                        class="field-input"
-                        data-pass-print-field-font-size
-                        <%= canManage ? '' : 'disabled' %>
-                      />
-                    </div>
+                  <div class="pass-print-inspector-section">
+                    <p class="worldnic-eyebrow"><%= t('passPrint.editor.variableStyle') %></p>
+                    <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="field-label" for="pass-print-field-variable-font-size"><%= t('passPrint.editor.variableFontSize') %></label>
+                        <input
+                          id="pass-print-field-variable-font-size"
+                          type="number"
+                          min="8"
+                          max="96"
+                          step="1"
+                          class="field-input"
+                          data-pass-print-field-variable-font-size
+                          <%= canManage ? '' : 'disabled' %>
+                        />
+                      </div>
 
+                      <div>
+                        <label class="field-label" for="pass-print-field-variable-font-weight"><%= t('passPrint.editor.variableFontWeight') %></label>
+                        <select id="pass-print-field-variable-font-weight" class="field-input" data-pass-print-field-variable-font-weight <%= canManage ? '' : 'disabled' %>>
+                          <option value="400"><%= t('passPrint.editor.fontWeight.regular') %></option>
+                          <option value="600"><%= t('passPrint.editor.fontWeight.semiBold') %></option>
+                          <option value="700"><%= t('passPrint.editor.fontWeight.bold') %></option>
+                          <option value="800"><%= t('passPrint.editor.fontWeight.extraBold') %></option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pass-print-inspector-section">
+                    <p class="worldnic-eyebrow"><%= t('passPrint.editor.prefixStyle') %></p>
+                    <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="field-label" for="pass-print-field-prefix-font-size"><%= t('passPrint.editor.prefixFontSize') %></label>
+                        <input
+                          id="pass-print-field-prefix-font-size"
+                          type="number"
+                          min="8"
+                          max="96"
+                          step="1"
+                          class="field-input"
+                          data-pass-print-field-prefix-font-size
+                          <%= canManage ? '' : 'disabled' %>
+                        />
+                      </div>
+
+                      <div>
+                        <label class="field-label" for="pass-print-field-prefix-font-weight"><%= t('passPrint.editor.prefixFontWeight') %></label>
+                        <select id="pass-print-field-prefix-font-weight" class="field-input" data-pass-print-field-prefix-font-weight <%= canManage ? '' : 'disabled' %>>
+                          <option value="400"><%= t('passPrint.editor.fontWeight.regular') %></option>
+                          <option value="600"><%= t('passPrint.editor.fontWeight.semiBold') %></option>
+                          <option value="700"><%= t('passPrint.editor.fontWeight.bold') %></option>
+                          <option value="800"><%= t('passPrint.editor.fontWeight.extraBold') %></option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label class="field-label" for="pass-print-field-width"><%= t('passPrint.editor.fieldWidth') %></label>
                       <input
@@ -271,6 +317,15 @@
                         data-pass-print-field-width
                         <%= canManage ? '' : 'disabled' %>
                       />
+                    </div>
+
+                    <div>
+                      <label class="field-label" for="pass-print-field-text-align"><%= t('passPrint.editor.textAlign') %></label>
+                      <select id="pass-print-field-text-align" class="field-input" data-pass-print-field-text-align <%= canManage ? '' : 'disabled' %>>
+                        <option value="left"><%= t('passPrint.editor.align.left') %></option>
+                        <option value="center"><%= t('passPrint.editor.align.center') %></option>
+                        <option value="right"><%= t('passPrint.editor.align.right') %></option>
+                      </select>
                     </div>
                   </div>
 
