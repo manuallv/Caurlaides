@@ -1216,8 +1216,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const hasCurrentBackground = Boolean(passPrintEditorState.currentBackgroundUrl);
     const hasUploadedBackground = Boolean(passPrintEditorState.uploadedBackgroundUrl);
-    const removeMarked = Boolean(removeBackgroundInput?.checked) && hasCurrentBackground && !hasUploadedBackground;
-    const backgroundUrl = removeBackgroundInput?.checked
+    const removeMarked = removeBackgroundInput?.value === '1' && hasCurrentBackground && !hasUploadedBackground;
+    const backgroundUrl = removeBackgroundInput?.value === '1'
       ? ''
       : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
     const rotation = normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation);
@@ -1703,7 +1703,7 @@ document.addEventListener('DOMContentLoaded', () => {
       passPrintEditorState.uploadedBackgroundUrl = String(reader.result || '');
 
       if (removeBackgroundInput) {
-        removeBackgroundInput.checked = false;
+        removeBackgroundInput.value = '0';
       }
 
       syncPassPrintBackgroundPreview();
@@ -4798,10 +4798,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (removeBackgroundInput) {
-          removeBackgroundInput.checked = false;
+          removeBackgroundInput.value = '0';
         }
       } else if (hasCurrentBackground && removeBackgroundInput) {
-        removeBackgroundInput.checked = !removeBackgroundInput.checked;
+        removeBackgroundInput.value = removeBackgroundInput.value === '1' ? '0' : '1';
       }
 
       syncPassPrintBackgroundPreview();
@@ -5249,11 +5249,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.target.matches('[data-pass-print-background-input]')) {
       handlePassPrintBackgroundChange(event.target.files?.[0] || null);
-      return;
-    }
-
-    if (event.target.matches('[data-pass-print-remove-background]')) {
-      syncPassPrintBackgroundPreview();
       return;
     }
 

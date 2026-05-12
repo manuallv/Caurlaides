@@ -1341,6 +1341,18 @@ body.is-access-fullscreen {
   width: fit-content;
 }
 
+.access-fullscreen-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
 .access-filter-grid > .field-input {
   flex: 1 1 12rem;
   min-width: 11rem;
