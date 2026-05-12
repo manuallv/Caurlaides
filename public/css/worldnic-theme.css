@@ -1360,15 +1360,21 @@ body.is-access-fullscreen {
 }
 
 .access-fullscreen-icon {
+  display: block;
   width: 1.05rem;
   height: 1.05rem;
   flex: 0 0 auto;
+  overflow: visible;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.7;
+}
+
+.access-fullscreen-toggle [data-access-fullscreen-label] {
+  white-space: nowrap;
 }
 
 .access-fullscreen-icon--exit,

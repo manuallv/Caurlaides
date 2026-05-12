@@ -2514,6 +2514,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const isAccessBrowserFullscreenActive = () => {
+    const { workspace } = getAccessElements();
+
+    if (!workspace || typeof document === 'undefined') {
+      return false;
+    }
+
+    return document.fullscreenElement === workspace;
+  };
+
   const setAccessFullscreen = (enabled) => {
     const elements = getAccessElements();
     const ui = getAccessUi();
@@ -2536,6 +2546,40 @@ document.addEventListener('DOMContentLoaded', () => {
         ? (ui.fullscreenExit || 'Exit fullscreen')
         : (ui.fullscreenEnter || 'Fullscreen');
     });
+  };
+
+  const syncAccessFullscreenFromBrowser = () => {
+    const isActive = isAccessBrowserFullscreenActive();
+
+    if (isActive !== accessFullscreen) {
+      setAccessFullscreen(isActive);
+    }
+  };
+
+  const toggleAccessFullscreen = async () => {
+    const { workspace } = getAccessElements();
+
+    if (!workspace) {
+      return;
+    }
+
+    if (typeof document !== 'undefined' && document.fullscreenEnabled && typeof workspace.requestFullscreen === 'function') {
+      try {
+        if (document.fullscreenElement === workspace) {
+          await document.exitFullscreen();
+          return;
+        }
+
+        if (!document.fullscreenElement) {
+          await workspace.requestFullscreen();
+          return;
+        }
+      } catch (error) {
+        // Fall back to layout fullscreen below if the browser blocks the API.
+      }
+    }
+
+    setAccessFullscreen(!accessFullscreen);
   };
 
   const getSelectedAccessPrintIds = () => [...selectedAccessPrintRequestIds];
@@ -2860,6 +2904,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+    document.removeEventListener('fullscreenchange', syncAccessFullscreenFromBrowser);
+    document.addEventListener('fullscreenchange', syncAccessFullscreenFromBrowser);
     syncAccessPrintSelection();
     if (elements.entryWindowsList && !elements.entryWindowsList.children.length) {
       setAccessEntryWindows([], { ensureBlank: true });
@@ -5073,7 +5119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessFullscreenTrigger = closest('[data-access-fullscreen-toggle]');
 
     if (accessFullscreenTrigger) {
-      setAccessFullscreen(!accessFullscreen);
+      await toggleAccessFullscreen();
       return;
     }
 
