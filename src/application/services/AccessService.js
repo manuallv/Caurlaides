@@ -40,6 +40,10 @@ const PASS_PRINT_ORIENTATION_SET = new Set(['portrait', 'landscape']);
 const PASS_PRINT_FONT_WEIGHT_SET = new Set(['400', '600', '700', '800']);
 const PASS_PRINT_TEXT_ALIGN_SET = new Set(['left', 'center', 'right']);
 const PASS_PRINT_HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+const PASS_PRINT_PDF_FONT_REGULAR = 'NotoSans';
+const PASS_PRINT_PDF_FONT_BOLD = 'NotoSans-Bold';
+const PASS_PRINT_PDF_FONT_REGULAR_PATH = path.resolve(__dirname, '../../../assets/fonts/NotoSans-Regular.ttf');
+const PASS_PRINT_PDF_FONT_BOLD_PATH = path.resolve(__dirname, '../../../assets/fonts/NotoSans-Bold.ttf');
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -445,7 +449,21 @@ function renderPassPrintBackground(document, backgroundSource, rotation = 0) {
   }
 }
 
-function getPassPrintPdfFont(weight) {
+function registerPassPrintPdfFonts(document) {
+  try {
+    document.registerFont(PASS_PRINT_PDF_FONT_REGULAR, PASS_PRINT_PDF_FONT_REGULAR_PATH);
+    document.registerFont(PASS_PRINT_PDF_FONT_BOLD, PASS_PRINT_PDF_FONT_BOLD_PATH);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function getPassPrintPdfFont(weight, customFontsRegistered = false) {
+  if (customFontsRegistered) {
+    return Number(weight) >= 600 ? PASS_PRINT_PDF_FONT_BOLD : PASS_PRINT_PDF_FONT_REGULAR;
+  }
+
   return Number(weight) >= 600 ? 'Helvetica-Bold' : 'Helvetica';
 }
 
@@ -497,7 +515,7 @@ function resolvePassPrintFieldParts(field, request, event) {
   };
 }
 
-function renderPassPrintFieldText(document, field, request, event, textWidth) {
+function renderPassPrintFieldText(document, field, request, event, textWidth, customFontsRegistered = false) {
   const parts = resolvePassPrintFieldParts(field, request, event);
   const prefixText = String(parts.prefix || '');
   const variableText = String(parts.variable || '');
@@ -512,9 +530,9 @@ function renderPassPrintFieldText(document, field, request, event, textWidth) {
   const variableFontWeight = normalizePassPrintFontWeight(field.variableFontWeight, '700');
   const textAlign = normalizePassPrintTextAlign(field.textAlign);
 
-  document.font(getPassPrintPdfFont(prefixFontWeight)).fontSize(prefixFontSize);
+  document.font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered)).fontSize(prefixFontSize);
   const prefixWidth = prefixText ? document.widthOfString(prefixText) : 0;
-  document.font(getPassPrintPdfFont(variableFontWeight)).fontSize(variableFontSize);
+  document.font(getPassPrintPdfFont(variableFontWeight, customFontsRegistered)).fontSize(variableFontSize);
   const variableWidth = variableText ? document.widthOfString(variableText) : 0;
   const totalWidth = prefixWidth + variableWidth;
   const offsetX = textAlign === 'center'
@@ -524,7 +542,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth) {
 
   if (prefixText) {
     document
-      .font(getPassPrintPdfFont(prefixFontWeight))
+      .font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered))
       .fontSize(prefixFontSize)
       .fillColor('#0f172a')
       .text(prefixText, cursorX, 0, {
@@ -535,7 +553,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth) {
 
   if (variableText) {
     document
-      .font(getPassPrintPdfFont(variableFontWeight))
+      .font(getPassPrintPdfFont(variableFontWeight, customFontsRegistered))
       .fontSize(variableFontSize)
       .fillColor('#0f172a')
       .text(variableText, cursorX, 0, {
@@ -584,6 +602,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
       bufferPages: false,
     });
     const chunks = [];
+    const customFontsRegistered = registerPassPrintPdfFonts(document);
 
     document.on('data', (chunk) => chunks.push(chunk));
     document.on('end', () => resolve(Buffer.concat(chunks)));
@@ -617,7 +636,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
           document.rotate(rotation, { origin: [0, 0] });
         }
 
-        renderPassPrintFieldText(document, field, request, event, textWidth);
+        renderPassPrintFieldText(document, field, request, event, textWidth, customFontsRegistered);
         document.restore();
       });
     });
