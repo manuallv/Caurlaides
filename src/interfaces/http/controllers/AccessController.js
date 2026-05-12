@@ -100,6 +100,10 @@ function normalizeRequestProfileApplicationPayload(body) {
 
 function normalizeRequestProfileApplicationDecisionPayload(body) {
   return {
+    profileName: body.profileName,
+    contactEmail: body.contactEmail,
+    contactPhone: body.contactPhone,
+    notes: Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : undefined,
     reason: body.reason || null,
     passQuota: normalizeBracketMap(body, 'passQuota'),
     wristbandQuota: normalizeBracketMap(body, 'wristbandQuota'),

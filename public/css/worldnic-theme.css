@@ -3591,6 +3591,22 @@ body.portal-modal-open {
   gap: 0.85rem;
 }
 
+.request-profile-application-form__profile {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.request-profile-application-form__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.request-profile-application-form__full {
+  grid-column: 1 / -1;
+}
+
 .request-profile-application-quota-text {
   display: grid;
   gap: 0.45rem;
@@ -5015,6 +5031,10 @@ body.portal-modal-open {
   }
 
   .request-profile-editor__fields--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .request-profile-application-form__fields {
     grid-template-columns: 1fr;
   }
 

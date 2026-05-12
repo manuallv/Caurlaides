@@ -169,6 +169,57 @@
                   >
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
+                    <section class="request-profile-application-form__profile shell-card">
+                      <div class="request-profile-quota-card__head">
+                        <h2><%= t('requestProfileApplications.editProfileTitle') %></h2>
+                      </div>
+
+                      <div class="request-profile-application-form__fields">
+                        <label class="field-label">
+                          <span><%= t('requestProfiles.fields.name') %></span>
+                          <input
+                            type="text"
+                            name="profileName"
+                            class="field-input"
+                            value="<%= application.profile_name %>"
+                            required
+                          />
+                        </label>
+
+                        <label class="field-label">
+                          <span><%= t('profileApplication.email') %></span>
+                          <input
+                            type="email"
+                            name="contactEmail"
+                            class="field-input"
+                            value="<%= application.contact_email %>"
+                            required
+                          />
+                        </label>
+
+                        <label class="field-label">
+                          <span><%= t('profileApplication.phone') %></span>
+                          <input
+                            type="text"
+                            name="contactPhone"
+                            class="field-input"
+                            value="<%= application.contact_phone %>"
+                            required
+                          />
+                        </label>
+
+                        <label class="field-label request-profile-application-form__full">
+                          <span><%= t('requestProfiles.fields.notes') %></span>
+                          <textarea
+                            name="notes"
+                            rows="3"
+                            class="field-input"
+                            placeholder="<%= t('requestProfileApplications.notesPlaceholder') %>"
+                          ><%= application.notes || '' %></textarea>
+                        </label>
+                      </div>
+                    </section>
+
                     <div class="request-profile-application-form__quotas">
                       <section class="request-profile-quota-card shell-card" data-request-profile-quotas>
                         <div class="request-profile-quota-card__head">

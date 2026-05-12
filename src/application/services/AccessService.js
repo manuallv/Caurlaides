@@ -1836,10 +1836,15 @@ class AccessService {
     const accessCode = await this.generateUniqueAccessCode();
     const accessCodeHash = await hashPassword(accessCode);
     const maxPeople = [...passQuotas, ...wristbandQuotas].reduce((sum, entry) => sum + entry.quota, 0) || 1;
-    const profileName = String(application.profile_name || '').trim();
-    const contactEmail = normalizeEmail(application.contact_email);
-    const contactPhone = String(application.contact_phone || '').trim();
-    const notes = String(application.notes || '').trim();
+    const hasEditedNotes = Object.prototype.hasOwnProperty.call(payload, 'notes') && payload.notes !== undefined;
+    const profileName = String(payload.profileName || application.profile_name || '').trim();
+    const contactEmail = normalizeEmail(payload.contactEmail || application.contact_email);
+    const contactPhone = String(payload.contactPhone || application.contact_phone || '').trim();
+    const notes = String(hasEditedNotes ? payload.notes || '' : application.notes || '').trim();
+
+    if (!profileName || !contactEmail || !contactPhone) {
+      throw new AppError(tx('service.requestProfileApplication.contactRequired'), 422);
+    }
 
     await this.assertRequestProfileIdentityAvailable(eventId, {
       profileName,
@@ -1878,6 +1883,12 @@ class AccessService {
       const affectedRows = await this.requestProfileApplicationRepository.approve(connection, applicationId, {
         profileId,
         userId: actorId,
+        profileName,
+        contactEmail,
+        contactPhone,
+        notes: notes || null,
+        passQuotas,
+        wristbandQuotas,
       });
 
       if (!affectedRows) {

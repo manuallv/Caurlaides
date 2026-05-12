@@ -263,6 +263,12 @@ class RequestProfileApplicationRepository {
         UPDATE request_profile_applications
         SET
           status = 'approved',
+          profile_name = ?,
+          contact_email = ?,
+          contact_phone = ?,
+          notes = ?,
+          requested_pass_quota = ?,
+          requested_wristband_quota = ?,
           approved_profile_id = ?,
           reviewed_by_user_id = ?,
           reviewed_at = NOW(),
@@ -270,7 +276,17 @@ class RequestProfileApplicationRepository {
         WHERE id = ?
           AND status = 'pending'
       `,
-      [payload.profileId, payload.userId, applicationId],
+      [
+        payload.profileName,
+        payload.contactEmail,
+        payload.contactPhone,
+        payload.notes || null,
+        serializeQuotaEntries(payload.passQuotas),
+        serializeQuotaEntries(payload.wristbandQuotas),
+        payload.profileId,
+        payload.userId,
+        applicationId,
+      ],
     );
 
     return result.affectedRows;
