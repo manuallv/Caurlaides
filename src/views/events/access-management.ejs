@@ -292,6 +292,7 @@
                   const requestDisplayStatusLabelKey = request.display_status_label_key || `statuses.${requestDisplayStatus}`;
                   const requestStatusTone = request.display_status_tone || (requestDisplayStatus === 'handed_out' ? 'active' : 'pending');
                   const requestStatusAt = request.display_status_at || request.status_updated_at || request.created_at || null;
+                  const requestIssuedStatus = request.status || 'pending';
                   const requestEntryValue = request.last_entry_at || request.entered_at || null;
                   const requestLastEntryTs = requestEntryValue ? new Date(requestEntryValue).getTime() : 0;
                   const requestLastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
@@ -401,13 +402,13 @@
                         <% if (isPass) { %>
                           <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <input type="hidden" name="status" value="<%= requestDisplayStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
+                            <input type="hidden" name="status" value="<%= requestIssuedStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
                             <button
                               type="submit"
-                              class="table-icon-button <%= requestDisplayStatus === 'handed_out' ? 'table-icon-button--danger access-issued-quick-button is-returning' : 'table-icon-button--success access-issued-quick-button' %>"
+                              class="table-icon-button <%= requestIssuedStatus === 'handed_out' ? 'table-icon-button--danger access-issued-quick-button is-returning' : 'table-icon-button--success access-issued-quick-button' %>"
                               data-request-status-button
-                              title="<%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
-                              aria-label="<%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
+                              title="<%= requestIssuedStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
+                              aria-label="<%= requestIssuedStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
                             >
                               <svg viewBox="0 0 20 20" aria-hidden="true">
                                 <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
@@ -479,17 +480,17 @@
 
                               <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                                 <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                                <input type="hidden" name="status" value="<%= requestDisplayStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
+                                <input type="hidden" name="status" value="<%= requestIssuedStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
                                 <button
                                   type="submit"
-                                  class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'handed_out' ? 'is-danger' : '' %>"
+                                  class="access-actions-menu__action access-actions-menu__action--status <%= requestIssuedStatus === 'handed_out' ? 'is-danger' : '' %>"
                                   data-request-status-button
                                 >
                                   <svg viewBox="0 0 20 20" aria-hidden="true">
                                     <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
                                     <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
                                   </svg>
-                                  <span><%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.passState.handed_out') %></span>
+                                  <span><%= requestIssuedStatus === 'handed_out' ? t('access.actions.markPending') : t('access.passState.handed_out') %></span>
                                 </button>
                               </form>
 

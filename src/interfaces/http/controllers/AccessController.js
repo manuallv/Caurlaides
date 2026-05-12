@@ -274,10 +274,11 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
     return null;
   }
 
-  const status = resolveRequestDisplayState(type, request);
+  const rawStatus = request.status || 'pending';
+  const displayStatus = resolveRequestDisplayState(type, request);
   const currentPresence = type === 'pass' ? resolveRequestPresence(request) : 'unknown';
   const currentStatusAt = resolveRequestDisplayStatusAt(type, request);
-  const nextStatus = status === 'handed_out' ? 'pending' : 'handed_out';
+  const nextStatus = rawStatus === 'handed_out' ? 'pending' : 'handed_out';
   const nextStatusLabelKey = type === 'pass'
     ? `access.passState.${nextStatus}`
     : `statuses.${nextStatus}`;
@@ -297,7 +298,8 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       notes: request.notes || '',
       profileName: request.profile_name || '',
       categoryName: request.category_name || '',
-      status,
+      status: rawStatus,
+      displayStatus,
       statusLabel: req.t(resolveRequestDisplayStatusLabelKey(type, request)),
       statusTone: resolveRequestDisplayStatusTone(type, request),
       statusUpdatedAtLabel: currentStatusAt
