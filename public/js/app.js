@@ -3629,7 +3629,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
             <input type="hidden" name="_csrf" value="${csrfValue}" />
             <input type="hidden" name="direction" value="entry" />
-            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${entryButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.displayStatus === 'entered' ? 'disabled' : ''}>
+            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${entryButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}">
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M3.5 10h11"></path>
                 <path d="M11 6.2 14.8 10 11 13.8"></path>
@@ -3640,7 +3640,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/movement" method="POST" class="access-status-form" data-live-form data-request-movement-form>
             <input type="hidden" name="_csrf" value="${csrfValue}" />
             <input type="hidden" name="direction" value="exit" />
-            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${exitButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" ${request.displayStatus === 'exited' ? 'disabled' : ''}>
+            <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${exitButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}">
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M16.5 10h-11"></path>
                 <path d="M9 6.2 5.2 10 9 13.8"></path>

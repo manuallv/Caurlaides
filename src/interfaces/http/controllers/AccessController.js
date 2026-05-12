@@ -1147,12 +1147,14 @@ function buildAccessController({ categoryService, accessService }) {
       });
       return sendMutationResponse(req, res, {
         redirectTo: `/events/${result.eventId}/passes`,
-        message: req.t(
-          result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
-          {
-            plate: result.request?.vehicle_plate || '',
-          },
-        ),
+        message: result.reset
+          ? req.t('flash.requestStatusUpdated')
+          : req.t(
+            result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+            {
+              plate: result.request?.vehicle_plate || '',
+            },
+          ),
         payload: {
           liveRequestUpsert,
         },

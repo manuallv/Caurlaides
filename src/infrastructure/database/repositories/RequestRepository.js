@@ -1002,6 +1002,27 @@ class RequestRepository {
 
     return insertResult.insertId;
   }
+
+  async resetPassVehicleMovement(connection, requestId, payload = {}) {
+    const config = this.resolveConfig('pass');
+    await backupRequestRow(connection, config, requestId, 'movement_reset_before');
+    await connection.execute(
+      `
+        UPDATE pass_requests
+        SET
+          status = 'pending',
+          handed_out_at = NULL,
+          handed_out_by_user_id = NULL,
+          status_updated_at = NOW(),
+          status_updated_by_user_id = ?,
+          entered_at = NULL,
+          last_entry_at = NULL,
+          last_exit_at = NULL
+        WHERE id = ?
+      `,
+      [payload.statusUpdatedByUserId || null, requestId],
+    );
+  }
 }
 
 module.exports = { RequestRepository };

@@ -2797,6 +2797,87 @@ class AccessService {
       throw new AppError(tx('service.request.notFound'), 404);
     }
 
+    const currentDisplayState = resolveRequestDisplayState('pass', existingRequest);
+    const shouldResetMovement = (
+      (normalizedDirection === 'entry' && currentDisplayState === 'entered')
+      || (normalizedDirection === 'exit' && currentDisplayState === 'exited')
+    );
+
+    if (shouldResetMovement) {
+      const connection = await this.pool.getConnection();
+
+      try {
+        await connection.beginTransaction();
+        await this.requestRepository.resetPassVehicleMovement(connection, existingRequest.id, {
+          statusUpdatedByUserId: actorId,
+        });
+
+        await this.auditLogService.record(
+          {
+            eventId,
+            userId: actorId,
+            entityType: 'pass_request',
+            entityId: existingRequest.id,
+            action: 'status_updated',
+            message: translate(DEFAULT_LOCALE, 'audit.message.requestStatusUpdated', {
+              type: translate(DEFAULT_LOCALE, 'accessType.pass'),
+              name: existingRequest.full_name,
+              status: translate(DEFAULT_LOCALE, 'access.passState.pending'),
+            }),
+            beforeState: {
+              status: existingRequest.status || 'pending',
+              displayStatus: currentDisplayState,
+              enteredAt: existingRequest.entered_at || null,
+              lastEntryAt: existingRequest.last_entry_at || null,
+              lastExitAt: existingRequest.last_exit_at || null,
+            },
+            afterState: {
+              status: 'pending',
+              displayStatus: 'pending',
+              enteredAt: null,
+              lastEntryAt: null,
+              lastExitAt: null,
+              statusUpdatedAt: new Date().toISOString(),
+              statusUpdatedByUserId: actorId,
+            },
+            metadata: {
+              ...buildAuditMetadata('audit.message.requestStatusUpdated', {
+                type: tx('accessType.pass'),
+                name: existingRequest.full_name,
+                status: tx('access.passState.pending'),
+              }),
+              historyKind: 'status-change',
+              source: 'admin-movement-toggle',
+              previousStatus: existingRequest.status || 'pending',
+              previousDisplayStatus: currentDisplayState,
+              nextStatus: 'pending',
+              nextDisplayStatus: 'pending',
+              toggledDirection: normalizedDirection,
+            },
+          },
+          connection,
+        );
+
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+
+      const request = await this.requestRepository.findById('pass', existingRequest.id);
+
+      return {
+        eventId: Number(eventId),
+        request,
+        direction: normalizedDirection,
+        reset: true,
+        currentPresence: resolveVehiclePresenceStatus(request),
+        performedAt: request.status_updated_at || null,
+      };
+    }
+
     const vehiclePlate = formatVehiclePlate(existingRequest.vehicle_plate);
     const vehiclePlateNormalized = normalizeVehiclePlate(vehiclePlate);
 
