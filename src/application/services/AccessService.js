@@ -594,6 +594,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
   const textAlign = normalizePassPrintTextAlign(field.textAlign);
   const textColor = normalizePassPrintColor(field.textColor);
   const maxFontSize = Math.max(prefixFontSize, variableFontSize);
+  const bottomPadding = 5;
   const getBottomAlignedTextY = (fontSize) => Math.max(0, maxFontSize - fontSize);
 
   document.font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered)).fontSize(prefixFontSize);
@@ -628,7 +629,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
   }
 
   if (field.borderEnabled) {
-    const borderY = Math.max(8, maxFontSize * 1.18);
+    const borderY = Math.max(8, maxFontSize * 1.18) + bottomPadding;
     document
       .save()
       .strokeColor(normalizePassPrintColor(field.borderColor))
