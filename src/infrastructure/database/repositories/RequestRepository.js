@@ -184,6 +184,41 @@ async function backupRequestRow(executor, config, requestId, operation) {
   );
 }
 
+async function setStatusWithExecutor(executor, config, requestId, payload) {
+  await backupRequestRow(executor, config, requestId, 'status_before');
+
+  if (payload.status === 'handed_out') {
+    await executor.execute(
+      `
+        UPDATE ${config.requestTable}
+        SET
+          status = 'handed_out',
+          handed_out_at = NOW(),
+          handed_out_by_user_id = ?,
+          status_updated_at = NOW(),
+          status_updated_by_user_id = ?
+        WHERE id = ?
+      `,
+      [payload.userId, payload.userId, requestId],
+    );
+    return;
+  }
+
+  await executor.execute(
+    `
+      UPDATE ${config.requestTable}
+      SET
+        status = 'pending',
+        handed_out_at = NULL,
+        handed_out_by_user_id = NULL,
+        status_updated_at = NOW(),
+        status_updated_by_user_id = ?
+      WHERE id = ?
+    `,
+    [payload.userId, requestId],
+  );
+}
+
 class RequestRepository {
   constructor(pool) {
     this.pool = pool;
@@ -401,6 +436,42 @@ class RequestRepository {
     return rows[0] || null;
   }
 
+  async findByIds(type, requestIds = []) {
+    const normalizedIds = [...new Set((requestIds || []).map((requestId) => Number(requestId)).filter((requestId) => Number.isInteger(requestId) && requestId > 0))];
+
+    if (!normalizedIds.length) {
+      return [];
+    }
+
+    const config = this.resolveConfig(type);
+    const placeholders = normalizedIds.map(() => '?').join(', ');
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          request.*
+          ${config.supportsVehiclePlate ? '' : `,
+          NULL AS vehicle_plate,
+          NULL AS vehicle_plate_normalized,
+          NULL AS entered_at,
+          NULL AS last_entry_at,
+          NULL AS last_exit_at`}
+          ,
+          request.${config.categoryIdField} AS category_id,
+          profile.name AS profile_name,
+          profile.public_slug,
+          category.name AS category_name
+        FROM ${config.requestTable} request
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id
+        LEFT JOIN ${config.categoryTable} category ON category.id = request.${config.categoryIdField}
+        WHERE request.id IN (${placeholders})
+          AND request.deleted_at IS NULL
+      `,
+      normalizedIds,
+    );
+
+    return rows;
+  }
+
   async findAnyById(type, requestId) {
     const config = this.resolveConfig(type);
     const [rows] = await this.pool.execute(
@@ -600,38 +671,21 @@ class RequestRepository {
 
   async setStatus(type, requestId, payload) {
     const config = this.resolveConfig(type);
-    await backupRequestRow(this.pool, config, requestId, 'status_before');
+    await setStatusWithExecutor(this.pool, config, requestId, payload);
+  }
 
-    if (payload.status === 'handed_out') {
-      await this.pool.execute(
-        `
-          UPDATE ${config.requestTable}
-          SET
-            status = 'handed_out',
-            handed_out_at = NOW(),
-            handed_out_by_user_id = ?,
-            status_updated_at = NOW(),
-            status_updated_by_user_id = ?
-          WHERE id = ?
-        `,
-        [payload.userId, payload.userId, requestId],
-      );
+  async setStatuses(connection, type, requestIds = [], payload) {
+    const normalizedIds = [...new Set((requestIds || []).map((requestId) => Number(requestId)).filter((requestId) => Number.isInteger(requestId) && requestId > 0))];
+
+    if (!normalizedIds.length) {
       return;
     }
 
-    await this.pool.execute(
-      `
-        UPDATE ${config.requestTable}
-        SET
-          status = 'pending',
-          handed_out_at = NULL,
-          handed_out_by_user_id = NULL,
-          status_updated_at = NOW(),
-          status_updated_by_user_id = ?
-        WHERE id = ?
-      `,
-      [payload.userId, requestId],
-    );
+    const config = this.resolveConfig(type);
+
+    for (const requestId of normalizedIds) {
+      await setStatusWithExecutor(connection, config, requestId, payload);
+    }
   }
 
   async listProfileRequests(profileId, type) {

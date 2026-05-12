@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeEventDashboardTab = resolveInitialEventDashboardTab();
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
+  let selectedAccessPrintRequestIds = new Set();
   let refreshInProgress = false;
   let liveFilterTimer = null;
   let activeRefreshController = null;
@@ -2354,6 +2355,8 @@ document.addEventListener('DOMContentLoaded', () => {
       viewPanels: [...document.querySelectorAll('[data-access-view-panel]')],
       fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
       fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
+      printSelectedButton: document.querySelector('[data-access-print-selected]'),
+      printSelectedLabel: document.querySelector('[data-access-print-selected-label]'),
       filterForm: document.querySelector('[data-live-filter-form]'),
       profileFilter: document.querySelector('[data-access-profile-filter]'),
       profileFilterTrigger: document.querySelector('[data-access-profile-filter-trigger]'),
@@ -2412,6 +2415,13 @@ document.addEventListener('DOMContentLoaded', () => {
       saveSubmit: workspace.dataset.accessSaveSubmit,
       fullscreenEnter: workspace.dataset.accessFullscreenEnter,
       fullscreenExit: workspace.dataset.accessFullscreenExit,
+      printSelectedUrl: workspace.dataset.accessPrintSelectedAction,
+      printToggleLabel: workspace.dataset.accessPrintToggleLabel,
+      printSelectedToggleLabel: workspace.dataset.accessPrintSelectedToggleLabel,
+      printSelectedLabel: workspace.dataset.accessPrintSelectedLabel,
+      printSelectedCountTemplate: workspace.dataset.accessPrintSelectedCountTemplate,
+      printSelectedSuccess: workspace.dataset.accessPrintSelectedSuccess,
+      canManage: workspace.dataset.accessCanManage === 'true',
       requestCreateAction: workspace.dataset.accessRequestCreateAction,
       requestCreateTitle: workspace.dataset.accessRequestCreateTitle,
       requestEditTitle: workspace.dataset.accessRequestEditTitle,
@@ -2516,11 +2526,141 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.workspace.classList.toggle('access-admin-shell-fullscreen', enabled);
     document.body.classList.toggle('is-access-fullscreen', enabled);
 
+    elements.fullscreenToggles.forEach((toggle) => {
+      toggle.classList.toggle('is-active', enabled);
+      toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    });
+
     elements.fullscreenLabels.forEach((label) => {
       label.textContent = enabled
         ? (ui.fullscreenExit || 'Exit fullscreen')
         : (ui.fullscreenEnter || 'Fullscreen');
     });
+  };
+
+  const getSelectedAccessPrintIds = () => [...selectedAccessPrintRequestIds];
+
+  const syncAccessPrintSelection = () => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+    const selectedCount = selectedAccessPrintRequestIds.size;
+    const isVisible = ui.pageType === 'pass' && ui.canManage && selectedCount > 0;
+    const selectLabel = ui.printToggleLabel || 'Select for print';
+    const deselectLabel = ui.printSelectedToggleLabel || 'Remove from print';
+
+    document.querySelectorAll('[data-access-print-toggle]').forEach((button) => {
+      const requestId = String(button.dataset.requestId || '');
+      const isSelected = selectedAccessPrintRequestIds.has(requestId);
+
+      button.classList.toggle('table-icon-button--danger', isSelected);
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      button.setAttribute('title', isSelected ? deselectLabel : selectLabel);
+      button.setAttribute('aria-label', isSelected ? deselectLabel : selectLabel);
+    });
+
+    if (elements.printSelectedButton) {
+      elements.printSelectedButton.classList.toggle('hidden', !isVisible);
+      elements.printSelectedButton.disabled = !isVisible;
+    }
+
+    if (elements.printSelectedLabel) {
+      const template = ui.printSelectedCountTemplate || ui.printSelectedLabel || 'Print selected';
+      elements.printSelectedLabel.textContent = template.replace('__COUNT__', selectedCount);
+    }
+  };
+
+  const clearAccessPrintSelection = () => {
+    selectedAccessPrintRequestIds = new Set();
+    syncAccessPrintSelection();
+  };
+
+  const toggleAccessPrintSelection = (trigger) => {
+    const ui = getAccessUi();
+
+    if (ui.pageType !== 'pass' || !ui.canManage) {
+      return;
+    }
+
+    const requestId = String(trigger?.dataset.requestId || trigger?.closest('[data-request-row-id]')?.dataset.requestRowId || '');
+
+    if (!requestId) {
+      return;
+    }
+
+    if (selectedAccessPrintRequestIds.has(requestId)) {
+      selectedAccessPrintRequestIds.delete(requestId);
+    } else {
+      selectedAccessPrintRequestIds.add(requestId);
+    }
+
+    syncAccessPrintSelection();
+  };
+
+  const submitSelectedAccessPrintRequests = async (trigger) => {
+    const ui = getAccessUi();
+    const requestIds = [...document.querySelectorAll('[data-access-requests-body] [data-request-row-id]')]
+      .map((row) => String(row.dataset.requestRowId || ''))
+      .filter((requestId) => selectedAccessPrintRequestIds.has(requestId))
+      .map((requestId) => Number(requestId))
+      .filter((requestId) => Number.isInteger(requestId) && requestId > 0);
+
+    if (!requestIds.length || !ui.printSelectedUrl) {
+      return;
+    }
+
+    const csrfValue = document.querySelector('[data-access-request-form] input[name="_csrf"]')?.value || '';
+    const printWindow = window.open('', '_blank', 'noopener');
+
+    setLiveSubmitterState(trigger, true);
+
+    try {
+      const response = await fetch(ui.printSelectedUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-Token': csrfValue,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          _csrf: csrfValue,
+          requestIds,
+        }),
+      });
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        const payload = contentType.includes('application/json')
+          ? await response.json()
+          : null;
+        throw new Error(payload?.error || 'Print failed');
+      }
+
+      const fileBlob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(fileBlob);
+
+      if (printWindow) {
+        printWindow.location.href = objectUrl;
+      } else {
+        window.open(objectUrl, '_blank', 'noopener');
+      }
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(objectUrl);
+      }, 60_000);
+
+      clearAccessPrintSelection();
+      showLiveNotice(ui.printSelectedSuccess || 'PDF opened for printing.', 'success');
+    } catch (error) {
+      if (printWindow) {
+        printWindow.close();
+      }
+
+      showLiveNotice(error.message, 'error');
+    } finally {
+      setLiveSubmitterState(trigger, false);
+    }
   };
 
   const resetAccessTypeForm = () => {
@@ -2720,6 +2860,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setAccessView(activeAccessView || hashView, { updateHash: false });
     setAccessFullscreen(accessFullscreen);
+    syncAccessPrintSelection();
     if (elements.entryWindowsList && !elements.entryWindowsList.children.length) {
       setAccessEntryWindows([], { ensureBlank: true });
     }
@@ -3534,6 +3675,22 @@ document.addEventListener('DOMContentLoaded', () => {
       <td>
         <div class="access-row-actions ${isPass ? 'access-row-actions--menu' : ''}">
           ${isPass ? `
+            ${ui.canManage ? `
+            <button
+              type="button"
+              class="table-icon-button access-print-toggle ${selectedAccessPrintRequestIds.has(String(request.id || '')) ? 'table-icon-button--danger is-selected' : ''}"
+              data-access-print-toggle
+              data-request-id="${escapeHtml(request.id)}"
+              aria-pressed="${selectedAccessPrintRequestIds.has(String(request.id || '')) ? 'true' : 'false'}"
+              title="${escapeHtml(selectedAccessPrintRequestIds.has(String(request.id || '')) ? (ui.printSelectedToggleLabel || 'Remove from print') : (ui.printToggleLabel || 'Select for print'))}"
+              aria-label="${escapeHtml(selectedAccessPrintRequestIds.has(String(request.id || '')) ? (ui.printSelectedToggleLabel || 'Remove from print') : (ui.printToggleLabel || 'Select for print'))}"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9V3h12v6"></path>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <path d="M6 14h12v7H6z"></path>
+              </svg>
+            </button>` : ''}
             ${buildPassIssuedQuickAction({ request, ui, csrfValue })}
             ${buildPassActionsMenu({
             request,
@@ -3645,6 +3802,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (existingRow) {
         existingRow.remove();
+        selectedAccessPrintRequestIds.delete(String(request.id));
+        syncAccessPrintSelection();
         applyAccessFilters();
         return true;
       }
@@ -3661,6 +3820,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (existingRow) {
       existingRow.replaceWith(nextRow);
+      syncAccessPrintSelection();
       applyAccessFilters();
       return true;
     }
@@ -3670,6 +3830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     insertAccessRowSorted(nextRow);
+    syncAccessPrintSelection();
     applyAccessFilters();
     return true;
   };
@@ -3698,6 +3859,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAccessTypeUsageMetrics(snapshotAccessRequestFromRow(row), null);
 
     row.remove();
+    selectedAccessPrintRequestIds.delete(String(requestId));
+    syncAccessPrintSelection();
     applyAccessFilters();
     return true;
   };
@@ -4911,6 +5074,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessFullscreenTrigger) {
       setAccessFullscreen(!accessFullscreen);
+      return;
+    }
+
+    const accessPrintToggleTrigger = closest('[data-access-print-toggle]');
+
+    if (accessPrintToggleTrigger) {
+      toggleAccessPrintSelection(accessPrintToggleTrigger);
+      return;
+    }
+
+    const accessPrintSelectedTrigger = closest('[data-access-print-selected]');
+
+    if (accessPrintSelectedTrigger) {
+      await submitSelectedAccessPrintRequests(accessPrintSelectedTrigger);
       return;
     }
 

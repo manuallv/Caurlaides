@@ -116,10 +116,6 @@ function resolveRequestDisplayState(type, request = {}) {
     return request.status === 'handed_out' ? 'handed_out' : 'pending';
   }
 
-  if (request.status === 'handed_out') {
-    return 'handed_out';
-  }
-
   const lastEntryTs = resolveVehicleEntryTimestamp(request);
   const lastExitTs = request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0;
 
@@ -129,6 +125,10 @@ function resolveRequestDisplayState(type, request = {}) {
 
   if (lastExitTs && lastExitTs >= lastEntryTs) {
     return 'exited';
+  }
+
+  if (request.status === 'handed_out') {
+    return 'handed_out';
   }
 
   return 'pending';
@@ -178,7 +178,7 @@ function isRequestLockedForPortal(type, request = {}) {
   const displayState = resolveRequestDisplayState(type, request);
 
   if (type === 'pass') {
-    return displayState === 'handed_out' || displayState === 'entered';
+    return displayState === 'entered';
   }
 
   return displayState === 'handed_out';
@@ -193,13 +193,6 @@ function resolvePortalLockReason(type, request = {}, profile = {}) {
   const displayState = resolveRequestDisplayState(type, request);
 
   if (type === 'pass') {
-    if (displayState === 'handed_out') {
-      return {
-        code: 'passHandedOut',
-        at: resolveRequestDisplayStatusAt(type, request),
-      };
-    }
-
     if (displayState === 'entered') {
       return {
         code: 'passEntered',
@@ -1789,6 +1782,115 @@ class AccessService {
       }),
       filename: `${baseFileName}.pdf`,
       contentType: 'application/pdf',
+    };
+  }
+
+  async printSelectedPassRequests(eventId, actorId, requestIds, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const normalizedIds = [...new Set((requestIds || []).map((requestId) => Number(requestId)).filter((requestId) => Number.isInteger(requestId) && requestId > 0))];
+
+    if (!normalizedIds.length) {
+      throw new AppError(tx('service.passPrint.noSelectedRequests'), 422);
+    }
+
+    const template = buildPassPrintTemplateFromEvent(event, tx);
+
+    if (!template.fields.length) {
+      throw new AppError(tx('service.passPrint.templateMissing'), 422);
+    }
+
+    const requests = await this.requestRepository.findByIds('pass', normalizedIds);
+    const requestsById = new Map(requests.map((request) => [Number(request.id), request]));
+    const orderedRequests = normalizedIds.map((requestId) => requestsById.get(Number(requestId))).filter(Boolean);
+
+    if (orderedRequests.length !== normalizedIds.length) {
+      throw new AppError(tx('service.passPrint.requestsMissing'), 404);
+    }
+
+    if (orderedRequests.some((request) => Number(request.event_id) !== Number(eventId))) {
+      throw new AppError(tx('service.passPrint.requestsMissing'), 404);
+    }
+
+    const timestamp = dayjs().format('YYYYMMDD-HHmm');
+    const baseFileName = sanitizeFileName(`${event.name}-selected-passes-${timestamp}`);
+    const buffer = await buildPassPrintPdfBuffer({
+      event,
+      requests: orderedRequests,
+      template,
+    });
+
+    const requestIdsToMark = orderedRequests
+      .filter((request) => resolveRequestDisplayState('pass', request) !== 'handed_out')
+      .map((request) => Number(request.id));
+
+    if (requestIdsToMark.length) {
+      const connection = await this.pool.getConnection();
+
+      try {
+        await connection.beginTransaction();
+        await this.requestRepository.setStatuses(connection, 'pass', requestIdsToMark, {
+          status: 'handed_out',
+          userId: actorId,
+        });
+
+        for (const request of orderedRequests.filter((entry) => requestIdsToMark.includes(Number(entry.id)))) {
+          await this.auditLogService.record(
+            {
+              eventId,
+              userId: actorId,
+              entityType: 'pass_request',
+              entityId: request.id,
+              action: 'status_updated',
+              message: translate(DEFAULT_LOCALE, 'audit.message.requestStatusUpdated', {
+                type: translate(DEFAULT_LOCALE, 'accessType.pass'),
+                name: request.full_name,
+                status: translate(DEFAULT_LOCALE, 'statuses.handed_out'),
+              }),
+              beforeState: request,
+              afterState: {
+                status: 'handed_out',
+                statusUpdatedAt: new Date().toISOString(),
+                statusUpdatedByUserId: actorId,
+              },
+              metadata: buildAuditMetadata('audit.message.requestStatusUpdated', {
+                type: tx('accessType.pass'),
+                name: request.full_name,
+                status: tx('statuses.handed_out'),
+              }),
+            },
+            connection,
+          );
+        }
+
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    }
+
+    const updatedRequests = requestIdsToMark.length
+      ? await Promise.all(requestIdsToMark.map((requestId) => this.requestRepository.findById('pass', requestId)))
+      : [];
+    const summary = await this.requestRepository.getAdminSummary(eventId, 'pass');
+
+    return {
+      event,
+      updatedRequests: updatedRequests.filter(Boolean),
+      summary,
+      file: {
+        buffer,
+        filename: `${baseFileName}.pdf`,
+        contentType: 'application/pdf',
+      },
     };
   }
 
@@ -3697,10 +3799,6 @@ class AccessService {
     const existingRequest = matches[0];
     const alreadyEntered = Boolean(existingRequest.entered_at);
 
-    if (resolveRequestDisplayState('pass', existingRequest) === 'handed_out') {
-      throw new AppError(tx('service.vehicleEntry.handedOutLocked'), 409);
-    }
-
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       existingRequest.category_id,
       direction,
@@ -3841,19 +3939,6 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
-
-    if (resolveRequestDisplayState('pass', request) === 'handed_out') {
-      return {
-        eventId,
-        allowed: false,
-        decision: 'denied',
-        reason: 'handed_out',
-        checkedPlate: request?.vehicle_plate || vehiclePlate,
-        message: tx('service.vehicleEntry.handedOutLocked'),
-        request,
-        currentPresence: resolveVehiclePresenceStatus(request),
-      };
-    }
 
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       request?.category_id,
@@ -4008,29 +4093,6 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
-
-    if (resolveRequestDisplayState('pass', request) === 'handed_out') {
-      return {
-        eventId: Number(event.id),
-        allowed: false,
-        decision: 'denied',
-        reason: 'handed_out',
-        checkedPlate: request?.vehicle_plate || vehiclePlate,
-        message: tx('service.vehicleEntry.handedOutLocked'),
-        request,
-        currentPresence: resolveVehiclePresenceStatus(request),
-        movement: {
-          mode: requestedMode,
-          configuredMode,
-          direction: requestedMode === 'decision' ? null : requestedMode,
-          recorded: false,
-          deduplicated: false,
-          performedAt: null,
-          autoSwitched: false,
-          explicitDirection: Boolean(explicitDirection),
-        },
-      };
-    }
 
     const initialPresence = resolveVehiclePresenceStatus(request);
     const resolvedDirection = isCameraDirectedMode

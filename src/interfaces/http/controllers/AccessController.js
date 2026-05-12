@@ -168,6 +168,22 @@ function normalizePassPrintFilters(query) {
   };
 }
 
+function normalizeSelectedPassPrintPayload(body) {
+  const rawRequestIds = body.requestIds || body.requestIdsJson || body.request_ids || [];
+  const parsedRequestIds = parseJsonValue(rawRequestIds);
+  const requestIds = Array.isArray(parsedRequestIds)
+    ? parsedRequestIds
+    : Array.isArray(rawRequestIds)
+      ? rawRequestIds
+      : [rawRequestIds];
+
+  return {
+    requestIds: requestIds
+      .map((requestId) => Number(requestId))
+      .filter((requestId) => Number.isInteger(requestId) && requestId > 0),
+  };
+}
+
 function resolveVehicleEntryMetadata(body) {
   const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
     ? { ...body.metadata }
@@ -793,6 +809,50 @@ function buildAccessController({ categoryService, accessService }) {
         if (error instanceof AppError && error.statusCode < 500) {
           req.flash('error', error.message);
           return res.redirect(`/events/${req.params.eventId}/passes/print`);
+        }
+
+        throw error;
+      }
+    },
+
+    async printSelectedPassPrintPdf(req, res) {
+      try {
+        const result = await accessService.printSelectedPassRequests(
+          req.params.eventId,
+          req.currentUser.id,
+          normalizeSelectedPassPrintPayload(req.body).requestIds,
+          req.t,
+        );
+
+        result.updatedRequests.forEach((request) => {
+          const liveRequestUpsert = buildAccessRequestLivePayload(
+            req,
+            res,
+            'pass',
+            request,
+            result.summary,
+          );
+
+          emitEventUpdate(req.app.locals.io, result.event.id, 'access:request-upsert', liveRequestUpsert);
+        });
+        emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
+          eventId: result.event.id,
+        });
+
+        res.setHeader('Content-Type', result.file.contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${result.file.filename}"`);
+        return res.send(result.file.buffer);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          if (isAsyncRequest(req)) {
+            return res.status(error.statusCode || 422).json({
+              success: false,
+              error: error.message,
+            });
+          }
+
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/passes`);
         }
 
         throw error;

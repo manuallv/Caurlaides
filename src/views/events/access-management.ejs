@@ -36,6 +36,7 @@
     data-access-workspace
     data-access-event-id="<%= activeEvent.id %>"
     data-access-page-type="<%= accessType %>"
+    data-access-can-manage="<%= canManage ? 'true' : 'false' %>"
     data-access-singular-label="<%= typeLabel %>"
     data-access-edit-label="<%= t('access.actions.editRequest') %>"
     data-access-not-set="<%= t('common.notSet') %>"
@@ -51,6 +52,12 @@
     data-access-entry-at-label="<%= t('access.entryAt') %>"
     data-access-entry-button-label="<%= isPass ? t('access.passState.entered') : t('check.direction.entry') %>"
     data-access-exit-button-label="<%= isPass ? t('access.passState.exited') : t('check.direction.exit') %>"
+    data-access-print-toggle-label="<%= t('access.actions.selectForPrint') %>"
+    data-access-print-selected-toggle-label="<%= t('access.actions.deselectForPrint') %>"
+    data-access-print-selected-label="<%= t('access.actions.printSelected') %>"
+    data-access-print-selected-count-template="<%= t('access.actions.printSelectedCount', { count: '__COUNT__' }) %>"
+    data-access-print-selected-action="/events/<%= activeEvent.id %>/passes/print/selected"
+    data-access-print-selected-success="<%= t('flash.passPrintSelectedReady') %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -212,15 +219,39 @@
 
           <div class="access-filter-actions">
             <button type="button" class="btn-secondary" data-live-filter-reset data-filter-reset-url="/events/<%= activeEvent.id %>/<%= routeBase %>"><%= t('buttons.reset') %></button>
-            <button type="button" class="btn-secondary access-fullscreen-toggle" data-access-fullscreen-toggle>
-              <svg class="access-fullscreen-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <button type="button" class="btn-secondary access-fullscreen-toggle" data-access-fullscreen-toggle aria-pressed="false">
+              <svg class="access-fullscreen-icon access-fullscreen-icon--enter" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M8 3H3v5"></path>
-                <path d="M21 8V3h-5"></path>
+                <path d="M3 3l7 7"></path>
+                <path d="M16 3h5v5"></path>
+                <path d="M21 3l-7 7"></path>
+                <path d="M8 21H3v-5"></path>
+                <path d="M3 21l7-7"></path>
                 <path d="M16 21h5v-5"></path>
-                <path d="M3 16v5h5"></path>
+                <path d="M21 21l-7-7"></path>
+              </svg>
+              <svg class="access-fullscreen-icon access-fullscreen-icon--exit" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10 3v7H3"></path>
+                <path d="M3 10l7-7"></path>
+                <path d="M14 3v7h7"></path>
+                <path d="M21 10l-7-7"></path>
+                <path d="M10 21v-7H3"></path>
+                <path d="M3 14l7 7"></path>
+                <path d="M14 21v-7h7"></path>
+                <path d="M21 14l-7 7"></path>
               </svg>
               <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
             </button>
+            <% if (isPass && canManage) { %>
+              <button type="button" class="btn-danger hidden" data-access-print-selected>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9V3h12v6" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <path d="M6 14h12v7H6z" />
+                </svg>
+                <span data-access-print-selected-label><%= t('access.actions.printSelected') %></span>
+              </button>
+            <% } %>
             <% if (canManage) { %>
               <button type="button" class="btn-primary" data-access-create-request>
                 <%= t('access.actions.addRequest', { type: typeLabel }) %>
@@ -351,6 +382,22 @@
                     </td>
                     <td>
                       <div class="access-row-actions <%= isPass ? 'access-row-actions--menu' : '' %>">
+                        <% if (isPass && canManage) { %>
+                          <button
+                            type="button"
+                            class="table-icon-button access-print-toggle"
+                            data-access-print-toggle
+                            data-request-id="<%= request.id %>"
+                            title="<%= t('access.actions.selectForPrint') %>"
+                            aria-label="<%= t('access.actions.selectForPrint') %>"
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M6 9V3h12v6" />
+                              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                              <path d="M6 14h12v7H6z" />
+                            </svg>
+                          </button>
+                        <% } %>
                         <% if (isPass) { %>
                           <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
