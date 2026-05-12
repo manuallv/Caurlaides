@@ -1409,6 +1409,19 @@ document.addEventListener('DOMContentLoaded', () => {
     syncPassPrintFieldsInput();
   };
 
+  const isPassPrintEditingShortcutTarget = (target) => {
+    const element = target instanceof Element ? target : target?.parentElement || null;
+
+    if (!element) {
+      return false;
+    }
+
+    return Boolean(
+      element.closest('input, textarea, select, [contenteditable="true"], [contenteditable="plaintext-only"]')
+        || element.isContentEditable,
+    );
+  };
+
   const startPassPrintFieldDrag = (pointerEvent, fieldId) => {
     const { page } = getPassPrintElements();
     const selectedField = passPrintEditorState.fields.find((field) => field.id === fieldId);
@@ -4413,6 +4426,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      return;
+    }
+
+    if (
+      (event.key === 'Backspace' || event.key === 'Delete')
+      && passPrintEditorState.activeTab === 'editor'
+      && passPrintEditorState.canManage
+      && passPrintEditorState.selectedId
+      && !event.metaKey
+      && !event.ctrlKey
+      && !event.altKey
+      && !isPassPrintEditingShortcutTarget(event.target)
+    ) {
+      event.preventDefault();
+      removeSelectedPassPrintField();
       return;
     }
 
