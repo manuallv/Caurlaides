@@ -259,7 +259,10 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
   const status = resolveRequestDisplayState(type, request);
   const currentPresence = type === 'pass' ? resolveRequestPresence(request) : 'unknown';
   const currentStatusAt = resolveRequestDisplayStatusAt(type, request);
-  const nextStatus = type === 'wristband' && request.status === 'handed_out' ? 'pending' : 'handed_out';
+  const nextStatus = status === 'handed_out' ? 'pending' : 'handed_out';
+  const nextStatusLabelKey = type === 'pass'
+    ? `access.passState.${nextStatus}`
+    : `statuses.${nextStatus}`;
 
   return {
     requestType: type,
@@ -291,9 +294,9 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       lastExitAtTs: request.last_exit_at ? new Date(request.last_exit_at).getTime() : 0,
       createdAtLabel: request.created_at ? res.locals.helpers.formatDateTime(request.created_at) : '',
       createdAtTs: request.created_at ? new Date(request.created_at).getTime() : 0,
-      nextStatus: type === 'wristband' ? nextStatus : null,
-      nextStatusLabel: type === 'wristband' ? req.t(`statuses.${nextStatus}`) : '',
-      nextStatusTone: type === 'wristband' && nextStatus === 'handed_out' ? 'primary' : 'secondary',
+      nextStatus,
+      nextStatusLabel: req.t(nextStatusLabelKey),
+      nextStatusTone: nextStatus === 'handed_out' ? 'primary' : 'danger',
       currentPresence,
     },
     summary,

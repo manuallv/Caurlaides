@@ -41,6 +41,8 @@
     data-access-not-set="<%= t('common.notSet') %>"
     data-access-status-pending-label="<%= t('statuses.pending') %>"
     data-access-status-handed-out-label="<%= isPass ? t('access.passState.handed_out') : t('statuses.handed_out') %>"
+    data-access-mark-pending-label="<%= t('access.actions.markPending') %>"
+    data-access-mark-handed-out-label="<%= isPass ? t('access.actions.markIssued') : t('access.actions.markHandedOut') %>"
     data-access-status-section-label="<%= t('access.workspace.status') %>"
     data-access-filtered-count-template="<%= t('access.workspace.filteredCount', { count: '__COUNT__' }) %>"
     data-access-filtered-count-value="<%= filteredRequestCount %>"
@@ -347,14 +349,13 @@
                         <% if (isPass) { %>
                           <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <input type="hidden" name="status" value="handed_out" data-request-status-input />
+                            <input type="hidden" name="status" value="<%= requestDisplayStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
                             <button
                               type="submit"
-                              class="table-icon-button table-icon-button--success access-issued-quick-button <%= requestDisplayStatus === 'handed_out' ? 'is-active' : '' %>"
+                              class="table-icon-button <%= requestDisplayStatus === 'handed_out' ? 'table-icon-button--danger access-issued-quick-button is-returning' : 'table-icon-button--success access-issued-quick-button' %>"
                               data-request-status-button
-                              title="<%= t('access.passState.handed_out') %>"
-                              aria-label="<%= t('access.passState.handed_out') %>"
-                              <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
+                              title="<%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
+                              aria-label="<%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.actions.markIssued') %>"
                             >
                               <svg viewBox="0 0 20 20" aria-hidden="true">
                                 <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
@@ -426,18 +427,17 @@
 
                               <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                                 <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                                <input type="hidden" name="status" value="handed_out" data-request-status-input />
+                                <input type="hidden" name="status" value="<%= requestDisplayStatus === 'handed_out' ? 'pending' : 'handed_out' %>" data-request-status-input />
                                 <button
                                   type="submit"
-                                  class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'handed_out' ? 'is-active' : '' %>"
+                                  class="access-actions-menu__action access-actions-menu__action--status <%= requestDisplayStatus === 'handed_out' ? 'is-danger' : '' %>"
                                   data-request-status-button
-                                  <%= requestDisplayStatus === 'handed_out' ? 'disabled' : '' %>
                                 >
                                   <svg viewBox="0 0 20 20" aria-hidden="true">
                                     <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
                                     <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
                                   </svg>
-                                  <span><%= t('access.passState.handed_out') %></span>
+                                  <span><%= requestDisplayStatus === 'handed_out' ? t('access.actions.markPending') : t('access.passState.handed_out') %></span>
                                 </button>
                               </form>
 

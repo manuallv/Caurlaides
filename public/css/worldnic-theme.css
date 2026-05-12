@@ -1755,6 +1755,19 @@ body.is-access-fullscreen {
   box-shadow: none;
 }
 
+.access-issued-quick-button.is-returning {
+  color: #fff;
+  border-color: #dc2626;
+  background: #dc2626;
+  opacity: 1;
+}
+
+.access-issued-quick-button.is-returning:hover,
+.access-issued-quick-button.is-returning:focus-visible {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
 .access-actions-menu__panel {
   position: absolute;
   top: calc(100% + 0.45rem);
@@ -1833,6 +1846,17 @@ body.is-access-fullscreen {
 .access-actions-menu__action--status.is-active {
   background: linear-gradient(180deg, rgba(25, 184, 212, 0.16) 0%, rgba(0, 116, 255, 0.12) 100%);
   color: #075985;
+}
+
+.access-actions-menu__action--status.is-danger {
+  background: rgba(254, 226, 226, 0.82);
+  color: #b42318;
+}
+
+.access-actions-menu__action--status.is-danger:hover,
+.access-actions-menu__action--status.is-danger:focus-visible {
+  background: #dc2626;
+  color: #fff;
 }
 
 .access-actions-menu__action[disabled] {

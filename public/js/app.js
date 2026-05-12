@@ -1932,6 +1932,8 @@ document.addEventListener('DOMContentLoaded', () => {
       notSet: workspace.dataset.accessNotSet,
       statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
       statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
+      markPendingLabel: workspace.dataset.accessMarkPendingLabel,
+      markHandedOutLabel: workspace.dataset.accessMarkHandedOutLabel,
       statusSectionLabel: workspace.dataset.accessStatusSectionLabel,
       filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
       vehiclePlateLabel: workspace.dataset.accessVehiclePlateLabel,
@@ -2785,18 +2787,21 @@ document.addEventListener('DOMContentLoaded', () => {
   } = {}) => {
     const issuedLabel = ui.statusHandedOutLabel || 'Issued';
     const isIssued = request.status === 'handed_out';
+    const nextStatus = isIssued ? 'pending' : 'handed_out';
+    const actionLabel = isIssued
+      ? (ui.markPendingLabel || ui.statusPendingLabel || 'Mark as pending')
+      : (ui.markHandedOutLabel || issuedLabel);
 
     return `
       <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
         <input type="hidden" name="_csrf" value="${csrfValue}" />
-        <input type="hidden" name="status" value="handed_out" data-request-status-input />
+        <input type="hidden" name="status" value="${escapeHtml(nextStatus)}" data-request-status-input />
         <button
           type="submit"
-          class="table-icon-button table-icon-button--success access-issued-quick-button ${isIssued ? 'is-active' : ''}"
+          class="table-icon-button ${isIssued ? 'table-icon-button--danger access-issued-quick-button is-returning' : 'table-icon-button--success access-issued-quick-button'}"
           data-request-status-button
-          title="${escapeHtml(issuedLabel)}"
-          aria-label="${escapeHtml(issuedLabel)}"
-          ${isIssued ? 'disabled' : ''}
+          title="${escapeHtml(actionLabel)}"
+          aria-label="${escapeHtml(actionLabel)}"
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
@@ -2879,13 +2884,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <form action="/events/${escapeHtml(ui.eventId || '')}/pass/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
           <input type="hidden" name="_csrf" value="${csrfValue}" />
-          <input type="hidden" name="status" value="handed_out" data-request-status-input />
-          <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${issuedButtonToneClass === 'access-mini-button--primary' ? 'is-active' : ''}" data-request-status-button ${request.status === 'handed_out' ? 'disabled' : ''}>
+          <input type="hidden" name="status" value="${request.status === 'handed_out' ? 'pending' : 'handed_out'}" data-request-status-input />
+          <button type="submit" class="access-actions-menu__action access-actions-menu__action--status ${request.status === 'handed_out' ? 'is-danger' : ''}" data-request-status-button>
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
               <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"></path>
             </svg>
-            <span>${escapeHtml(ui.statusHandedOutLabel || 'Issued')}</span>
+            <span>${escapeHtml(request.status === 'handed_out'
+              ? (ui.markPendingLabel || ui.statusPendingLabel || 'Mark as pending')
+              : (ui.statusHandedOutLabel || 'Issued'))}</span>
           </button>
         </form>
 
