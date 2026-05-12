@@ -955,7 +955,6 @@ document.addEventListener('DOMContentLoaded', () => {
       backgroundRotationValue: document.querySelector('[data-pass-print-background-rotation-value]'),
       fullscreenTarget: document.querySelector('[data-pass-print-fullscreen-target]'),
       fullscreenToggles: [...document.querySelectorAll('[data-pass-print-fullscreen-toggle]')],
-      fullscreenLabels: [...document.querySelectorAll('[data-pass-print-fullscreen-label]')],
       previewModal: document.querySelector('[data-pass-print-preview-modal]'),
       previewFrame: document.querySelector('[data-pass-print-preview-frame]'),
       previewLoading: document.querySelector('[data-pass-print-preview-loading]'),
@@ -1199,7 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setPassPrintFullscreen = (enabled) => {
-    const { app, fullscreenTarget, fullscreenToggles, fullscreenLabels } = getPassPrintElements();
+    const { app, fullscreenTarget, fullscreenToggles } = getPassPrintElements();
 
     if (!fullscreenTarget) {
       return;
@@ -1218,10 +1217,6 @@ document.addEventListener('DOMContentLoaded', () => {
       toggle.classList.toggle('is-active', isEnabled);
       toggle.setAttribute('aria-label', label);
       toggle.setAttribute('title', label);
-    });
-
-    fullscreenLabels.forEach((labelNode) => {
-      labelNode.textContent = label;
     });
   };
 
