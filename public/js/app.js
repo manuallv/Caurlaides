@@ -257,6 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const triggerSocketLiveRefresh = async () => {
+    if (getPassPrintElements().app) {
+      return;
+    }
+
     if (refreshInProgress) {
       return;
     }
@@ -895,6 +899,8 @@ document.addEventListener('DOMContentLoaded', () => {
       form: document.querySelector('[data-pass-print-form]'),
       fieldsInput: document.querySelector('[data-pass-print-fields-input]'),
       backgroundRotationInput: document.querySelector('[data-pass-print-background-rotation-input]'),
+      templateOrientationInput: document.querySelector('[data-pass-print-template-orientation]'),
+      orientationLabel: document.querySelector('[data-pass-print-orientation-label]'),
       page: document.querySelector('[data-pass-print-page]'),
       backgroundLayer: document.querySelector('[data-pass-print-background-layer]'),
       fieldLayer: document.querySelector('[data-pass-print-field-layer]'),
@@ -902,6 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
       addButtons: [...document.querySelectorAll('[data-pass-print-add-field]')],
       inspectorTitle: document.querySelector('[data-pass-print-inspector-title]'),
       fieldType: document.querySelector('[data-pass-print-field-type]'),
+      fieldText: document.querySelector('[data-pass-print-field-text]'),
       fieldFontSize: document.querySelector('[data-pass-print-field-font-size]'),
       fieldWidth: document.querySelector('[data-pass-print-field-width]'),
       positionX: document.querySelector('[data-pass-print-field-position-x]'),
@@ -926,6 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentBackgroundUrl: '',
     currentBackgroundRotation: 0,
     backgroundRotation: 0,
+    orientation: 'portrait',
     uploadedBackgroundUrl: '',
     drag: null,
   };
@@ -940,16 +948,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return ((((Math.round(numericValue / 90) * 90) % 360) + 360) % 360);
   };
 
-  const getPassPrintBackgroundFrame = (rotation) => {
+  const normalizePassPrintOrientation = (value) => (
+    value === 'landscape' ? 'landscape' : 'portrait'
+  );
+
+  const getPassPrintPageDimensions = (orientation) => (
+    normalizePassPrintOrientation(orientation) === 'landscape'
+      ? { width: 297, height: 210 }
+      : { width: 210, height: 297 }
+  );
+
+  const getPassPrintBackgroundFrame = (rotation, orientation = 'portrait') => {
     const normalizedRotation = normalizePassPrintQuarterTurn(rotation);
+    const pageDimensions = getPassPrintPageDimensions(orientation);
 
     switch (normalizedRotation) {
       case 90:
         return {
           left: '100%',
           top: '0%',
-          width: `${(297 / 210) * 100}%`,
-          height: `${(210 / 297) * 100}%`,
+          width: `${(pageDimensions.height / pageDimensions.width) * 100}%`,
+          height: `${(pageDimensions.width / pageDimensions.height) * 100}%`,
           rotation: '90deg',
         };
       case 180:
@@ -964,8 +983,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
           left: '0%',
           top: '100%',
-          width: `${(297 / 210) * 100}%`,
-          height: `${(210 / 297) * 100}%`,
+          width: `${(pageDimensions.height / pageDimensions.width) * 100}%`,
+          height: `${(pageDimensions.width / pageDimensions.height) * 100}%`,
           rotation: '270deg',
         };
       default:
@@ -995,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
         variables: Array.isArray(parsed.variables) ? parsed.variables : [],
         currentBackgroundUrl: parsed.template?.backgroundUrl || '',
         backgroundRotation: normalizePassPrintQuarterTurn(parsed.template?.backgroundRotation),
+        orientation: normalizePassPrintOrientation(parsed.template?.orientation),
         activeTab: 'editor',
       };
     } catch (error) {
@@ -1005,6 +1025,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const getPassPrintVariableLabel = (type) => (
     passPrintEditorState.variables.find((variable) => variable.type === type)?.label || type || ''
   );
+
+  const getPassPrintFieldPreviewLabel = (field) => {
+    const text = String(field?.text || '');
+
+    if (field?.type === 'customText') {
+      return text || getPassPrintVariableLabel(field.type);
+    }
+
+    return `${text}${getPassPrintVariableLabel(field?.type)}`;
+  };
 
   const syncPassPrintFieldsInput = () => {
     const { fieldsInput, backgroundRotationInput } = getPassPrintElements();
@@ -1017,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
       passPrintEditorState.fields.map((field) => ({
         id: field.id,
         type: field.type,
+        text: String(field.text || ''),
         x: Number(field.x || 0),
         y: Number(field.y || 0),
         fontSize: Number(field.fontSize || 18),
@@ -1027,6 +1058,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (backgroundRotationInput) {
       backgroundRotationInput.value = String(normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation));
+    }
+  };
+
+  const syncPassPrintPageOrientation = () => {
+    const { app, page, templateOrientationInput, orientationLabel } = getPassPrintElements();
+    const orientation = normalizePassPrintOrientation(passPrintEditorState.orientation);
+
+    passPrintEditorState.orientation = orientation;
+
+    if (page) {
+      page.classList.toggle('pass-print-page--portrait', orientation === 'portrait');
+      page.classList.toggle('pass-print-page--landscape', orientation === 'landscape');
+    }
+
+    if (templateOrientationInput) {
+      templateOrientationInput.value = orientation;
+    }
+
+    if (orientationLabel) {
+      const portraitLabel = app?.dataset.passPrintPortraitLabel || 'Vertical pass';
+      const landscapeLabel = app?.dataset.passPrintLandscapeLabel || 'Horizontal pass';
+      orientationLabel.textContent = orientation === 'landscape' ? landscapeLabel : portraitLabel;
     }
   };
 
@@ -1068,8 +1121,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? ''
       : passPrintEditorState.uploadedBackgroundUrl || passPrintEditorState.currentBackgroundUrl;
     const rotation = normalizePassPrintQuarterTurn(passPrintEditorState.backgroundRotation);
-    const frame = getPassPrintBackgroundFrame(rotation);
+    const frame = getPassPrintBackgroundFrame(rotation, passPrintEditorState.orientation);
 
+    syncPassPrintPageOrientation();
     page.classList.toggle('has-background', Boolean(backgroundUrl));
     backgroundLayer.classList.toggle('is-active', Boolean(backgroundUrl));
     backgroundLayer.style.backgroundImage = backgroundUrl ? `url("${backgroundUrl.replace(/"/g, '\\"')}")` : '';
@@ -1115,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         data-pass-print-field-id="${escapeHtml(field.id || '')}"
         style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;font-size:${Number(field.fontSize || 18)}px;--pass-print-rotation:${Number(field.rotation || 0)}deg;"
       >
-        <span>${escapeHtml(getPassPrintVariableLabel(field.type))}</span>
+        <span>${escapeHtml(getPassPrintFieldPreviewLabel(field))}</span>
         <span class="pass-print-field__resize" data-pass-print-field-resize="${escapeHtml(field.id || '')}"></span>
       </button>
     `).join('');
@@ -1130,6 +1184,7 @@ document.addEventListener('DOMContentLoaded', () => {
       app,
       inspectorTitle,
       fieldType,
+      fieldText,
       fieldFontSize,
       fieldWidth,
       positionX,
@@ -1159,6 +1214,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hasSelection) {
         fieldType.value = selectedField.type;
       }
+    }
+
+    if (fieldText) {
+      fieldText.disabled = !canEdit;
+      fieldText.value = hasSelection ? String(selectedField.text || '') : '';
     }
 
     if (fieldFontSize) {
@@ -1229,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const field = {
       id: `field-${Date.now()}-${nextIndex}`,
       type,
+      text: '',
       x: Math.min(0.18 + (nextIndex % 4) * 0.08, 0.78),
       y: Math.min(0.12 + Math.floor(nextIndex / 4) * 0.07, 0.88),
       fontSize: 18,
@@ -1296,6 +1357,8 @@ document.addEventListener('DOMContentLoaded', () => {
       pointerId: pointerEvent.pointerId,
       mode: 'resize',
       originX: rect.left + rect.width * Number(selectedField.x || 0),
+      originY: rect.top + rect.height * Number(selectedField.y || 0),
+      rotation: normalizePassPrintQuarterTurn(selectedField.rotation),
     };
   };
 
@@ -1310,7 +1373,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const rect = page.getBoundingClientRect();
 
     if (dragState.mode === 'resize') {
-      const width = (pointerEvent.clientX - dragState.originX) / rect.width;
+      const rotation = normalizePassPrintQuarterTurn(dragState.rotation);
+      const width = (() => {
+        if (rotation === 90) {
+          return (pointerEvent.clientY - dragState.originY) / rect.height;
+        }
+
+        if (rotation === 180) {
+          return (dragState.originX - pointerEvent.clientX) / rect.width;
+        }
+
+        if (rotation === 270) {
+          return (dragState.originY - pointerEvent.clientY) / rect.height;
+        }
+
+        return (pointerEvent.clientX - dragState.originX) / rect.width;
+      })();
 
       upsertSelectedPassPrintField({
         width: Math.min(Math.max(width, 0.08), 0.9),
@@ -1371,6 +1449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedId: '',
         currentBackgroundUrl: '',
         backgroundRotation: 0,
+        orientation: 'portrait',
         uploadedBackgroundUrl: '',
         drag: null,
       };
@@ -1382,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fields: nextState.fields.map((field) => ({
         id: String(field.id || ''),
         type: field.type,
+        text: String(field.text || ''),
         x: Number(field.x || 0),
         y: Number(field.y || 0),
         fontSize: Number(field.fontSize || 18),
@@ -1394,6 +1474,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentBackgroundUrl: nextState.currentBackgroundUrl || '',
       currentBackgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
       backgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
+      orientation: normalizePassPrintOrientation(nextState.orientation),
       uploadedBackgroundUrl: '',
       drag: null,
     };
@@ -1406,6 +1487,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const submitPassPrintForm = async (form) => {
+    syncPassPrintFieldsInput();
+
     const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
     const formData = new FormData(form);
 
@@ -4624,6 +4707,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (event.target.matches('[data-pass-print-template-orientation]')) {
+      passPrintEditorState.orientation = normalizePassPrintOrientation(event.target.value);
+      syncPassPrintBackgroundPreview();
+      return;
+    }
+
     if (event.target.matches('[data-pass-print-background-input]')) {
       handlePassPrintBackgroundChange(event.target.files?.[0] || null);
       return;
@@ -4677,6 +4766,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target.matches('[data-pass-print-field-font-size]')) {
       upsertSelectedPassPrintField({
         fontSize: Number(event.target.value || 18),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-text]')) {
+      upsertSelectedPassPrintField({
+        text: event.target.value,
       });
       return;
     }

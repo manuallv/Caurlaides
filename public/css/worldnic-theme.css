@@ -5580,7 +5580,7 @@ body.portal-modal-open {
   display: grid;
   gap: 1rem;
   align-items: end;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1.1fr) minmax(150px, 0.65fr) minmax(0, 1fr) auto auto;
 }
 
 .pass-print-toolbar__save {
@@ -5661,6 +5661,15 @@ body.portal-modal-open {
   background-size: 100% 100%;
   box-shadow: 0 28px 56px rgba(15, 23, 42, 0.12);
   overflow: hidden;
+}
+
+.pass-print-page--portrait {
+  aspect-ratio: 210 / 297;
+}
+
+.pass-print-page--landscape {
+  width: min(100%, 860px);
+  aspect-ratio: 297 / 210;
 }
 
 .pass-print-page__grid,

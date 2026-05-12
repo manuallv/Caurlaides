@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS events (
   pass_print_template_name VARCHAR(160) NULL,
   pass_print_template_background_path VARCHAR(255) NULL,
   pass_print_template_background_rotation SMALLINT NOT NULL DEFAULT 0,
+  pass_print_template_orientation VARCHAR(20) NOT NULL DEFAULT 'portrait',
   pass_print_template_fields_json LONGTEXT NULL,
   pass_print_template_updated_at DATETIME NULL,
   deleted_at DATETIME NULL,

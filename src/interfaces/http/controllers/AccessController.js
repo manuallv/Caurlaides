@@ -156,7 +156,9 @@ function normalizePassPrintTemplatePayload(body) {
   return {
     templateName: body.templateName || '',
     templateFields: body.templateFields || '[]',
-    removeBackground: body.removeBackground === 'on',
+    templateOrientation: body.templateOrientation || 'portrait',
+    backgroundRotation: body.backgroundRotation || 0,
+    removeBackground: body.removeBackground === 'on' || body.removeBackground === '1',
   };
 }
 

@@ -21,6 +21,7 @@ const PASS_PRINT_BACKGROUND_MIME_TYPES = new Map([
   ['image/jpg', 'jpg'],
 ]);
 const PASS_PRINT_FIELD_DEFINITIONS = [
+  { type: 'id', labelKey: 'passPrint.variables.id' },
   { type: 'vehiclePlate', labelKey: 'passPrint.variables.vehiclePlate' },
   { type: 'fullName', labelKey: 'passPrint.variables.fullName' },
   { type: 'phone', labelKey: 'passPrint.variables.phone' },
@@ -32,8 +33,10 @@ const PASS_PRINT_FIELD_DEFINITIONS = [
   { type: 'createdAt', labelKey: 'passPrint.variables.createdAt' },
   { type: 'eventName', labelKey: 'passPrint.variables.eventName' },
   { type: 'eventLocation', labelKey: 'passPrint.variables.eventLocation' },
+  { type: 'customText', labelKey: 'passPrint.variables.customText' },
 ];
 const PASS_PRINT_FIELD_TYPE_SET = new Set(PASS_PRINT_FIELD_DEFINITIONS.map((field) => field.type));
+const PASS_PRINT_ORIENTATION_SET = new Set(['portrait', 'landscape']);
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -286,6 +289,7 @@ function normalizePassPrintTemplateFields(rawFields) {
   return parsePassPrintTemplateFields(rawFields)
     .map((rawField, index) => {
       const type = String(rawField?.type || '').trim();
+      const text = rawField?.text ?? rawField?.prefix ?? '';
       const x = Number(rawField?.x);
       const y = Number(rawField?.y);
       const fontSize = Number(rawField?.fontSize);
@@ -301,6 +305,7 @@ function normalizePassPrintTemplateFields(rawFields) {
       return {
         id: rawField?.id ? String(rawField.id).trim().slice(0, 80) : `field-${index + 1}`,
         type,
+        text: String(text || '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200),
         x: Number.isFinite(x) ? Math.min(Math.max(x, 0), 0.96) : 0.15,
         y: Number.isFinite(y) ? Math.min(Math.max(y, 0), 0.96) : 0.15,
         fontSize: Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 64) : 18,
@@ -319,6 +324,11 @@ function normalizePassPrintRotation(value) {
   }
 
   return ((((Math.round(numericValue / 90) * 90) % 360) + 360) % 360);
+}
+
+function normalizePassPrintOrientation(value) {
+  const orientation = String(value || '').trim();
+  return PASS_PRINT_ORIENTATION_SET.has(orientation) ? orientation : 'portrait';
 }
 
 function sanitizePassPrintTemplateFields(rawFields, t) {
@@ -340,6 +350,7 @@ function buildPassPrintTemplateFromEvent(event, t) {
     backgroundPath: event.pass_print_template_background_path || '',
     backgroundUrl: buildPassPrintTemplatePublicUrl(event.pass_print_template_background_path),
     backgroundRotation: normalizePassPrintRotation(event.pass_print_template_background_rotation),
+    orientation: normalizePassPrintOrientation(event.pass_print_template_orientation),
     fields: normalizePassPrintTemplateFields(event.pass_print_template_fields_json || '[]'),
     updatedAt: event.pass_print_template_updated_at || null,
   };
@@ -392,33 +403,58 @@ function renderPassPrintBackground(document, backgroundPath, rotation = 0) {
   }
 }
 
-function resolvePassPrintFieldValue(type, request, event) {
-  switch (type) {
-    case 'vehiclePlate':
-      return request.vehicle_plate || '';
-    case 'fullName':
-      return request.full_name || '';
-    case 'phone':
-      return request.phone || '';
-    case 'email':
-      return request.email || '';
-    case 'companyName':
-      return request.company_name || '';
-    case 'categoryName':
-      return request.category_name || '';
-    case 'profileName':
-      return request.profile_name || '';
-    case 'notes':
-      return request.notes || '';
-    case 'createdAt':
-      return request.created_at ? dayjs(request.created_at).format('DD.MM.YYYY HH:mm') : '';
-    case 'eventName':
-      return event.name || '';
-    case 'eventLocation':
-      return event.location || '';
-    default:
-      return '';
+function resolvePassPrintFieldValue(field, request, event) {
+  const type = String(field?.type || '').trim();
+  const prefix = String(field?.text || '');
+
+  if (type === 'customText') {
+    return prefix;
   }
+
+  let value = '';
+
+  switch (type) {
+    case 'id':
+      value = request.id || '';
+      break;
+    case 'vehiclePlate':
+      value = request.vehicle_plate || '';
+      break;
+    case 'fullName':
+      value = request.full_name || '';
+      break;
+    case 'phone':
+      value = request.phone || '';
+      break;
+    case 'email':
+      value = request.email || '';
+      break;
+    case 'companyName':
+      value = request.company_name || '';
+      break;
+    case 'categoryName':
+      value = request.category_name || '';
+      break;
+    case 'profileName':
+      value = request.profile_name || '';
+      break;
+    case 'notes':
+      value = request.notes || '';
+      break;
+    case 'createdAt':
+      value = request.created_at ? dayjs(request.created_at).format('DD.MM.YYYY HH:mm') : '';
+      break;
+    case 'eventName':
+      value = event.name || '';
+      break;
+    case 'eventLocation':
+      value = event.location || '';
+      break;
+    default:
+      value = '';
+  }
+
+  return value ? `${prefix}${value}` : prefix;
 }
 
 async function buildPassPrintPdfBuffer({ event, requests, template }) {
@@ -438,6 +474,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
   return new Promise((resolve, reject) => {
     const document = new PDFDocument({
       size: 'A4',
+      layout: template.orientation === 'landscape' ? 'landscape' : 'portrait',
       margin: 0,
       autoFirstPage: false,
       bufferPages: false,
@@ -451,6 +488,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
     requests.forEach((request) => {
       document.addPage({
         size: 'A4',
+        layout: template.orientation === 'landscape' ? 'landscape' : 'portrait',
         margin: 0,
       });
 
@@ -463,7 +501,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
       }
 
       template.fields.forEach((field) => {
-        const value = resolvePassPrintFieldValue(field.type, request, event);
+        const value = resolvePassPrintFieldValue(field, request, event);
 
         if (!value) {
           return;
@@ -1399,6 +1437,7 @@ class AccessService {
     const templateFields = sanitizePassPrintTemplateFields(payload.templateFields, tx);
     const templateName = String(payload.templateName || '').trim().slice(0, 160) || tx('passPrint.defaultTemplateName');
     const backgroundRotation = normalizePassPrintRotation(payload.backgroundRotation);
+    const orientation = normalizePassPrintOrientation(payload.templateOrientation);
     const removeBackground = Boolean(payload.removeBackground);
     let backgroundPath = removeBackground ? '' : (event.pass_print_template_background_path || '');
     let replacedBackgroundPath = '';
@@ -1435,6 +1474,7 @@ class AccessService {
         name: templateName,
         backgroundPath: backgroundPath || null,
         backgroundRotation,
+        orientation,
         fieldsJson: JSON.stringify(templateFields),
       });
 
@@ -1489,6 +1529,7 @@ class AccessService {
         backgroundPath,
         backgroundUrl: buildPassPrintTemplatePublicUrl(backgroundPath),
         backgroundRotation,
+        orientation,
         fields: templateFields,
       },
     };
