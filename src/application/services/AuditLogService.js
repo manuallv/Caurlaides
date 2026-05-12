@@ -11,6 +11,10 @@ class AuditLogService {
     return this.auditLogRepository.listByEvent(eventId, limit);
   }
 
+  async listByEntity(entityType, entityId, limit = 100) {
+    return this.auditLogRepository.listByEntity(entityType, entityId, limit);
+  }
+
   async findById(auditId) {
     return this.auditLogRepository.findById(auditId);
   }

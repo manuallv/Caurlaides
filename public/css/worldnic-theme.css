@@ -1861,15 +1861,16 @@ body.is-access-fullscreen {
 
 .access-issued-quick-button.is-returning {
   color: #fff;
-  border-color: #dc2626;
-  background: #dc2626;
+  border-color: #10b981;
+  background: #10b981;
   opacity: 1;
 }
 
 .access-issued-quick-button.is-returning:hover,
 .access-issued-quick-button.is-returning:focus-visible {
-  border-color: #b91c1c;
-  background: #b91c1c;
+  color: #fff;
+  border-color: #059669;
+  background: #059669;
 }
 
 .access-actions-menu__panel {
@@ -1953,13 +1954,13 @@ body.is-access-fullscreen {
 }
 
 .access-actions-menu__action--status.is-danger {
-  background: rgba(254, 226, 226, 0.82);
-  color: #b42318;
+  background: rgba(220, 252, 231, 0.92);
+  color: #047857;
 }
 
 .access-actions-menu__action--status.is-danger:hover,
 .access-actions-menu__action--status.is-danger:focus-visible {
-  background: #dc2626;
+  background: #10b981;
   color: #fff;
 }
 

@@ -341,6 +341,12 @@ function formatHistorySourceLabel(req, source) {
       return req.t('access.history.sourceAdminPhone');
     case 'admin-table':
       return req.t('access.history.sourceAdminTable');
+    case 'admin-status-button':
+      return req.t('access.history.sourceStatusButton');
+    case 'admin-movement-button':
+      return req.t('access.history.sourceMovementButton');
+    case 'selected-print':
+      return req.t('access.history.sourceSelectedPrint');
     default:
       return source || req.t('common.notSet');
   }
@@ -368,22 +374,102 @@ function formatOptionalDateTimeLabel(res, value) {
   return formatted === 'Invalid Date' ? String(value) : formatted;
 }
 
-function buildRequestHistoryMovementPayload(req, res, movement) {
-  const direction = movement.direction === 'exit' ? 'exit' : 'entry';
-  const metadata = parseJsonValue(movement.metadata) || {};
+function formatPassRequestRawStatusLabel(req, status) {
+  if (status === 'handed_out') {
+    return req.t('access.passState.handed_out');
+  }
+
+  return req.t('access.passState.pending');
+}
+
+function resolveHistoryEventToneClass(kind, direction, nextStatus) {
+  if (kind === 'movement') {
+    return direction === 'exit' ? 'is-wristband' : 'is-pass';
+  }
+
+  if (kind === 'printed' || nextStatus === 'handed_out') {
+    return 'is-wristband';
+  }
+
+  return 'is-pass';
+}
+
+function buildRequestHistoryAuditPayload(req, res, entry) {
+  const metadata = parseJsonValue(entry.metadata) || {};
+  const beforeState = parseJsonValue(entry.before_state) || {};
+  const afterState = parseJsonValue(entry.after_state) || {};
+  const historyKind = metadata.historyKind
+    || (entry.action === 'printed'
+      ? 'printed'
+      : (entry.action === 'movement_registered' || afterState.direction)
+        ? 'movement'
+        : (entry.action === 'status_updated' || Object.prototype.hasOwnProperty.call(afterState, 'status'))
+          ? 'status-change'
+          : 'generic');
+  const source = String(metadata.source || afterState.source || '').trim();
+  const rawSource = String(afterState.source || '').trim();
+  const direction = String(metadata.direction || afterState.direction || '').trim() === 'exit' ? 'exit' : 'entry';
+  const previousStatus = metadata.previousStatus || beforeState.status || 'pending';
+  const nextStatus = metadata.nextStatus || afterState.status || 'pending';
+  const sourceLabel = formatHistorySourceLabel(req, source);
+  const actorLabel = entry.actor_name || req.t('audit.actor.system');
+  const localizedMessage = metadata.messageKey
+    ? req.t(metadata.messageKey, metadata.messageParams || {})
+    : (entry.message || req.t('common.notSet'));
+  const cameraName = String(metadata.cameraName || afterState.cameraName || '').trim();
+  const gateName = String(metadata.gateName || afterState.gateName || '').trim();
+  const detailChips = [];
+  let eventLabel = req.t('access.history.eventGeneric');
+  let detailsPrimary = localizedMessage;
+
+  if (historyKind === 'movement') {
+    eventLabel = req.t(direction === 'exit' ? 'access.history.eventExit' : 'access.history.eventEntry');
+    detailsPrimary = cameraName || gateName || req.t('access.history.detailMovementNoLocation');
+    if (gateName && gateName !== cameraName) {
+      detailChips.push(`${req.t('access.history.location')}: ${gateName}`);
+    }
+    if (cameraName) {
+      detailChips.push(`${req.t('access.history.camera')}: ${cameraName}`);
+    }
+    const seenAtLabel = formatOptionalDateTimeLabel(res, metadata.seenAt || afterState.seenAt);
+    const confidenceLabel = formatHistoryMetric(metadata.confidence ?? afterState.confidence);
+    const vehicleConfidenceLabel = formatHistoryMetric(metadata.vehicleConfidence ?? afterState.vehicleConfidence);
+    if (seenAtLabel) {
+      detailChips.push(`${req.t('access.history.seenAt')}: ${seenAtLabel}`);
+    }
+    if (confidenceLabel) {
+      detailChips.push(`${req.t('access.history.confidence')}: ${confidenceLabel}`);
+    }
+    if (vehicleConfidenceLabel) {
+      detailChips.push(`${req.t('access.history.vehicleConfidence')}: ${vehicleConfidenceLabel}`);
+    }
+    if (rawSource && rawSource !== source) {
+      detailChips.push(`${req.t('access.history.source')}: ${rawSource}`);
+    }
+  } else if (historyKind === 'printed') {
+    eventLabel = req.t('access.history.eventPrinted');
+    detailsPrimary = metadata.statusChanged
+      ? req.t('access.history.detailPrintedAndIssued')
+      : req.t('access.history.detailPrinted');
+    detailChips.push(`${req.t('access.history.status')}: ${formatPassRequestRawStatusLabel(req, nextStatus)}`);
+  } else if (historyKind === 'status-change') {
+    const statusWasRemoved = nextStatus !== 'handed_out';
+    eventLabel = req.t(statusWasRemoved ? 'access.history.eventIssueRemoved' : 'access.history.eventIssued');
+    detailsPrimary = req.t('access.history.detailStatusChange', {
+      from: formatPassRequestRawStatusLabel(req, previousStatus),
+      to: formatPassRequestRawStatusLabel(req, nextStatus),
+    });
+  }
 
   return {
-    id: Number(movement.id),
-    direction,
-    directionLabel: req.t(direction === 'exit' ? 'check.direction.exit' : 'check.direction.entry'),
-    createdAtLabel: movement.created_at ? res.locals.helpers.formatDateTime(movement.created_at) : '',
-    gateName: movement.gate_name || '',
-    source: movement.source || '',
-    sourceLabel: formatHistorySourceLabel(req, movement.source || ''),
-    cameraName: String(metadata.cameraName || '').trim(),
-    seenAtLabel: formatOptionalDateTimeLabel(res, metadata.seenAt),
-    confidenceLabel: formatHistoryMetric(metadata.confidence),
-    vehicleConfidenceLabel: formatHistoryMetric(metadata.vehicleConfidence),
+    id: Number(entry.id),
+    createdAtLabel: entry.created_at ? res.locals.helpers.formatDateTime(entry.created_at) : '',
+    eventLabel,
+    eventToneClass: resolveHistoryEventToneClass(historyKind, direction, nextStatus),
+    actorLabel,
+    sourceLabel,
+    detailsPrimary,
+    detailChips,
   };
 }
 
@@ -1201,7 +1287,7 @@ function buildAccessController({ categoryService, accessService }) {
           lastExitAtLabel: result.request.last_exit_at ? res.locals.helpers.formatDateTime(result.request.last_exit_at) : '',
         },
         historyLimit: Number(result.historyLimit || 100),
-        movements: result.movements.map((movement) => buildRequestHistoryMovementPayload(req, res, movement)),
+        historyEntries: result.auditEntries.map((entry) => buildRequestHistoryAuditPayload(req, res, entry)),
       });
     },
 

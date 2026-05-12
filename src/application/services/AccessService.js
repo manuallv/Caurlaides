@@ -223,6 +223,13 @@ function resolvePortalLockReason(type, request = {}, profile = {}) {
   };
 }
 
+function buildRequestHistoryAuditMetadata(messageKey, messageParams = {}, extras = {}) {
+  return {
+    ...buildAuditMetadata(messageKey, messageParams),
+    ...extras,
+  };
+}
+
 function resolveVehicleGateScanDirection(configuredMode, currentPresence) {
   if (!['entry', 'exit'].includes(configuredMode)) {
     return 'decision';
@@ -1829,52 +1836,64 @@ class AccessService {
       .filter((request) => resolveRequestDisplayState('pass', request) !== 'handed_out')
       .map((request) => Number(request.id));
 
-    if (requestIdsToMark.length) {
-      const connection = await this.pool.getConnection();
+    const connection = await this.pool.getConnection();
 
-      try {
-        await connection.beginTransaction();
+    try {
+      await connection.beginTransaction();
+
+      if (requestIdsToMark.length) {
         await this.requestRepository.setStatuses(connection, 'pass', requestIdsToMark, {
           status: 'handed_out',
           userId: actorId,
         });
-
-        for (const request of orderedRequests.filter((entry) => requestIdsToMark.includes(Number(entry.id)))) {
-          await this.auditLogService.record(
-            {
-              eventId,
-              userId: actorId,
-              entityType: 'pass_request',
-              entityId: request.id,
-              action: 'status_updated',
-              message: translate(DEFAULT_LOCALE, 'audit.message.requestStatusUpdated', {
-                type: translate(DEFAULT_LOCALE, 'accessType.pass'),
-                name: request.full_name,
-                status: translate(DEFAULT_LOCALE, 'statuses.handed_out'),
-              }),
-              beforeState: request,
-              afterState: {
-                status: 'handed_out',
-                statusUpdatedAt: new Date().toISOString(),
-                statusUpdatedByUserId: actorId,
-              },
-              metadata: buildAuditMetadata('audit.message.requestStatusUpdated', {
-                type: tx('accessType.pass'),
-                name: request.full_name,
-                status: tx('statuses.handed_out'),
-              }),
-            },
-            connection,
-          );
-        }
-
-        await connection.commit();
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      } finally {
-        connection.release();
       }
+
+      for (const request of orderedRequests) {
+        const statusChanged = requestIdsToMark.includes(Number(request.id));
+        await this.auditLogService.record(
+          {
+            eventId,
+            userId: actorId,
+            entityType: 'pass_request',
+            entityId: request.id,
+            action: 'printed',
+            message: translate(DEFAULT_LOCALE, 'audit.message.requestPrinted', {
+              name: request.full_name,
+            }),
+            beforeState: request,
+            afterState: {
+              status: statusChanged ? 'handed_out' : request.status,
+              statusUpdatedAt: new Date().toISOString(),
+              statusUpdatedByUserId: actorId,
+              printedAt: new Date().toISOString(),
+              printedByUserId: actorId,
+              statusChanged,
+              source: 'selected-print',
+            },
+            metadata: buildRequestHistoryAuditMetadata(
+              'audit.message.requestPrinted',
+              {
+                name: request.full_name,
+              },
+              {
+                historyKind: 'printed',
+                source: 'selected-print',
+                previousStatus: request.status || 'pending',
+                nextStatus: statusChanged ? 'handed_out' : (request.status || 'pending'),
+                statusChanged,
+              },
+            ),
+          },
+          connection,
+        );
+      }
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
 
     const updatedRequests = requestIdsToMark.length
@@ -1908,12 +1927,12 @@ class AccessService {
       throw new AppError(tx('service.request.notFound'), 404);
     }
 
-    const movements = await this.requestRepository.listPassVehicleMovements(requestId, REQUEST_HISTORY_LIMIT);
+    const auditEntries = await this.auditLogService.listByEntity('pass_request', requestId, REQUEST_HISTORY_LIMIT);
 
     return {
       event,
       request,
-      movements,
+      auditEntries,
       historyLimit: REQUEST_HISTORY_LIMIT,
     };
   }
@@ -2770,11 +2789,20 @@ class AccessService {
         statusUpdatedAt: new Date().toISOString(),
         statusUpdatedByUserId: actorId,
       },
-      metadata: buildAuditMetadata('audit.message.requestStatusUpdated', {
-        type: tx(`accessType.${type}`),
-        name: existingRequest.full_name,
-        status: tx(`statuses.${status}`),
-      }),
+      metadata: buildRequestHistoryAuditMetadata(
+        'audit.message.requestStatusUpdated',
+        {
+          type: tx(`accessType.${type}`),
+          name: existingRequest.full_name,
+          status: tx(`statuses.${status}`),
+        },
+        {
+          historyKind: 'status-change',
+          source: 'admin-status-button',
+          previousStatus: existingRequest.status || 'pending',
+          nextStatus: status,
+        },
+      ),
     });
 
     const request = await this.requestRepository.findById(type, requestId);
@@ -2916,7 +2944,7 @@ class AccessService {
           userId: actorId,
           entityType: 'pass_request',
           entityId: existingRequest.id,
-          action: 'updated',
+          action: 'movement_registered',
           message: translate(
             DEFAULT_LOCALE,
             normalizedDirection === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
@@ -2933,13 +2961,18 @@ class AccessService {
           afterState: {
             plate: vehiclePlate,
             direction: normalizedDirection,
-            source: 'admin-table',
+            source: 'admin-movement-button',
           },
-          metadata: buildAuditMetadata(
+          metadata: buildRequestHistoryAuditMetadata(
             normalizedDirection === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
             {
               plate: vehiclePlate,
               name: existingRequest.full_name,
+            },
+            {
+              historyKind: 'movement',
+              source: 'admin-movement-button',
+              direction: normalizedDirection,
             },
           ),
         },
@@ -3911,7 +3944,7 @@ class AccessService {
           userId: options.actorId || null,
           entityType: 'pass_request',
           entityId: existingRequest.id,
-          action: 'updated',
+          action: 'movement_registered',
           message: translate(
             DEFAULT_LOCALE,
             direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
@@ -3930,14 +3963,28 @@ class AccessService {
             direction,
             gateName,
             source,
+            cameraName: metadata?.cameraName || null,
+            seenAt: metadata?.seenAt || null,
+            confidence: Number.isFinite(Number(metadata?.confidence)) ? Number(metadata.confidence) : null,
+            vehicleConfidence: Number.isFinite(Number(metadata?.vehicleConfidence)) ? Number(metadata.vehicleConfidence) : null,
             alreadyEntered,
             lockedByEntry: true,
           },
-          metadata: buildAuditMetadata(
+          metadata: buildRequestHistoryAuditMetadata(
             direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
             {
               plate: existingRequest.vehicle_plate || vehiclePlate,
               name: existingRequest.full_name,
+            },
+            {
+              historyKind: 'movement',
+              source: metadata?.historyOrigin || source,
+              direction,
+              gateName,
+              cameraName: metadata?.cameraName || null,
+              seenAt: metadata?.seenAt || null,
+              confidence: Number.isFinite(Number(metadata?.confidence)) ? Number(metadata.confidence) : null,
+              vehicleConfidence: Number.isFinite(Number(metadata?.vehicleConfidence)) ? Number(metadata.vehicleConfidence) : null,
             },
           ),
         },
@@ -4274,7 +4321,12 @@ class AccessService {
         direction: resolvedDirection,
         gateName: payload.gateName,
         source: payload.source || 'external-gate-api',
-        metadata: payload.metadata,
+        metadata: {
+          ...(payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
+            ? payload.metadata
+            : {}),
+          historyOrigin: 'external-gate-api',
+        },
       },
       tx,
     );

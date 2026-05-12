@@ -82,6 +82,38 @@ class AuditLogRepository {
     }));
   }
 
+  async listByEntity(entityType, entityId, limit = 100) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          audit.id,
+          audit.entity_type,
+          audit.entity_id,
+          audit.action,
+          audit.message,
+          audit.before_state,
+          audit.after_state,
+          audit.metadata,
+          audit.created_at,
+          user.full_name AS actor_name
+        FROM audit_logs audit
+        LEFT JOIN users user ON user.id = audit.user_id
+        WHERE audit.entity_type = ?
+          AND audit.entity_id = ?
+        ORDER BY audit.created_at DESC, audit.id DESC
+        LIMIT ?
+      `,
+      [entityType, entityId, Number(limit)],
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      before_state: parseJson(row.before_state),
+      after_state: parseJson(row.after_state),
+      metadata: parseJson(row.metadata),
+    }));
+  }
+
   async findById(auditId) {
     const [rows] = await this.pool.execute(
       `

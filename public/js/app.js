@@ -2460,6 +2460,8 @@ document.addEventListener('DOMContentLoaded', () => {
       historySourceLabel: workspace.dataset.accessHistorySourceLabel,
       historyLimitTemplate: workspace.dataset.accessHistoryLimitTemplate,
       historyTimeLabel: workspace.dataset.accessHistoryTimeLabel,
+      historyEventLabel: workspace.dataset.accessHistoryEventLabel,
+      historyActorLabel: workspace.dataset.accessHistoryActorLabel,
       historyDirectionLabel: workspace.dataset.accessHistoryDirectionLabel,
       historyOriginLabel: workspace.dataset.accessHistoryOriginLabel,
       historyLocationLabel: workspace.dataset.accessHistoryLocationLabel,
@@ -4086,26 +4088,20 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     const rows = items.map((item) => {
-      const originSecondary = item.source && item.source !== item.sourceLabel ? item.source : '';
-      const locationPrimary = item.cameraName || item.gateName || notSet;
-      const locationSecondary = item.cameraName && item.gateName && item.cameraName !== item.gateName
-        ? item.gateName
-        : '';
-      const detailChips = [
-        item.seenAtLabel ? `${ui.historySeenAtLabel || 'Seen'}: ${item.seenAtLabel}` : '',
-        item.confidenceLabel ? `${ui.historyConfidenceLabel || 'Plate conf.'}: ${item.confidenceLabel}` : '',
-        item.vehicleConfidenceLabel ? `${ui.historyVehicleConfidenceLabel || 'Vehicle conf.'}: ${item.vehicleConfidenceLabel}` : '',
-      ].filter(Boolean);
+      const detailChips = Array.isArray(item.detailChips) ? item.detailChips.filter(Boolean) : [];
 
       return `
         <tr>
           <td>${renderCell(item.createdAtLabel || notSet)}</td>
           <td>
-            <span class="portal-type-pill access-history-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">${escapeHtml(item.directionLabel || '')}</span>
+            <span class="portal-type-pill access-history-pill ${item.eventToneClass || 'is-pass'}">${escapeHtml(item.eventLabel || '')}</span>
           </td>
-          <td>${renderCell(item.sourceLabel || notSet, originSecondary)}</td>
-          <td>${renderCell(locationPrimary, locationSecondary)}</td>
+          <td>${renderCell(item.actorLabel || notSet)}</td>
+          <td>${renderCell(item.sourceLabel || notSet)}</td>
           <td>
+            <div class="access-history-cell">
+              <strong>${escapeHtml(item.detailsPrimary || notSet)}</strong>
+            </div>
             ${detailChips.length
               ? `<div class="access-history-chip-list">${detailChips.map((label) => `<span class="access-history-chip">${escapeHtml(label)}</span>`).join('')}</div>`
               : `<span class="access-history-empty">${escapeHtml(notSet)}</span>`}
@@ -4120,9 +4116,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <thead>
             <tr>
               <th>${escapeHtml(ui.historyTimeLabel || 'Time')}</th>
-              <th>${escapeHtml(ui.historyDirectionLabel || 'Direction')}</th>
+              <th>${escapeHtml(ui.historyEventLabel || 'Event')}</th>
+              <th>${escapeHtml(ui.historyActorLabel || 'Actor')}</th>
               <th>${escapeHtml(ui.historyOriginLabel || 'Origin')}</th>
-              <th>${escapeHtml(ui.historyLocationLabel || 'Camera / gate')}</th>
               <th>${escapeHtml(ui.historyDetailsLabel || 'Details')}</th>
             </tr>
           </thead>
@@ -4201,7 +4197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         historyLoading.hidden = true;
       }
 
-      if (!payload.movements?.length) {
+      if (!payload.historyEntries?.length) {
         if (historyEmpty) {
           historyEmpty.hidden = false;
         }
@@ -4209,7 +4205,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (historyList) {
-        historyList.innerHTML = renderAccessHistoryItems(payload.movements);
+        historyList.innerHTML = renderAccessHistoryItems(payload.historyEntries);
       }
     } catch (error) {
       if (historyLoading) {
