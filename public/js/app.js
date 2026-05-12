@@ -189,6 +189,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const html = await response.text();
       const nextDocument = new DOMParser().parseFromString(html, 'text/html');
       let replacedSections = 0;
+      const latestActiveElement = document.activeElement;
+      const restoreFocusedState = focusedState && latestActiveElement?.name === focusedState.name
+        ? {
+            ...focusedState,
+            value: latestActiveElement.value,
+            selectionStart: typeof latestActiveElement.selectionStart === 'number'
+              ? latestActiveElement.selectionStart
+              : focusedState.selectionStart,
+            selectionEnd: typeof latestActiveElement.selectionEnd === 'number'
+              ? latestActiveElement.selectionEnd
+              : focusedState.selectionEnd,
+          }
+        : focusedState;
 
       currentSections.forEach((section) => {
         const sectionName = section.dataset.liveSection;
@@ -207,10 +220,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (focusedState) {
-        const replacementInput = document.querySelector(`[name="${escapeSelector(focusedState.name)}"]`);
+      if (restoreFocusedState) {
+        const replacementInput = document.querySelector(`[name="${escapeSelector(restoreFocusedState.name)}"]`);
 
         if (replacementInput && typeof replacementInput.focus === 'function') {
+          if ('value' in replacementInput) {
+            replacementInput.value = restoreFocusedState.value;
+          }
+
           try {
             replacementInput.focus({ preventScroll: true });
           } catch (error) {
@@ -219,12 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (
             typeof replacementInput.setSelectionRange === 'function'
-            && focusedState.selectionStart !== null
-            && focusedState.selectionEnd !== null
+            && restoreFocusedState.selectionStart !== null
+            && restoreFocusedState.selectionEnd !== null
           ) {
-            replacementInput.setSelectionRange(focusedState.selectionStart, focusedState.selectionEnd);
-          } else if ('value' in replacementInput) {
-            replacementInput.value = focusedState.value;
+            replacementInput.setSelectionRange(restoreFocusedState.selectionStart, restoreFocusedState.selectionEnd);
           }
         }
       }
@@ -4706,9 +4721,13 @@ document.addEventListener('DOMContentLoaded', () => {
       window.clearTimeout(liveFilterTimer);
 
       if (isAccessServerPaginationEnabled()) {
+        if (activeRefreshController) {
+          activeRefreshController.abort();
+        }
+
         activeAccessView = 'requests';
         setAccessFilterPage(1);
-        submitLiveFilterForm(liveFilterForm, { delay: 180 });
+        submitLiveFilterForm(liveFilterForm, { delay: 420 });
       } else {
         liveFilterTimer = window.setTimeout(() => {
           activeAccessView = 'requests';
