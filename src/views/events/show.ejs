@@ -207,7 +207,22 @@
             <% if (vehicleCheckLink) { %>
               <div>
                 <label class="field-label"><%= t('event.vehicleCheckLinkField') %></label>
-                <input type="text" class="field-input" value="<%= vehicleCheckLink %>" readonly onclick="this.select()" />
+                <div class="event-dashboard-copy-field">
+                  <input type="text" class="field-input" value="<%= vehicleCheckLink %>" readonly onclick="this.select()" />
+                  <button
+                    type="button"
+                    class="event-dashboard-copy-field__button"
+                    data-copy-text="<%= vehicleCheckLink %>"
+                    data-copy-success-message="<%= t('event.vehicleCheckLinkCopied') %>"
+                    title="<%= t('event.vehicleCheckLinkCopy') %>"
+                    aria-label="<%= t('event.vehicleCheckLinkCopy') %>"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M7.5 3.5A2.5 2.5 0 0 1 10 1h5.5A2.5 2.5 0 0 1 18 3.5V9a2.5 2.5 0 0 1-2.5 2.5H10A2.5 2.5 0 0 1 7.5 9V3.5Z" />
+                      <path d="M5.5 6.5H5A2.5 2.5 0 0 0 2.5 9v5.5A2.5 2.5 0 0 0 5 17h5.5A2.5 2.5 0 0 0 13 14.5V14" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <p class="text-xs text-slate-500">
