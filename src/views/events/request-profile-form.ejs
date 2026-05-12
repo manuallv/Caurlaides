@@ -76,6 +76,16 @@
                   value="<%= editingProfile?.contact_phone || '' %>"
                 />
               </div>
+
+              <div class="request-profile-form-grid__full">
+                <label class="field-label" for="request-profile-notes"><%= t('requestProfiles.fields.notes') %></label>
+                <textarea
+                  id="request-profile-notes"
+                  name="notes"
+                  rows="4"
+                  class="field-input"
+                ><%= editingProfile?.notes || '' %></textarea>
+              </div>
             </div>
 
             <div class="request-profile-toggle-grid request-profile-toggle-grid--profile">
