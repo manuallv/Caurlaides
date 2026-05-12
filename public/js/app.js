@@ -939,6 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fields: [],
     variables: [],
     selectedId: '',
+    selectedIds: [],
     activeTab: 'editor',
     currentBackgroundUrl: '',
     currentBackgroundRotation: 0,
@@ -1071,6 +1072,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return `${text ? `<span class="pass-print-field__prefix" style="${prefixStyle}">${escapeHtml(text)}</span>` : ''}<span class="pass-print-field__variable" style="${variableStyle}">${escapeHtml(variableLabel)}</span>`;
+  };
+
+  const getPassPrintSelectedIds = () => {
+    const availableIds = new Set(passPrintEditorState.fields.map((field) => String(field.id || '')));
+    const selectedIds = Array.isArray(passPrintEditorState.selectedIds)
+      ? passPrintEditorState.selectedIds
+      : [];
+    const normalizedIds = [...new Set(
+      [...selectedIds, passPrintEditorState.selectedId]
+        .map((id) => String(id || ''))
+        .filter((id) => id && availableIds.has(id)),
+    )];
+
+    if (normalizedIds.length) {
+      return normalizedIds;
+    }
+
+    return passPrintEditorState.selectedId && availableIds.has(passPrintEditorState.selectedId)
+      ? [passPrintEditorState.selectedId]
+      : [];
   };
 
   const syncPassPrintFieldsInput = () => {
@@ -1206,10 +1227,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const selectedIds = new Set(getPassPrintSelectedIds());
+
     fieldLayer.innerHTML = passPrintEditorState.fields.map((field) => `
       <button
         type="button"
-        class="pass-print-field${field.id === passPrintEditorState.selectedId ? ' is-active' : ''}"
+        class="pass-print-field${selectedIds.has(String(field.id || '')) ? ' is-active' : ''}${String(field.id || '') === passPrintEditorState.selectedId ? ' is-primary' : ''}"
         data-pass-print-field-id="${escapeHtml(field.id || '')}"
         style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;--pass-print-rotation:${Number(field.rotation || 0)}deg;--pass-print-text-align:${normalizePassPrintTextAlign(field.textAlign)};--pass-print-border-color:${normalizePassPrintColor(field.borderColor)};"
       >
@@ -1336,11 +1359,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const selectPassPrintField = (fieldId = '') => {
-    if (!passPrintEditorState.fields.some((field) => field.id === fieldId)) {
+  const selectPassPrintField = (fieldId = '', options = {}) => {
+    const normalizedFieldId = String(fieldId || '');
+    const currentSelectedIds = getPassPrintSelectedIds();
+
+    if (!passPrintEditorState.fields.some((field) => String(field.id || '') === normalizedFieldId)) {
       passPrintEditorState.selectedId = '';
+      passPrintEditorState.selectedIds = [];
+    } else if (options.toggle) {
+      const isSelected = currentSelectedIds.includes(normalizedFieldId);
+      const nextSelectedIds = isSelected
+        ? currentSelectedIds.filter((id) => id !== normalizedFieldId)
+        : [...currentSelectedIds, normalizedFieldId];
+
+      passPrintEditorState.selectedIds = nextSelectedIds;
+      passPrintEditorState.selectedId = isSelected
+        ? (passPrintEditorState.selectedId === normalizedFieldId ? nextSelectedIds[nextSelectedIds.length - 1] || '' : passPrintEditorState.selectedId)
+        : normalizedFieldId;
+    } else if (options.preserveGroup && currentSelectedIds.includes(normalizedFieldId)) {
+      passPrintEditorState.selectedId = normalizedFieldId;
+      passPrintEditorState.selectedIds = currentSelectedIds;
     } else {
-      passPrintEditorState.selectedId = fieldId;
+      passPrintEditorState.selectedId = normalizedFieldId;
+      passPrintEditorState.selectedIds = [normalizedFieldId];
     }
 
     renderPassPrintFields();
@@ -1390,20 +1431,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     passPrintEditorState.fields.push(field);
     passPrintEditorState.selectedId = field.id;
+    passPrintEditorState.selectedIds = [field.id];
     renderPassPrintFields();
     syncPassPrintInspector();
     syncPassPrintFieldsInput();
   };
 
   const removeSelectedPassPrintField = () => {
-    if (!passPrintEditorState.canManage || !passPrintEditorState.selectedId) {
+    const selectedIds = getPassPrintSelectedIds();
+
+    if (!passPrintEditorState.canManage || !selectedIds.length) {
       return;
     }
 
+    const selectedIdSet = new Set(selectedIds);
     passPrintEditorState.fields = passPrintEditorState.fields.filter(
-      (field) => field.id !== passPrintEditorState.selectedId,
+      (field) => !selectedIdSet.has(String(field.id || '')),
     );
     passPrintEditorState.selectedId = passPrintEditorState.fields[0]?.id || '';
+    passPrintEditorState.selectedIds = passPrintEditorState.selectedId ? [passPrintEditorState.selectedId] : [];
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
+  };
+
+  const moveSelectedPassPrintFields = (deltaX = 0, deltaY = 0) => {
+    const selectedIds = getPassPrintSelectedIds();
+
+    if (!passPrintEditorState.canManage || !selectedIds.length) {
+      return;
+    }
+
+    const selectedIdSet = new Set(selectedIds);
+    const selectedFields = passPrintEditorState.fields
+      .filter((field) => selectedIdSet.has(String(field.id || '')))
+      .map((field) => ({
+        id: String(field.id || ''),
+        x: Number(field.x || 0),
+        y: Number(field.y || 0),
+      }));
+
+    if (!selectedFields.length) {
+      return;
+    }
+
+    const maxPosition = 0.96;
+    const minDeltaX = Math.max(...selectedFields.map((field) => -field.x));
+    const maxDeltaX = Math.min(...selectedFields.map((field) => maxPosition - field.x));
+    const minDeltaY = Math.max(...selectedFields.map((field) => -field.y));
+    const maxDeltaY = Math.min(...selectedFields.map((field) => maxPosition - field.y));
+    const clampedDeltaX = Math.min(Math.max(deltaX, minDeltaX), maxDeltaX);
+    const clampedDeltaY = Math.min(Math.max(deltaY, minDeltaY), maxDeltaY);
+    const nextPositions = new Map(selectedFields.map((field) => [
+      field.id,
+      {
+        x: field.x + clampedDeltaX,
+        y: field.y + clampedDeltaY,
+      },
+    ]));
+
+    passPrintEditorState.fields = passPrintEditorState.fields.map((field) => {
+      const nextPosition = nextPositions.get(String(field.id || ''));
+
+      return nextPosition
+        ? { ...field, x: nextPosition.x, y: nextPosition.y }
+        : field;
+    });
+
     renderPassPrintFields();
     syncPassPrintInspector();
     syncPassPrintFieldsInput();
@@ -1433,13 +1527,23 @@ document.addEventListener('DOMContentLoaded', () => {
     pointerEvent.preventDefault();
 
     const rect = page.getBoundingClientRect();
+    const selectedIds = getPassPrintSelectedIds();
+    const dragFieldIds = selectedIds.includes(fieldId) ? selectedIds : [fieldId];
+    const dragFieldIdSet = new Set(dragFieldIds);
 
     passPrintEditorState.drag = {
       fieldId,
       pointerId: pointerEvent.pointerId,
       mode: 'move',
-      offsetX: pointerEvent.clientX - (rect.left + rect.width * Number(selectedField.x || 0)),
-      offsetY: pointerEvent.clientY - (rect.top + rect.height * Number(selectedField.y || 0)),
+      pointerStartX: (pointerEvent.clientX - rect.left) / rect.width,
+      pointerStartY: (pointerEvent.clientY - rect.top) / rect.height,
+      fields: passPrintEditorState.fields
+        .filter((field) => dragFieldIdSet.has(String(field.id || '')))
+        .map((field) => ({
+          id: String(field.id || ''),
+          x: Number(field.x || 0),
+          y: Number(field.y || 0),
+        })),
     };
   };
 
@@ -1500,13 +1604,39 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const x = (pointerEvent.clientX - rect.left - dragState.offsetX) / rect.width;
-    const y = (pointerEvent.clientY - rect.top - dragState.offsetY) / rect.height;
+    const dragFields = Array.isArray(dragState.fields) && dragState.fields.length
+      ? dragState.fields
+      : [{ id: dragState.fieldId, x: 0, y: 0 }];
+    const maxPosition = 0.96;
+    const pointerX = (pointerEvent.clientX - rect.left) / rect.width;
+    const pointerY = (pointerEvent.clientY - rect.top) / rect.height;
+    const deltaX = pointerX - Number(dragState.pointerStartX || 0);
+    const deltaY = pointerY - Number(dragState.pointerStartY || 0);
+    const minDeltaX = Math.max(...dragFields.map((field) => -Number(field.x || 0)));
+    const maxDeltaX = Math.min(...dragFields.map((field) => maxPosition - Number(field.x || 0)));
+    const minDeltaY = Math.max(...dragFields.map((field) => -Number(field.y || 0)));
+    const maxDeltaY = Math.min(...dragFields.map((field) => maxPosition - Number(field.y || 0)));
+    const clampedDeltaX = Math.min(Math.max(deltaX, minDeltaX), maxDeltaX);
+    const clampedDeltaY = Math.min(Math.max(deltaY, minDeltaY), maxDeltaY);
+    const nextPositions = new Map(dragFields.map((field) => [
+      field.id,
+      {
+        x: Number(field.x || 0) + clampedDeltaX,
+        y: Number(field.y || 0) + clampedDeltaY,
+      },
+    ]));
 
-    upsertSelectedPassPrintField({
-      x: Math.min(Math.max(x, 0), 0.96),
-      y: Math.min(Math.max(y, 0), 0.96),
+    passPrintEditorState.fields = passPrintEditorState.fields.map((field) => {
+      const nextPosition = nextPositions.get(String(field.id || ''));
+
+      return nextPosition
+        ? { ...field, x: nextPosition.x, y: nextPosition.y }
+        : field;
     });
+
+    renderPassPrintFields();
+    syncPassPrintInspector();
+    syncPassPrintFieldsInput();
   };
 
   const stopPassPrintFieldDrag = () => {
@@ -1551,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fields: [],
         variables: [],
         selectedId: '',
+        selectedIds: [],
         currentBackgroundUrl: '',
         backgroundRotation: 0,
         orientation: 'portrait',
@@ -1580,7 +1711,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rotation: Number(field.rotation || 0),
       })),
       variables: nextState.variables,
-      selectedId: nextState.fields[0]?.id || '',
+      selectedId: String(nextState.fields[0]?.id || ''),
+      selectedIds: nextState.fields[0]?.id ? [String(nextState.fields[0].id)] : [],
       activeTab: nextState.activeTab || 'editor',
       currentBackgroundUrl: nextState.currentBackgroundUrl || '',
       currentBackgroundRotation: normalizePassPrintQuarterTurn(nextState.backgroundRotation),
@@ -4444,6 +4576,33 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (
+      ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+      && passPrintEditorState.activeTab === 'editor'
+      && passPrintEditorState.canManage
+      && getPassPrintSelectedIds().length
+      && !event.metaKey
+      && !event.ctrlKey
+      && !event.altKey
+      && !isPassPrintEditingShortcutTarget(event.target)
+    ) {
+      event.preventDefault();
+
+      const step = event.shiftKey ? 0.02 : 0.005;
+
+      if (event.key === 'ArrowUp') {
+        moveSelectedPassPrintFields(0, -step);
+      } else if (event.key === 'ArrowDown') {
+        moveSelectedPassPrintFields(0, step);
+      } else if (event.key === 'ArrowLeft') {
+        moveSelectedPassPrintFields(-step, 0);
+      } else if (event.key === 'ArrowRight') {
+        moveSelectedPassPrintFields(step, 0);
+      }
+
+      return;
+    }
+
     if (event.key === 'Escape') {
       closeAccessActionMenus();
       closeAccessProfileFilter();
@@ -4602,7 +4761,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const passPrintFieldTrigger = closest('[data-pass-print-field-id]');
 
     if (passPrintFieldTrigger) {
-      selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '');
+      if (event.metaKey || event.ctrlKey) {
+        return;
+      }
+
+      selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '', { preserveGroup: true });
       return;
     }
 
@@ -4957,19 +5120,38 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    selectPassPrintField(passPrintFieldTrigger.dataset.passPrintFieldId || '');
-    startPassPrintFieldDrag(event, passPrintFieldTrigger.dataset.passPrintFieldId || '');
+    const fieldId = passPrintFieldTrigger.dataset.passPrintFieldId || '';
+    const isMultiSelectToggle = event.metaKey || event.ctrlKey;
+
+    if (isMultiSelectToggle) {
+      event.preventDefault();
+      selectPassPrintField(fieldId, { toggle: true });
+      return;
+    }
+
+    selectPassPrintField(fieldId, { preserveGroup: true });
+    startPassPrintFieldDrag(event, fieldId);
+  });
+
+  document.addEventListener('contextmenu', (event) => {
+    if ((event.metaKey || event.ctrlKey) && findClosestTarget(event.target, '[data-pass-print-field-id]')) {
+      event.preventDefault();
+    }
   });
 
   window.addEventListener('pointermove', (event) => {
-    if (!passPrintEditorState.drag) {
+    if (!passPrintEditorState.drag || passPrintEditorState.drag.pointerId !== event.pointerId) {
       return;
     }
 
     movePassPrintFieldDrag(event);
   });
 
-  window.addEventListener('pointerup', () => {
+  window.addEventListener('pointerup', (event) => {
+    if (passPrintEditorState.drag && passPrintEditorState.drag.pointerId !== event.pointerId) {
+      return;
+    }
+
     stopPassPrintFieldDrag();
   });
 
