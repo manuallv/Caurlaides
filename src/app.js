@@ -54,6 +54,7 @@ function createApp() {
   app.use(attachViewLocals);
 
   app.use('/public', express.static(path.join(process.cwd(), 'public')));
+  app.use('/assets', express.static(path.join(process.cwd(), 'assets')));
 
   app.use(buildRouter());
   app.use(notFoundHandler);

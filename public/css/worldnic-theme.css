@@ -5547,6 +5547,22 @@ body.portal-modal-open {
   }
 }
 
+@font-face {
+  font-family: "PassPrintNotoSans";
+  src: url("/assets/fonts/NotoSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PassPrintNotoSans";
+  src: url("/assets/fonts/NotoSans-Bold.ttf") format("truetype");
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 .pass-print-tabs {
   display: inline-flex;
   gap: 0.5rem;
@@ -5882,6 +5898,7 @@ body.is-pass-print-fullscreen {
   border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.93);
   color: #0f172a;
+  font-family: "PassPrintNotoSans", sans-serif;
   cursor: move;
   touch-action: none;
   user-select: none;
@@ -5900,7 +5917,7 @@ body.is-pass-print-fullscreen {
 
 .pass-print-field > span:first-child {
   display: block;
-  white-space: nowrap;
+  white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: var(--pass-print-text-align, left);
@@ -5908,14 +5925,17 @@ body.is-pass-print-fullscreen {
 
 .pass-print-field__content {
   display: block;
-  line-height: 1.12;
+  line-height: 1;
   border-bottom: 2px dotted transparent;
   padding-bottom: 0.12rem;
 }
 
 .pass-print-field__prefix,
 .pass-print-field__variable {
-  display: inline;
+  display: inline-block;
+  vertical-align: top;
+  line-height: 1;
+  white-space: pre;
 }
 
 .pass-print-field__prefix.is-placeholder {
