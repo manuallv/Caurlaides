@@ -1,4 +1,5 @@
 const dotenv = require('dotenv');
+const path = require('path');
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const env = {
   port: Number(process.env.PORT || 3000),
   appUrl: process.env.APP_URL || 'http://localhost:3000',
   timeZone: process.env.TZ,
+  uploadsDir: process.env.UPLOADS_DIR || process.env.CAURLAIDES_UPLOADS_DIR || '',
   vehicleEntryApiKey: String(process.env.VEHICLE_ENTRY_API_KEY || '').trim(),
   sessionSecret: process.env.SESSION_SECRET || 'development-session-secret',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
@@ -24,6 +26,12 @@ const env = {
     password: process.env.DB_PASSWORD || '',
   },
 };
+
+if (!env.uploadsDir) {
+  env.uploadsDir = path.resolve(process.cwd(), '..', 'caurlaides-uploads');
+} else {
+  env.uploadsDir = path.resolve(env.uploadsDir);
+}
 
 // Some shared-hosting environments resolve "localhost" to IPv6 (::1),
 // while the MySQL user may only be granted access from 127.0.0.1.

@@ -255,15 +255,68 @@ function buildPassPrintTemplatePublicUrl(backgroundPath) {
     return '';
   }
 
-  return `/public/${String(backgroundPath).replace(/^\/+/, '').replace(/\\/g, '/')}`;
+  const relativePath = normalizePassPrintUploadPath(backgroundPath);
+
+  return relativePath ? `/uploads/${relativePath}` : '';
+}
+
+function normalizePassPrintUploadPath(backgroundPath) {
+  if (!backgroundPath) {
+    return '';
+  }
+
+  return String(backgroundPath)
+    .replace(/^\/+/, '')
+    .replace(/\\/g, '/')
+    .replace(/^uploads\//, '')
+    .split('/')
+    .filter((segment) => segment && segment !== '.' && segment !== '..')
+    .join('/');
 }
 
 function buildPassPrintTemplateAbsolutePath(backgroundPath) {
+  const relativePath = normalizePassPrintUploadPath(backgroundPath);
+
+  if (!relativePath) {
+    return '';
+  }
+
+  return path.join(env.uploadsDir, relativePath);
+}
+
+function buildLegacyPassPrintTemplateAbsolutePath(backgroundPath) {
   if (!backgroundPath) {
     return '';
   }
 
   return path.join(process.cwd(), 'public', String(backgroundPath).replace(/^\/+/, ''));
+}
+
+async function resolvePassPrintTemplateAbsolutePath(backgroundPath) {
+  const candidates = [
+    buildPassPrintTemplateAbsolutePath(backgroundPath),
+    buildLegacyPassPrintTemplateAbsolutePath(backgroundPath),
+  ].filter(Boolean);
+
+  for (const candidatePath of candidates) {
+    try {
+      await fs.access(candidatePath);
+      return candidatePath;
+    } catch (error) {
+      // Try the next possible storage location.
+    }
+  }
+
+  return '';
+}
+
+async function unlinkPassPrintTemplateFile(backgroundPath) {
+  const candidates = [
+    buildPassPrintTemplateAbsolutePath(backgroundPath),
+    buildLegacyPassPrintTemplateAbsolutePath(backgroundPath),
+  ].filter(Boolean);
+
+  await Promise.all(candidates.map((candidatePath) => fs.unlink(candidatePath).catch(() => {})));
 }
 
 function getPassPrintVariableDefinitions(t) {
@@ -583,14 +636,7 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
   let backgroundSource = template.backgroundBuffer || '';
 
   if (!backgroundSource && template.backgroundPath) {
-    const candidatePath = buildPassPrintTemplateAbsolutePath(template.backgroundPath);
-
-    try {
-      await fs.access(candidatePath);
-      backgroundSource = candidatePath;
-    } catch (error) {
-      backgroundSource = '';
-    }
+    backgroundSource = await resolvePassPrintTemplateAbsolutePath(template.backgroundPath);
   }
 
   return new Promise((resolve, reject) => {
@@ -1565,7 +1611,7 @@ class AccessService {
         `event-${eventId}`,
         `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${fileExtension}`,
       );
-      const absolutePath = path.join(process.cwd(), 'public', relativePath);
+      const absolutePath = buildPassPrintTemplateAbsolutePath(relativePath);
 
       await fs.mkdir(path.dirname(absolutePath), { recursive: true });
       await fs.writeFile(absolutePath, backgroundImage.buffer);
@@ -1620,7 +1666,7 @@ class AccessService {
       await connection.rollback();
 
       if (backgroundPath && backgroundPath !== event.pass_print_template_background_path) {
-        await fs.unlink(path.join(process.cwd(), 'public', backgroundPath)).catch(() => {});
+        await unlinkPassPrintTemplateFile(backgroundPath);
       }
 
       throw error;
@@ -1629,7 +1675,7 @@ class AccessService {
     }
 
     if (replacedBackgroundPath && replacedBackgroundPath !== backgroundPath) {
-      await fs.unlink(path.join(process.cwd(), 'public', replacedBackgroundPath)).catch(() => {});
+      await unlinkPassPrintTemplateFile(replacedBackgroundPath);
     }
 
     return {

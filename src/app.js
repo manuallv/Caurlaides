@@ -54,6 +54,8 @@ function createApp() {
   app.use(attachViewLocals);
 
   app.use('/public', express.static(path.join(process.cwd(), 'public')));
+  app.use('/uploads', express.static(env.uploadsDir));
+  app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
   app.use('/assets', express.static(path.join(process.cwd(), 'assets')));
 
   app.use(buildRouter());
