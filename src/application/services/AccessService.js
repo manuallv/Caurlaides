@@ -593,6 +593,8 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
   const variableFontWeight = normalizePassPrintFontWeight(field.variableFontWeight, '700');
   const textAlign = normalizePassPrintTextAlign(field.textAlign);
   const textColor = normalizePassPrintColor(field.textColor);
+  const maxFontSize = Math.max(prefixFontSize, variableFontSize);
+  const getBottomAlignedTextY = (fontSize) => Math.max(0, maxFontSize - fontSize);
 
   document.font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered)).fontSize(prefixFontSize);
   const prefixWidth = prefixText ? document.widthOfString(prefixText) : 0;
@@ -609,7 +611,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
       .font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered))
       .fontSize(prefixFontSize)
       .fillColor(textColor)
-      .text(prefixText, cursorX, 0, {
+      .text(prefixText, cursorX, getBottomAlignedTextY(prefixFontSize), {
         lineBreak: false,
       });
     cursorX += prefixWidth;
@@ -620,13 +622,12 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
       .font(getPassPrintPdfFont(variableFontWeight, customFontsRegistered))
       .fontSize(variableFontSize)
       .fillColor(textColor)
-      .text(variableText, cursorX, 0, {
+      .text(variableText, cursorX, getBottomAlignedTextY(variableFontSize), {
         lineBreak: false,
       });
   }
 
   if (field.borderEnabled) {
-    const maxFontSize = Math.max(prefixFontSize, variableFontSize);
     const borderY = Math.max(8, maxFontSize * 1.18);
     document
       .save()

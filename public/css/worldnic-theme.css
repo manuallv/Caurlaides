@@ -6169,7 +6169,7 @@ body.is-pass-print-fullscreen {
 .pass-print-field__prefix,
 .pass-print-field__variable {
   display: inline-block;
-  vertical-align: top;
+  vertical-align: bottom;
   line-height: 1;
   white-space: pre;
 }
