@@ -2356,7 +2356,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fullscreenToggles: [...document.querySelectorAll('[data-access-fullscreen-toggle]')],
       fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
       printSelectedButton: document.querySelector('[data-access-print-selected]'),
-      printSelectedLabel: document.querySelector('[data-access-print-selected-label]'),
+      printSelectedLabel: document.querySelector('[data-access-print-selected-button-label]'),
       filterForm: document.querySelector('[data-live-filter-form]'),
       profileFilter: document.querySelector('[data-access-profile-filter]'),
       profileFilterTrigger: document.querySelector('[data-access-profile-filter-trigger]'),
