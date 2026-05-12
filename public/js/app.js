@@ -927,6 +927,9 @@ document.addEventListener('DOMContentLoaded', () => {
       removeBackgroundButton: document.querySelector('[data-pass-print-remove-background-button]'),
       rotateBackgroundButton: document.querySelector('[data-pass-print-rotate-background]'),
       backgroundRotationValue: document.querySelector('[data-pass-print-background-rotation-value]'),
+      fullscreenTarget: document.querySelector('[data-pass-print-fullscreen-target]'),
+      fullscreenToggles: [...document.querySelectorAll('[data-pass-print-fullscreen-toggle]')],
+      fullscreenLabels: [...document.querySelectorAll('[data-pass-print-fullscreen-label]')],
       previewModal: document.querySelector('[data-pass-print-preview-modal]'),
       previewFrame: document.querySelector('[data-pass-print-preview-frame]'),
       previewLoading: document.querySelector('[data-pass-print-preview-loading]'),
@@ -948,6 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadedBackgroundUrl: '',
     previewObjectUrl: '',
     drag: null,
+    fullscreen: false,
   };
 
   const normalizePassPrintQuarterTurn = (value) => {
@@ -1152,6 +1156,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const { tabs, panels } = getPassPrintElements();
     const nextTab = tabName === 'print' ? 'print' : 'editor';
 
+    if (nextTab !== 'editor' && passPrintEditorState.fullscreen) {
+      setPassPrintFullscreen(false);
+    }
+
     passPrintEditorState.activeTab = nextTab;
 
     tabs.forEach((tab) => {
@@ -1161,6 +1169,33 @@ document.addEventListener('DOMContentLoaded', () => {
     panels.forEach((panel) => {
       const isActive = panel.dataset.passPrintPanel === nextTab;
       panel.classList.toggle('hidden', !isActive);
+    });
+  };
+
+  const setPassPrintFullscreen = (enabled) => {
+    const { app, fullscreenTarget, fullscreenToggles, fullscreenLabels } = getPassPrintElements();
+
+    if (!fullscreenTarget) {
+      return;
+    }
+
+    const isEnabled = Boolean(enabled);
+    const enterLabel = app?.dataset.passPrintFullscreenLabel || 'Fullscreen';
+    const exitLabel = app?.dataset.passPrintExitFullscreenLabel || 'Exit fullscreen';
+    const label = isEnabled ? exitLabel : enterLabel;
+
+    passPrintEditorState.fullscreen = isEnabled;
+    fullscreenTarget.classList.toggle('is-fullscreen', isEnabled);
+    document.body.classList.toggle('is-pass-print-fullscreen', isEnabled);
+
+    fullscreenToggles.forEach((toggle) => {
+      toggle.classList.toggle('is-active', isEnabled);
+      toggle.setAttribute('aria-label', label);
+      toggle.setAttribute('title', label);
+    });
+
+    fullscreenLabels.forEach((labelNode) => {
+      labelNode.textContent = label;
     });
   };
 
@@ -1687,6 +1722,7 @@ document.addEventListener('DOMContentLoaded', () => {
         orientation: 'portrait',
         uploadedBackgroundUrl: '',
         drag: null,
+        fullscreen: false,
       };
       return;
     }
@@ -1720,6 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
       orientation: normalizePassPrintOrientation(nextState.orientation),
       uploadedBackgroundUrl: '',
       drag: null,
+      fullscreen: false,
     };
 
     setPassPrintTab(passPrintEditorState.activeTab);
@@ -4614,6 +4651,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAccessExportModal();
       closeRequestProfileStatisticsModal();
       closePassPrintPreviewModal();
+      setPassPrintFullscreen(false);
     }
   });
 
@@ -4692,6 +4730,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (passPrintPreviewTrigger) {
       await submitPassPrintPreview(passPrintPreviewTrigger);
+      return;
+    }
+
+    const passPrintFullscreenTrigger = closest('[data-pass-print-fullscreen-toggle]');
+
+    if (passPrintFullscreenTrigger) {
+      setPassPrintFullscreen(!passPrintEditorState.fullscreen);
       return;
     }
 

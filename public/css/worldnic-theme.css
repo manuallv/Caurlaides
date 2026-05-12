@@ -5641,6 +5641,59 @@ body.portal-modal-open {
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
 }
 
+.pass-print-editor-form.is-fullscreen {
+  position: fixed;
+  inset: 1rem;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0 !important;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 1.6rem;
+  background:
+    radial-gradient(circle at top left, rgba(224, 242, 254, 0.46), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.26);
+  overflow: auto;
+}
+
+body.is-pass-print-fullscreen {
+  overflow: hidden;
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-workspace {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.36fr);
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-workspace__stage,
+.pass-print-editor-form.is-fullscreen .pass-print-workspace__sidebar,
+.pass-print-editor-form.is-fullscreen .pass-print-stage-wrap {
+  min-height: 0;
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-stage-wrap,
+.pass-print-editor-form.is-fullscreen .pass-print-stage {
+  display: flex;
+  flex-direction: column;
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-stage {
+  flex: 1;
+  overflow: auto;
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-page--portrait {
+  width: min(100%, 900px);
+}
+
+.pass-print-editor-form.is-fullscreen .pass-print-page--landscape {
+  width: min(100%, 1120px);
+}
+
 .pass-print-workspace__stage,
 .pass-print-workspace__sidebar {
   min-width: 0;
@@ -5669,6 +5722,53 @@ body.portal-modal-open {
 .pass-print-stage-wrap {
   display: grid;
   gap: 1rem;
+}
+
+.pass-print-stage-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pass-print-fullscreen-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pass-print-fullscreen-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.16);
+}
+
+.pass-print-fullscreen-icon {
+  width: 1.08rem;
+  height: 1.08rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pass-print-fullscreen-icon--exit,
+.pass-print-fullscreen-toggle.is-active .pass-print-fullscreen-icon--enter {
+  display: none;
+}
+
+.pass-print-fullscreen-toggle.is-active .pass-print-fullscreen-icon--exit {
+  display: block;
 }
 
 .pass-print-stage {
@@ -6065,6 +6165,15 @@ body.portal-modal-open {
 }
 
 @media (max-width: 900px) {
+  .pass-print-editor-form.is-fullscreen {
+    inset: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .pass-print-editor-form.is-fullscreen .pass-print-workspace {
+    grid-template-columns: 1fr;
+  }
+
   .pass-print-stage {
     padding: 1rem;
   }

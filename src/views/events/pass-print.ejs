@@ -66,6 +66,8 @@
   data-pass-print-restore-background-label="<%= t('passPrint.editor.restoreBackground') %>"
   data-pass-print-portrait-label="<%= t('passPrint.editor.orientation.portrait') %>"
   data-pass-print-landscape-label="<%= t('passPrint.editor.orientation.landscape') %>"
+  data-pass-print-fullscreen-label="<%= t('passPrint.editor.fullscreen') %>"
+  data-pass-print-exit-fullscreen-label="<%= t('passPrint.editor.exitFullscreen') %>"
 >
   <div class="shell-card overflow-hidden">
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
@@ -95,8 +97,9 @@
           action="/events/<%= activeEvent.id %>/passes/print/template"
           method="POST"
           enctype="multipart/form-data"
-          class="space-y-5"
+          class="pass-print-editor-form space-y-5"
           data-pass-print-form
+          data-pass-print-fullscreen-target
         >
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <input type="hidden" name="templateFields" value="" data-pass-print-fields-input />
@@ -180,9 +183,40 @@
                     <p class="worldnic-eyebrow"><%= t('passPrint.editor.previewLabel') %></p>
                     <h2 class="mt-2 text-lg font-bold text-slate-900"><%= t('passPrint.editor.previewTitle') %></h2>
                   </div>
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600" data-pass-print-orientation-label>
-                    <%= templateOrientation === 'landscape' ? t('passPrint.editor.orientation.landscape') : t('passPrint.editor.orientation.portrait') %>
-                  </span>
+                  <div class="pass-print-stage-actions">
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600" data-pass-print-orientation-label>
+                      <%= templateOrientation === 'landscape' ? t('passPrint.editor.orientation.landscape') : t('passPrint.editor.orientation.portrait') %>
+                    </span>
+                    <button
+                      type="button"
+                      class="pass-print-fullscreen-toggle"
+                      data-pass-print-fullscreen-toggle
+                      aria-label="<%= t('passPrint.editor.fullscreen') %>"
+                      title="<%= t('passPrint.editor.fullscreen') %>"
+                    >
+                      <svg class="pass-print-fullscreen-icon pass-print-fullscreen-icon--enter" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M8 3H3v5"></path>
+                        <path d="M3 3l7 7"></path>
+                        <path d="M16 3h5v5"></path>
+                        <path d="M21 3l-7 7"></path>
+                        <path d="M8 21H3v-5"></path>
+                        <path d="M3 21l7-7"></path>
+                        <path d="M16 21h5v-5"></path>
+                        <path d="M21 21l-7-7"></path>
+                      </svg>
+                      <svg class="pass-print-fullscreen-icon pass-print-fullscreen-icon--exit" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M10 3v7H3"></path>
+                        <path d="M3 10l7-7"></path>
+                        <path d="M14 3v7h7"></path>
+                        <path d="M21 10l-7-7"></path>
+                        <path d="M10 21v-7H3"></path>
+                        <path d="M3 14l7 7"></path>
+                        <path d="M14 21v-7h7"></path>
+                        <path d="M21 14l-7 7"></path>
+                      </svg>
+                      <span class="sr-only" data-pass-print-fullscreen-label><%= t('passPrint.editor.fullscreen') %></span>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="pass-print-stage">
