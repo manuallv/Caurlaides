@@ -5535,7 +5535,6 @@ body.portal-modal-open {
   .portal-summary-card__header,
   .portal-table-card__header,
   .portal-access-grid,
-  .portal-summary-grid,
   .portal-table-toolbar,
   .portal-table-scroll,
   .portal-workspace-card__header,
@@ -5544,6 +5543,11 @@ body.portal-modal-open {
   .portal-modal__dialog {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .portal-summary-grid {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .portal-workspace-card__header {
@@ -5698,19 +5702,28 @@ body.portal-modal-open {
   }
 
   .worldnic-guest-topbar-portal {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.8rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .worldnic-guest-topbar-portal .worldnic-guest-actions {
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .worldnic-guest-topbar-portal .worldnic-portal-topbar-logout .btn-secondary {
+    width: auto;
   }
 
   .worldnic-portal-topbar-profile {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .worldnic-portal-topbar-profile strong {
