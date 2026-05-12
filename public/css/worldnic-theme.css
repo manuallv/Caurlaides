@@ -6153,6 +6153,7 @@ body.is-pass-print-fullscreen {
 
 .pass-print-field > span:first-child {
   display: block;
+  padding-bottom: 5px;
   white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
