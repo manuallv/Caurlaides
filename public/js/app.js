@@ -74,6 +74,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('is-sidebar-open');
   };
 
+  const worldnicHeader = document.querySelector('.worldnic-header');
+  const compactHeaderMedia = window.matchMedia('(max-width: 1023px)');
+  let compactHeaderTicking = false;
+
+  const syncCompactHeader = () => {
+    if (!worldnicHeader) {
+      return;
+    }
+
+    const shouldCompact = compactHeaderMedia.matches && window.scrollY > 44;
+    worldnicHeader.classList.toggle('is-compact', shouldCompact);
+  };
+
+  const requestCompactHeaderSync = () => {
+    if (compactHeaderTicking) {
+      return;
+    }
+
+    compactHeaderTicking = true;
+    window.requestAnimationFrame(() => {
+      syncCompactHeader();
+      compactHeaderTicking = false;
+    });
+  };
+
   const showLiveNotice = (message, type = 'success') => {
     if (!message) {
       return;
@@ -4793,8 +4818,14 @@ document.addEventListener('DOMContentLoaded', () => {
       closeSidebar();
     }
 
+    syncCompactHeader();
     syncPortalSummaryCards();
   });
+
+  if (worldnicHeader) {
+    syncCompactHeader();
+    window.addEventListener('scroll', requestCompactHeaderSync, { passive: true });
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.target.matches('[data-access-profile-filter-search]')) {

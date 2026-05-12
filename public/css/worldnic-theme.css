@@ -5252,6 +5252,7 @@ body.portal-modal-open {
 
   .worldnic-header {
     padding-top: 1rem;
+    transition: padding-top 0.22s ease;
   }
 
   .worldnic-header__inner,
@@ -5259,11 +5260,70 @@ body.portal-modal-open {
     flex-wrap: wrap;
   }
 
+  .worldnic-header__inner {
+    overflow: hidden;
+    transition:
+      padding 0.22s ease,
+      border-radius 0.22s ease,
+      box-shadow 0.22s ease,
+      gap 0.22s ease;
+  }
+
   .worldnic-header__left,
   .worldnic-header__actions,
   .worldnic-guest-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .worldnic-header__left {
+    align-items: flex-start;
+    flex-wrap: nowrap;
+  }
+
+  .worldnic-header__event {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .worldnic-header__event-actions {
+    gap: 0.45rem;
+  }
+
+  .worldnic-header__actions {
+    max-height: 12rem;
+    overflow: hidden;
+    transform: translateY(0);
+    opacity: 1;
+    transition:
+      max-height 0.24s ease,
+      margin-top 0.24s ease,
+      opacity 0.18s ease,
+      transform 0.24s ease;
+  }
+
+  .worldnic-header.is-compact {
+    padding-top: 0.6rem;
+  }
+
+  .worldnic-header.is-compact .worldnic-header__inner {
+    gap: 0;
+    padding: 0.72rem;
+    border-radius: 1.45rem;
+    box-shadow: 0 18px 34px rgba(20, 31, 56, 0.1);
+  }
+
+  .worldnic-header.is-compact .worldnic-header__actions {
+    max-height: 0;
+    margin-top: -0.85rem;
+    pointer-events: none;
+    transform: translateY(-0.75rem);
+    opacity: 0;
+  }
+
+  .worldnic-header.is-compact .worldnic-menu-btn {
+    width: 2.65rem;
+    height: 2.65rem;
   }
 
   .worldnic-search {
