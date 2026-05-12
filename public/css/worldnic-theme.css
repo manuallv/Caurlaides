@@ -32,6 +32,10 @@ textarea {
   font-family: "Inter", "Segoe UI", sans-serif;
 }
 
+.hidden {
+  display: none !important;
+}
+
 html {
   font-size: 15px;
   background: var(--wn-body);

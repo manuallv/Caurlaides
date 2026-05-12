@@ -243,7 +243,7 @@
               <span data-access-fullscreen-label><%= t('access.workspace.fullscreen') %></span>
             </button>
             <% if (isPass && canManage) { %>
-              <button type="button" class="btn-danger hidden" data-access-print-selected>
+              <button type="button" class="btn-danger" data-access-print-selected hidden>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M6 9V3h12v6" />
                   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -265,11 +265,11 @@
         <div class="access-table-frame__meta">
           <span class="toolbar-chip toolbar-chip-active" data-access-filtered-count-label><%= t('access.workspace.filteredCount', { count: filteredRequestCount }) %></span>
         </div>
-        <div class="px-5 py-12 text-center sm:px-6 <%= requests.length ? 'hidden' : '' %>" data-access-empty-state>
+        <div class="px-5 py-12 text-center sm:px-6" data-access-empty-state <%= requests.length ? 'hidden' : '' %>>
           <p class="text-sm text-slate-500"><%= t('access.workspace.noRequests') %></p>
         </div>
 
-        <div class="access-table-scroll <%= requests.length ? '' : 'hidden' %>" data-access-table-scroll>
+        <div class="access-table-scroll" data-access-table-scroll <%= requests.length ? '' : 'hidden' %>>
           <table class="access-admin-table" data-access-requests-table>
             <thead>
               <tr>

@@ -2560,7 +2560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (elements.printSelectedButton) {
-      elements.printSelectedButton.classList.toggle('hidden', !isVisible);
+      elements.printSelectedButton.hidden = !isVisible;
       elements.printSelectedButton.disabled = !isVisible;
     }
 
@@ -3322,11 +3322,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const { tableScroll, emptyState } = getAccessElements();
 
     if (tableScroll) {
-      tableScroll.classList.toggle('hidden', visibleCount === 0);
+      tableScroll.hidden = visibleCount === 0;
     }
 
     if (emptyState) {
-      emptyState.classList.toggle('hidden', visibleCount > 0);
+      emptyState.hidden = visibleCount > 0;
     }
   };
 
