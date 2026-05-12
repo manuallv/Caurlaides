@@ -178,7 +178,7 @@ function isRequestLockedForPortal(type, request = {}) {
   const displayState = resolveRequestDisplayState(type, request);
 
   if (type === 'pass') {
-    return displayState === 'entered';
+    return displayState === 'handed_out' || displayState === 'entered';
   }
 
   return displayState === 'handed_out';
@@ -193,6 +193,13 @@ function resolvePortalLockReason(type, request = {}, profile = {}) {
   const displayState = resolveRequestDisplayState(type, request);
 
   if (type === 'pass') {
+    if (displayState === 'handed_out') {
+      return {
+        code: 'passHandedOut',
+        at: resolveRequestDisplayStatusAt(type, request),
+      };
+    }
+
     if (displayState === 'entered') {
       return {
         code: 'passEntered',
