@@ -386,7 +386,7 @@ function buildPassPrintTemplateFromEvent(event, t) {
   };
 }
 
-function renderPassPrintBackground(document, backgroundPath, rotation = 0) {
+function renderPassPrintBackground(document, backgroundSource, rotation = 0) {
   const normalizedRotation = normalizePassPrintRotation(rotation);
 
   try {
@@ -395,26 +395,26 @@ function renderPassPrintBackground(document, backgroundPath, rotation = 0) {
     if (normalizedRotation === 90) {
       document.translate(document.page.width, 0);
       document.rotate(90, { origin: [0, 0] });
-      document.image(backgroundPath, 0, 0, {
+      document.image(backgroundSource, 0, 0, {
         width: document.page.height,
         height: document.page.width,
       });
     } else if (normalizedRotation === 180) {
       document.translate(document.page.width, document.page.height);
       document.rotate(180, { origin: [0, 0] });
-      document.image(backgroundPath, 0, 0, {
+      document.image(backgroundSource, 0, 0, {
         width: document.page.width,
         height: document.page.height,
       });
     } else if (normalizedRotation === 270) {
       document.translate(0, document.page.height);
       document.rotate(-90, { origin: [0, 0] });
-      document.image(backgroundPath, 0, 0, {
+      document.image(backgroundSource, 0, 0, {
         width: document.page.height,
         height: document.page.width,
       });
     } else {
-      document.image(backgroundPath, 0, 0, {
+      document.image(backgroundSource, 0, 0, {
         width: document.page.width,
         height: document.page.height,
       });
@@ -535,16 +535,16 @@ function renderPassPrintFieldText(document, field, request, event, textWidth) {
 }
 
 async function buildPassPrintPdfBuffer({ event, requests, template }) {
-  let backgroundPath = '';
+  let backgroundSource = template.backgroundBuffer || '';
 
-  if (template.backgroundPath) {
+  if (!backgroundSource && template.backgroundPath) {
     const candidatePath = buildPassPrintTemplateAbsolutePath(template.backgroundPath);
 
     try {
       await fs.access(candidatePath);
-      backgroundPath = candidatePath;
+      backgroundSource = candidatePath;
     } catch (error) {
-      backgroundPath = '';
+      backgroundSource = '';
     }
   }
 
@@ -569,11 +569,11 @@ async function buildPassPrintPdfBuffer({ event, requests, template }) {
         margin: 0,
       });
 
-      if (backgroundPath) {
-        const rendered = renderPassPrintBackground(document, backgroundPath, template.backgroundRotation);
+      if (backgroundSource) {
+        const rendered = renderPassPrintBackground(document, backgroundSource, template.backgroundRotation);
 
         if (!rendered) {
-          backgroundPath = '';
+          backgroundSource = '';
         }
       }
 
@@ -1596,6 +1596,64 @@ class AccessService {
         orientation,
         fields: templateFields,
       },
+    };
+  }
+
+  async previewPassPrintPdf(eventId, actorId, payload, backgroundImage, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const templateFields = sanitizePassPrintTemplateFields(payload.templateFields, tx);
+    const backgroundRotation = normalizePassPrintRotation(payload.backgroundRotation);
+    const orientation = normalizePassPrintOrientation(payload.templateOrientation);
+    const removeBackground = Boolean(payload.removeBackground);
+    let backgroundPath = removeBackground ? '' : (event.pass_print_template_background_path || '');
+    let backgroundBuffer = null;
+
+    if (backgroundImage?.buffer?.length) {
+      const fileExtension = PASS_PRINT_BACKGROUND_MIME_TYPES.get(backgroundImage.mimetype);
+
+      if (!fileExtension) {
+        throw new AppError(tx('service.passPrint.backgroundInvalid'), 422);
+      }
+
+      backgroundBuffer = backgroundImage.buffer;
+      backgroundPath = '';
+    }
+
+    const requests = await this.requestRepository.listAdminRequests(
+      eventId,
+      'pass',
+      { sort: 'newest' },
+      { limit: 1, randomOrder: true },
+    );
+
+    if (!requests.length) {
+      throw new AppError(tx('service.passPrint.noRequests'), 422);
+    }
+
+    const request = requests[0];
+    const timestamp = dayjs().format('YYYYMMDD-HHmm');
+    const baseFileName = sanitizeFileName(`${event.name}-preview-${request.id}-${timestamp}`);
+
+    return {
+      buffer: await buildPassPrintPdfBuffer({
+        event,
+        requests: [request],
+        template: {
+          backgroundPath,
+          backgroundBuffer,
+          backgroundRotation,
+          orientation,
+          fields: templateFields,
+        },
+      }),
+      filename: `${baseFileName}.pdf`,
+      contentType: 'application/pdf',
     };
   }
 

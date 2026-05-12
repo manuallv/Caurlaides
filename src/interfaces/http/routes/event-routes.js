@@ -71,6 +71,12 @@ function buildEventRoutes({ eventController, accessController }) {
     upload.single('backgroundImage'),
     asyncHandler(accessController.savePassPrintTemplate),
   );
+  router.post(
+    '/events/:eventId/passes/print/preview',
+    requireAuth,
+    upload.single('backgroundImage'),
+    asyncHandler(accessController.previewPassPrintPdf),
+  );
   router.get('/events/:eventId/passes/print/export', requireAuth, asyncHandler(accessController.exportPassPrintPdf));
   router.get('/events/:eventId/wristbands', requireAuth, asyncHandler(accessController.showTypePage));
   router.get(

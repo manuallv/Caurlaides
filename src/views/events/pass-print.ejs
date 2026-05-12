@@ -159,6 +159,14 @@
               </div>
 
               <% if (canManage) { %>
+                <button
+                  type="button"
+                  class="btn-secondary pass-print-toolbar__preview"
+                  data-pass-print-preview
+                  data-pass-print-preview-url="/events/<%= activeEvent.id %>/passes/print/preview"
+                >
+                  <%= t('passPrint.editor.previewPdf') %>
+                </button>
                 <button type="submit" class="btn-primary pass-print-toolbar__save"><%= t('passPrint.editor.saveTemplate') %></button>
               <% } %>
             </div>
@@ -397,6 +405,35 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="portal-modal pass-print-preview-modal" data-pass-print-preview-modal>
+    <button type="button" class="portal-modal__backdrop" data-pass-print-preview-close></button>
+    <div class="portal-modal__dialog portal-modal__dialog-wide shell-card" role="dialog" aria-modal="true" aria-labelledby="pass-print-preview-title">
+      <div class="portal-modal__header">
+        <div class="portal-modal__title-block">
+          <p class="worldnic-eyebrow"><%= t('passPrint.editor.previewModalEyebrow') %></p>
+          <h2 id="pass-print-preview-title"><%= t('passPrint.editor.previewModalTitle') %></h2>
+        </div>
+        <button type="button" class="table-icon-button" data-pass-print-preview-close aria-label="<%= t('passPrint.editor.previewClose') %>">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5 5 15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="pass-print-preview-modal__body">
+        <div class="pass-print-preview-modal__loading" data-pass-print-preview-loading>
+          <span class="portal-import-preview-loader__spinner"></span>
+          <div>
+            <strong><%= t('passPrint.editor.previewLoading') %></strong>
+            <p><%= t('passPrint.editor.previewLoadingHint') %></p>
+          </div>
+        </div>
+        <div class="pass-print-preview-modal__error hidden" data-pass-print-preview-error></div>
+        <iframe class="pass-print-preview-modal__frame hidden" title="<%= t('passPrint.editor.previewModalTitle') %>" data-pass-print-preview-frame></iframe>
       </div>
     </div>
   </div>

@@ -751,6 +751,31 @@ function buildAccessController({ categoryService, accessService }) {
       return res.redirect(`/events/${req.params.eventId}/passes/print`);
     },
 
+    async previewPassPrintPdf(req, res) {
+      try {
+        const previewFile = await accessService.previewPassPrintPdf(
+          req.params.eventId,
+          req.currentUser.id,
+          normalizePassPrintTemplatePayload(req.body),
+          req.file || null,
+          req.t,
+        );
+
+        res.setHeader('Content-Type', previewFile.contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${previewFile.filename}"`);
+        return res.send(previewFile.buffer);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          return res.status(error.statusCode || 422).json({
+            success: false,
+            error: error.message,
+          });
+        }
+
+        throw error;
+      }
+    },
+
     async exportPassPrintPdf(req, res) {
       try {
         const exportFile = await accessService.exportPassPrintPdf(

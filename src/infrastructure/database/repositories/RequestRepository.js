@@ -211,6 +211,12 @@ class RequestRepository {
       ? Number(options.offset)
       : 0;
     const paginationSql = limit ? ' LIMIT ? OFFSET ?' : '';
+    const orderSql = options.randomOrder
+      ? 'RAND()'
+      : `
+          request.created_at ${orderDirection},
+          request.id ${orderDirection}
+        `;
 
     if (limit) {
       queryParams.push(limit, offset);
@@ -245,9 +251,7 @@ class RequestRepository {
         LEFT JOIN users handed_out_by ON handed_out_by.id = request.handed_out_by_user_id
         LEFT JOIN users status_updated_by ON status_updated_by.id = request.status_updated_by_user_id
         WHERE ${whereSql}
-        ORDER BY
-          request.created_at ${orderDirection},
-          request.id ${orderDirection}
+        ORDER BY ${orderSql}
         ${paginationSql}
       `,
       queryParams,

@@ -925,6 +925,10 @@ document.addEventListener('DOMContentLoaded', () => {
       removeBackgroundButton: document.querySelector('[data-pass-print-remove-background-button]'),
       rotateBackgroundButton: document.querySelector('[data-pass-print-rotate-background]'),
       backgroundRotationValue: document.querySelector('[data-pass-print-background-rotation-value]'),
+      previewModal: document.querySelector('[data-pass-print-preview-modal]'),
+      previewFrame: document.querySelector('[data-pass-print-preview-frame]'),
+      previewLoading: document.querySelector('[data-pass-print-preview-loading]'),
+      previewError: document.querySelector('[data-pass-print-preview-error]'),
     };
   };
 
@@ -939,6 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
     backgroundRotation: 0,
     orientation: 'portrait',
     uploadedBackgroundUrl: '',
+    previewObjectUrl: '',
     drag: null,
   };
 
@@ -1584,6 +1589,139 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = payload?.redirectTo || response.url || window.location.href;
     } catch (error) {
       showLiveNotice(error.message || 'Request failed', 'error');
+    }
+  };
+
+  const closePassPrintPreviewModal = () => {
+    const { previewModal, previewFrame, previewLoading, previewError } = getPassPrintElements();
+
+    if (previewModal) {
+      previewModal.classList.remove('is-open');
+    }
+
+    if (previewFrame) {
+      previewFrame.src = '';
+      previewFrame.classList.add('hidden');
+    }
+
+    if (previewLoading) {
+      previewLoading.classList.add('hidden');
+    }
+
+    if (previewError) {
+      previewError.textContent = '';
+      previewError.classList.add('hidden');
+    }
+
+    if (passPrintEditorState.previewObjectUrl) {
+      window.URL.revokeObjectURL(passPrintEditorState.previewObjectUrl);
+      passPrintEditorState.previewObjectUrl = '';
+    }
+
+    document.body.classList.remove('portal-modal-open');
+  };
+
+  const openPassPrintPreviewModal = () => {
+    const { previewModal, previewFrame, previewLoading, previewError } = getPassPrintElements();
+
+    if (!previewModal) {
+      return;
+    }
+
+    if (previewFrame) {
+      previewFrame.src = '';
+      previewFrame.classList.add('hidden');
+    }
+
+    if (previewError) {
+      previewError.textContent = '';
+      previewError.classList.add('hidden');
+    }
+
+    if (previewLoading) {
+      previewLoading.classList.remove('hidden');
+    }
+
+    previewModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+  };
+
+  const showPassPrintPreviewError = (message) => {
+    const { previewFrame, previewLoading, previewError } = getPassPrintElements();
+
+    if (previewFrame) {
+      previewFrame.src = '';
+      previewFrame.classList.add('hidden');
+    }
+
+    if (previewLoading) {
+      previewLoading.classList.add('hidden');
+    }
+
+    if (previewError) {
+      previewError.textContent = message || 'Preview failed';
+      previewError.classList.remove('hidden');
+    }
+  };
+
+  const submitPassPrintPreview = async (trigger) => {
+    const { form, previewFrame, previewLoading, previewError } = getPassPrintElements();
+    const previewUrl = trigger?.dataset.passPrintPreviewUrl || '';
+
+    if (!form || !previewUrl) {
+      return;
+    }
+
+    syncPassPrintFieldsInput();
+    openPassPrintPreviewModal();
+
+    if (passPrintEditorState.previewObjectUrl) {
+      window.URL.revokeObjectURL(passPrintEditorState.previewObjectUrl);
+      passPrintEditorState.previewObjectUrl = '';
+    }
+
+    trigger.disabled = true;
+
+    try {
+      const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
+      const formData = new FormData(form);
+      const response = await fetch(previewUrl, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-Token': csrfValue,
+        },
+        credentials: 'same-origin',
+      });
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        const payload = contentType.includes('application/json') ? await response.json() : null;
+        throw new Error(payload?.error || 'Preview failed');
+      }
+
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      passPrintEditorState.previewObjectUrl = objectUrl;
+
+      if (previewError) {
+        previewError.textContent = '';
+        previewError.classList.add('hidden');
+      }
+
+      if (previewLoading) {
+        previewLoading.classList.add('hidden');
+      }
+
+      if (previewFrame) {
+        previewFrame.src = `${objectUrl}#view=FitH`;
+        previewFrame.classList.remove('hidden');
+      }
+    } catch (error) {
+      showPassPrintPreviewError(error.message || 'Preview failed');
+    } finally {
+      trigger.disabled = false;
     }
   };
 
@@ -4263,6 +4401,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAccessRequestModal();
       closeAccessExportModal();
       closeRequestProfileStatisticsModal();
+      closePassPrintPreviewModal();
     }
   });
 
@@ -4327,6 +4466,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (passPrintTabTrigger) {
       setPassPrintTab(passPrintTabTrigger.dataset.passPrintTab || 'editor');
+      return;
+    }
+
+    const passPrintPreviewCloseTrigger = closest('[data-pass-print-preview-close]');
+
+    if (passPrintPreviewCloseTrigger) {
+      closePassPrintPreviewModal();
+      return;
+    }
+
+    const passPrintPreviewTrigger = closest('[data-pass-print-preview]');
+
+    if (passPrintPreviewTrigger) {
+      await submitPassPrintPreview(passPrintPreviewTrigger);
       return;
     }
 
