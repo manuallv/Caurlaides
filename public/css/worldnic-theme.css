@@ -5848,7 +5848,7 @@ body.portal-modal-open {
 .pass-print-toolbar__main {
   display: grid;
   gap: 0.9rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
 }
 
@@ -6133,7 +6133,7 @@ body.is-pass-print-fullscreen {
   border: 1px dashed rgba(14, 116, 144, 0.58);
   border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.93);
-  color: #0f172a;
+  color: var(--pass-print-text-color, #0f172a);
   font-family: "PassPrintNotoSans", sans-serif;
   cursor: move;
   touch-action: none;

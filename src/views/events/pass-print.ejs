@@ -2,6 +2,11 @@
   const backgroundRotation = Number(template.backgroundRotation || 0);
   const normalizedBackgroundRotation = (((Math.round(backgroundRotation / 90) * 90) % 360) + 360) % 360;
   const templateOrientation = template.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const normalizeHexColor = (value, fallback = '#0f172a') => {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+  };
+  const templateTextColor = normalizeHexColor(template.textColor || (template.fields || []).find((field) => field.textColor)?.textColor);
   const pageWidthMm = templateOrientation === 'landscape' ? 297 : 210;
   const pageHeightMm = templateOrientation === 'landscape' ? 210 : 297;
   const backgroundFrame = (() => {
@@ -47,6 +52,7 @@
       backgroundUrl: template.backgroundUrl || '',
       backgroundRotation: normalizedBackgroundRotation,
       orientation: templateOrientation,
+      textColor: templateTextColor,
       fields: template.fields || [],
     },
     variables: variableDefinitions || [],
@@ -132,6 +138,18 @@
                   <option value="portrait" <%= templateOrientation === 'portrait' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.portrait') %></option>
                   <option value="landscape" <%= templateOrientation === 'landscape' ? 'selected' : '' %>><%= t('passPrint.editor.orientation.landscape') %></option>
                 </select>
+              </div>
+
+              <div>
+                <label class="field-label" for="pass-print-template-text-color"><%= t('passPrint.editor.textColor') %></label>
+                <input
+                  id="pass-print-template-text-color"
+                  type="color"
+                  class="field-input pass-print-color-input"
+                  value="<%= templateTextColor %>"
+                  data-pass-print-template-text-color
+                  <%= canManage ? '' : 'disabled' %>
+                />
               </div>
 
               <div>

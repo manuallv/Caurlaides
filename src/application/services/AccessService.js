@@ -383,6 +383,7 @@ function normalizePassPrintTemplateFields(rawFields) {
         variableFontWeight: normalizePassPrintFontWeight(rawField?.variableFontWeight, '700'),
         prefixFontSize: normalizePassPrintFontSize(prefixFontSize, Number.isFinite(fontSize) ? fontSize : 18),
         prefixFontWeight: normalizePassPrintFontWeight(rawField?.prefixFontWeight, '600'),
+        textColor: normalizePassPrintColor(rawField?.textColor),
         textAlign: normalizePassPrintTextAlign(rawField?.textAlign),
         borderEnabled: normalizePassPrintBoolean(rawField?.borderEnabled),
         borderColor: normalizePassPrintColor(rawField?.borderColor),
@@ -450,6 +451,7 @@ function sanitizePassPrintTemplateFields(rawFields, t) {
 
 function buildPassPrintTemplateFromEvent(event, t) {
   const tx = resolveTranslate(t);
+  const fields = normalizePassPrintTemplateFields(event.pass_print_template_fields_json || '[]');
 
   return {
     name: String(event.pass_print_template_name || '').trim() || tx('passPrint.defaultTemplateName'),
@@ -457,7 +459,8 @@ function buildPassPrintTemplateFromEvent(event, t) {
     backgroundUrl: buildPassPrintTemplatePublicUrl(event.pass_print_template_background_path),
     backgroundRotation: normalizePassPrintRotation(event.pass_print_template_background_rotation),
     orientation: normalizePassPrintOrientation(event.pass_print_template_orientation),
-    fields: normalizePassPrintTemplateFields(event.pass_print_template_fields_json || '[]'),
+    textColor: normalizePassPrintColor(fields.find((field) => field.textColor)?.textColor),
+    fields,
     updatedAt: event.pass_print_template_updated_at || null,
   };
 }
@@ -589,6 +592,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
   const prefixFontWeight = normalizePassPrintFontWeight(field.prefixFontWeight, '600');
   const variableFontWeight = normalizePassPrintFontWeight(field.variableFontWeight, '700');
   const textAlign = normalizePassPrintTextAlign(field.textAlign);
+  const textColor = normalizePassPrintColor(field.textColor);
 
   document.font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered)).fontSize(prefixFontSize);
   const prefixWidth = prefixText ? document.widthOfString(prefixText) : 0;
@@ -604,7 +608,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
     document
       .font(getPassPrintPdfFont(prefixFontWeight, customFontsRegistered))
       .fontSize(prefixFontSize)
-      .fillColor('#0f172a')
+      .fillColor(textColor)
       .text(prefixText, cursorX, 0, {
         lineBreak: false,
       });
@@ -615,7 +619,7 @@ function renderPassPrintFieldText(document, field, request, event, textWidth, cu
     document
       .font(getPassPrintPdfFont(variableFontWeight, customFontsRegistered))
       .fontSize(variableFontSize)
-      .fillColor('#0f172a')
+      .fillColor(textColor)
       .text(variableText, cursorX, 0, {
         lineBreak: false,
       });
