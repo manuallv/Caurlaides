@@ -337,6 +337,33 @@
                     </div>
                   </div>
 
+                  <div class="pass-print-inspector-section">
+                    <p class="worldnic-eyebrow"><%= t('passPrint.editor.borderStyle') %></p>
+                    <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                      <label class="pass-print-border-toggle" for="pass-print-field-border-enabled">
+                        <input
+                          id="pass-print-field-border-enabled"
+                          type="checkbox"
+                          data-pass-print-field-border-enabled
+                          <%= canManage ? '' : 'disabled' %>
+                        />
+                        <span><%= t('passPrint.editor.borderEnabled') %></span>
+                      </label>
+
+                      <div>
+                        <label class="field-label" for="pass-print-field-border-color"><%= t('passPrint.editor.borderColor') %></label>
+                        <input
+                          id="pass-print-field-border-color"
+                          type="color"
+                          class="field-input pass-print-color-input"
+                          value="#0f172a"
+                          data-pass-print-field-border-color
+                          <%= canManage ? '' : 'disabled' %>
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="pass-print-inspector-metrics">
                     <div class="pass-print-inspector-metric">
                       <span class="pass-print-inspector-metric__label"><%= t('passPrint.editor.positionX') %></span>

@@ -39,6 +39,7 @@ const PASS_PRINT_FIELD_TYPE_SET = new Set(PASS_PRINT_FIELD_DEFINITIONS.map((fiel
 const PASS_PRINT_ORIENTATION_SET = new Set(['portrait', 'landscape']);
 const PASS_PRINT_FONT_WEIGHT_SET = new Set(['400', '600', '700', '800']);
 const PASS_PRINT_TEXT_ALIGN_SET = new Set(['left', 'center', 'right']);
+const PASS_PRINT_HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -319,6 +320,8 @@ function normalizePassPrintTemplateFields(rawFields) {
         prefixFontSize: normalizePassPrintFontSize(prefixFontSize, Number.isFinite(fontSize) ? fontSize : 18),
         prefixFontWeight: normalizePassPrintFontWeight(rawField?.prefixFontWeight, '600'),
         textAlign: normalizePassPrintTextAlign(rawField?.textAlign),
+        borderEnabled: normalizePassPrintBoolean(rawField?.borderEnabled),
+        borderColor: normalizePassPrintColor(rawField?.borderColor),
         width: Number.isFinite(width) ? Math.min(Math.max(width, 0.08), 0.9) : 0.24,
         rotation: normalizedRotation,
       };
@@ -359,6 +362,15 @@ function normalizePassPrintFontWeight(value, fallback = '700') {
 function normalizePassPrintTextAlign(value) {
   const textAlign = String(value || '').trim();
   return PASS_PRINT_TEXT_ALIGN_SET.has(textAlign) ? textAlign : 'left';
+}
+
+function normalizePassPrintBoolean(value) {
+  return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+}
+
+function normalizePassPrintColor(value, fallback = '#0f172a') {
+  const color = String(value || '').trim();
+  return PASS_PRINT_HEX_COLOR_PATTERN.test(color) ? color.toLowerCase() : fallback;
 }
 
 function sanitizePassPrintTemplateFields(rawFields, t) {
@@ -529,6 +541,21 @@ function renderPassPrintFieldText(document, field, request, event, textWidth) {
       .text(variableText, cursorX, 0, {
         lineBreak: false,
       });
+  }
+
+  if (field.borderEnabled) {
+    const maxFontSize = Math.max(prefixFontSize, variableFontSize);
+    const borderY = Math.max(8, maxFontSize * 1.18);
+    document
+      .save()
+      .strokeColor(normalizePassPrintColor(field.borderColor))
+      .lineWidth(1.1)
+      .dash(1.4, { space: 3 })
+      .moveTo(0, borderY)
+      .lineTo(textWidth, borderY)
+      .stroke()
+      .undash()
+      .restore();
   }
 
   return true;

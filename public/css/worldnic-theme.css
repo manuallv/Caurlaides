@@ -5797,7 +5797,10 @@ body.portal-modal-open {
 }
 
 .pass-print-field__content {
+  display: block;
   line-height: 1.12;
+  border-bottom: 2px dotted transparent;
+  padding-bottom: 0.12rem;
 }
 
 .pass-print-field__prefix,
@@ -5808,6 +5811,10 @@ body.portal-modal-open {
 .pass-print-field__prefix.is-placeholder {
   color: #64748b;
   opacity: 0.82;
+}
+
+.pass-print-field__content.has-bottom-border {
+  border-bottom-color: var(--pass-print-border-color, #0f172a);
 }
 
 .pass-print-field__resize {
@@ -5866,6 +5873,31 @@ body.portal-modal-open {
   border-radius: 1.1rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(248, 250, 252, 0.68);
+}
+
+.pass-print-border-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.pass-print-border-toggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: #2563eb;
+}
+
+.pass-print-color-input {
+  min-height: 3rem;
+  padding: 0.35rem 0.45rem;
 }
 
 .pass-print-inspector-metric {

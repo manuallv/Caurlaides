@@ -914,6 +914,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fieldPrefixFontSize: document.querySelector('[data-pass-print-field-prefix-font-size]'),
       fieldPrefixFontWeight: document.querySelector('[data-pass-print-field-prefix-font-weight]'),
       fieldTextAlign: document.querySelector('[data-pass-print-field-text-align]'),
+      fieldBorderEnabled: document.querySelector('[data-pass-print-field-border-enabled]'),
+      fieldBorderColor: document.querySelector('[data-pass-print-field-border-color]'),
       fieldWidth: document.querySelector('[data-pass-print-field-width]'),
       positionX: document.querySelector('[data-pass-print-field-position-x]'),
       positionY: document.querySelector('[data-pass-print-field-position-y]'),
@@ -973,6 +975,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const normalizePassPrintFontSize = (value, fallback = 18) => {
     const fontSize = Number(value);
     return Number.isFinite(fontSize) ? Math.min(Math.max(fontSize, 8), 96) : fallback;
+  };
+
+  const normalizePassPrintColor = (value, fallback = '#0f172a') => {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
   };
 
   const getPassPrintPageDimensions = (orientation) => (
@@ -1086,6 +1093,8 @@ document.addEventListener('DOMContentLoaded', () => {
         prefixFontSize: normalizePassPrintFontSize(field.prefixFontSize ?? field.fontSize, 18),
         prefixFontWeight: normalizePassPrintFontWeight(field.prefixFontWeight, '600'),
         textAlign: normalizePassPrintTextAlign(field.textAlign),
+        borderEnabled: Boolean(field.borderEnabled),
+        borderColor: normalizePassPrintColor(field.borderColor),
         width: Number(field.width || 0.24),
         rotation: Number(field.rotation || 0),
       })),
@@ -1202,9 +1211,9 @@ document.addEventListener('DOMContentLoaded', () => {
         type="button"
         class="pass-print-field${field.id === passPrintEditorState.selectedId ? ' is-active' : ''}"
         data-pass-print-field-id="${escapeHtml(field.id || '')}"
-        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;--pass-print-rotation:${Number(field.rotation || 0)}deg;--pass-print-text-align:${normalizePassPrintTextAlign(field.textAlign)};"
+        style="left:${Number(field.x || 0) * 100}%;top:${Number(field.y || 0) * 100}%;width:${Number(field.width || 0.24) * 100}%;--pass-print-rotation:${Number(field.rotation || 0)}deg;--pass-print-text-align:${normalizePassPrintTextAlign(field.textAlign)};--pass-print-border-color:${normalizePassPrintColor(field.borderColor)};"
       >
-        <span class="pass-print-field__content">${getPassPrintFieldPreviewHtml(field)}</span>
+        <span class="pass-print-field__content${field.borderEnabled ? ' has-bottom-border' : ''}">${getPassPrintFieldPreviewHtml(field)}</span>
         <span class="pass-print-field__resize" data-pass-print-field-resize="${escapeHtml(field.id || '')}"></span>
       </button>
     `).join('');
@@ -1225,6 +1234,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fieldPrefixFontSize,
       fieldPrefixFontWeight,
       fieldTextAlign,
+      fieldBorderEnabled,
+      fieldBorderColor,
       fieldWidth,
       positionX,
       positionY,
@@ -1287,6 +1298,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fieldTextAlign) {
       fieldTextAlign.disabled = !canEdit;
       fieldTextAlign.value = hasSelection ? normalizePassPrintTextAlign(selectedField.textAlign) : 'left';
+    }
+
+    if (fieldBorderEnabled) {
+      fieldBorderEnabled.disabled = !canEdit;
+      fieldBorderEnabled.checked = hasSelection ? Boolean(selectedField.borderEnabled) : false;
+    }
+
+    if (fieldBorderColor) {
+      fieldBorderColor.disabled = !canEdit || !Boolean(selectedField?.borderEnabled);
+      fieldBorderColor.value = hasSelection ? normalizePassPrintColor(selectedField.borderColor) : '#0f172a';
     }
 
     if (fieldWidth) {
@@ -1361,6 +1382,8 @@ document.addEventListener('DOMContentLoaded', () => {
       prefixFontSize: 18,
       prefixFontWeight: '600',
       textAlign: 'left',
+      borderEnabled: false,
+      borderColor: '#0f172a',
       width: 0.24,
       rotation: 0,
     };
@@ -1538,6 +1561,8 @@ document.addEventListener('DOMContentLoaded', () => {
         prefixFontSize: normalizePassPrintFontSize(field.prefixFontSize ?? field.fontSize, 18),
         prefixFontWeight: normalizePassPrintFontWeight(field.prefixFontWeight, '600'),
         textAlign: normalizePassPrintTextAlign(field.textAlign),
+        borderEnabled: Boolean(field.borderEnabled),
+        borderColor: normalizePassPrintColor(field.borderColor),
         width: Number(field.width || 0.24),
         rotation: Number(field.rotation || 0),
       })),
@@ -4955,6 +4980,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (event.target.matches('[data-pass-print-field-border-enabled]')) {
+      upsertSelectedPassPrintField({
+        borderEnabled: event.target.checked,
+      });
+      return;
+    }
+
     if (event.target.matches('[data-pass-print-background-input]')) {
       handlePassPrintBackgroundChange(event.target.files?.[0] || null);
       return;
@@ -5016,6 +5048,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target.matches('[data-pass-print-field-prefix-font-size]')) {
       upsertSelectedPassPrintField({
         prefixFontSize: normalizePassPrintFontSize(event.target.value, 18),
+      });
+      return;
+    }
+
+    if (event.target.matches('[data-pass-print-field-border-color]')) {
+      upsertSelectedPassPrintField({
+        borderColor: normalizePassPrintColor(event.target.value),
       });
       return;
     }
