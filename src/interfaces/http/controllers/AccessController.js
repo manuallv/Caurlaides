@@ -785,8 +785,9 @@ function buildAccessController({ categoryService, accessService }) {
           req.t,
         );
 
+        const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment';
         res.setHeader('Content-Type', exportFile.contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${exportFile.filename}"`);
+        res.setHeader('Content-Disposition', `${disposition}; filename="${exportFile.filename}"`);
         return res.send(exportFile.buffer);
       } catch (error) {
         if (error instanceof AppError && error.statusCode < 500) {

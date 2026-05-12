@@ -411,7 +411,20 @@
                 </select>
               </div>
 
-              <button type="submit" class="btn-primary"><%= t('passPrint.printSubmit') %></button>
+              <div class="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  name="disposition"
+                  value="inline"
+                  class="btn-primary"
+                  formtarget="_blank"
+                >
+                  <%= t('passPrint.printOpen') %>
+                </button>
+                <button type="submit" name="disposition" value="attachment" class="btn-secondary">
+                  <%= t('passPrint.printDownload') %>
+                </button>
+              </div>
             </form>
           </div>
 
