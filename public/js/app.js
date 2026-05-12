@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(value).replace(/["\\]/g, '\\$&');
   };
 
+  const isAbortError = (error) => (
+    error?.name === 'AbortError'
+    || String(error?.message || '').toLowerCase().includes('aborted')
+  );
+
   const findClosestTarget = (target, selector) => {
     let current = target instanceof Element ? target : target?.parentElement || null;
 
@@ -368,7 +373,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      await refreshLiveSections();
+      try {
+        await refreshLiveSections();
+      } catch (error) {
+        if (!isAbortError(error)) {
+          throw error;
+        }
+      }
     } finally {
       setLiveSubmitterState(submitter, false);
     }
@@ -2747,6 +2758,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       if (printWindow) {
         printWindow.close();
+      }
+
+      if (isAbortError(error)) {
+        return;
       }
 
       showLiveNotice(error.message, 'error');
@@ -5750,6 +5765,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         resetAccessTypeForm();
       } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+
         showLiveNotice(error.message, 'error');
       }
     }
