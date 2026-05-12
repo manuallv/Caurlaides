@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let accessFullscreen = false;
   let selectedAccessPrintRequestIds = new Set();
   let refreshInProgress = false;
+  let pendingLiveRefresh = false;
   let liveFilterTimer = null;
   let activeRefreshController = null;
   let suppressSocketRefreshUntil = 0;
@@ -288,13 +289,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (refreshInProgress) {
+      pendingLiveRefresh = true;
       return;
     }
 
     refreshInProgress = true;
 
     try {
-      await refreshLiveSections(window.location.href, { abortPrevious: true });
+      do {
+        pendingLiveRefresh = false;
+        await refreshLiveSections(window.location.href, { abortPrevious: true });
+      } while (pendingLiveRefresh);
     } catch (error) {
       window.location.reload();
     } finally {
@@ -2737,6 +2742,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 60_000);
 
       clearAccessPrintSelection();
+      await triggerSocketLiveRefresh();
       showLiveNotice(ui.printSelectedSuccess || 'PDF opened for printing.', 'success');
     } catch (error) {
       if (printWindow) {
