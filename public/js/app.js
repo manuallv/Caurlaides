@@ -1245,8 +1245,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const removeLabel = app?.dataset.passPrintRemoveBackgroundLabel || 'Remove current background';
       const restoreLabel = app?.dataset.passPrintRestoreBackgroundLabel || 'Restore background';
       const canRemoveBackground = hasCurrentBackground || hasUploadedBackground;
+      const labelNode = removeBackgroundButton.querySelector('[data-pass-print-remove-background-label]');
 
-      removeBackgroundButton.textContent = removeMarked ? restoreLabel : removeLabel;
+      if (labelNode) {
+        labelNode.textContent = removeMarked ? restoreLabel : removeLabel;
+      } else {
+        removeBackgroundButton.textContent = removeMarked ? restoreLabel : removeLabel;
+      }
       removeBackgroundButton.disabled = !passPrintEditorState.canManage || !canRemoveBackground;
       removeBackgroundButton.classList.toggle('btn-danger', !removeMarked && canRemoveBackground);
       removeBackgroundButton.classList.toggle('btn-secondary', removeMarked || !canRemoveBackground);
