@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const dayjs = require('dayjs');
 const PDFDocument = require('pdfkit');
+const QRCode = require('qrcode');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 const { env } = require('../../config/env');
@@ -2276,9 +2277,21 @@ class AccessService {
           wristbandTotals = buildQuotaTotals(wristbandQuotaUsage);
         }
 
+        const inviteUrl = buildInviteUrl(profile.access_code);
+        const inviteQrDataUrl = await QRCode.toDataURL(inviteUrl, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 320,
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff',
+          },
+        });
+
         return {
           ...profile,
-          invite_url: buildInviteUrl(profile.access_code),
+          invite_url: inviteUrl,
+          invite_qr_data_url: inviteQrDataUrl,
           passQuotaUsage,
           wristbandQuotaUsage,
           passTotals,

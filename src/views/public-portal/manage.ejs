@@ -291,6 +291,19 @@
                       </td>
                       <td>
                         <div class="portal-row-actions">
+                          <button
+                            type="button"
+                            class="portal-action-button"
+                            data-portal-copy-request
+                            data-request-type="<%= request.request_type %>"
+                            data-category-id="<%= request.category_id %>"
+                            data-full-name="<%= request.full_name %>"
+                            data-company-name="<%= request.company_name || '' %>"
+                            data-phone="<%= request.phone || '' %>"
+                            data-email="<%= request.email || '' %>"
+                            data-notes="<%= request.notes || '' %>"
+                          ><%= t('portal.copyRequest') %></button>
+
                           <% if (request.isEditable) { %>
                             <button
                               type="button"

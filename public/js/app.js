@@ -2058,6 +2058,94 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   };
 
+  let activeTooltipTrigger = null;
+  let tooltipNode = null;
+  const tooltipTriggerSelector = '[data-tooltip], button[aria-label], a[aria-label], button[title], a[title]';
+
+  const getTooltipNode = () => {
+    if (!tooltipNode) {
+      tooltipNode = document.createElement('div');
+      tooltipNode.className = 'app-tooltip';
+      tooltipNode.setAttribute('role', 'tooltip');
+      document.body.appendChild(tooltipNode);
+    }
+
+    return tooltipNode;
+  };
+
+  const positionTooltip = (trigger) => {
+    if (!trigger || !tooltipNode) {
+      return;
+    }
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const tooltipRect = tooltipNode.getBoundingClientRect();
+    const viewportPadding = 10;
+    const gap = 9;
+    const placement = triggerRect.top > tooltipRect.height + gap + viewportPadding ? 'top' : 'bottom';
+    const centeredLeft = triggerRect.left + (triggerRect.width / 2);
+    const minLeft = viewportPadding + (tooltipRect.width / 2);
+    const maxLeft = window.innerWidth - viewportPadding - (tooltipRect.width / 2);
+    const left = Math.min(Math.max(centeredLeft, minLeft), maxLeft);
+    const top = placement === 'top'
+      ? triggerRect.top - tooltipRect.height - gap
+      : triggerRect.bottom + gap;
+
+    tooltipNode.dataset.placement = placement;
+    tooltipNode.style.left = `${left}px`;
+    tooltipNode.style.top = `${Math.max(viewportPadding, top)}px`;
+  };
+
+  const getTooltipText = (trigger) => {
+    if (!trigger) {
+      return '';
+    }
+
+    const titleText = String(trigger.getAttribute('title') || '').trim();
+
+    if (titleText) {
+      trigger.dataset.nativeTitle = titleText;
+      trigger.removeAttribute('title');
+    }
+
+    const tooltipText = String(trigger.dataset.tooltip || '').trim();
+    const ariaText = String(trigger.getAttribute('aria-label') || '').trim();
+    const text = tooltipText || ariaText || titleText;
+
+    if (text && !tooltipText) {
+      trigger.dataset.tooltip = text;
+    }
+
+    return text;
+  };
+
+  const showTooltip = (trigger) => {
+    const text = getTooltipText(trigger);
+
+    if (!text) {
+      return;
+    }
+
+    activeTooltipTrigger = trigger;
+    const node = getTooltipNode();
+    node.textContent = text;
+    node.classList.remove('is-visible');
+    positionTooltip(trigger);
+    window.requestAnimationFrame(() => {
+      positionTooltip(trigger);
+      node.classList.add('is-visible');
+    });
+  };
+
+  const hideTooltip = (trigger = null) => {
+    if (trigger && activeTooltipTrigger !== trigger) {
+      return;
+    }
+
+    activeTooltipTrigger = null;
+    tooltipNode?.classList.remove('is-visible');
+  };
+
   const parseContentDispositionFilename = (headerValue = '') => {
     if (!headerValue) {
       return '';
@@ -2156,6 +2244,13 @@ document.addEventListener('DOMContentLoaded', () => {
     rows: [...document.querySelectorAll('[data-request-profile-row]')],
     emptyRows: [...document.querySelectorAll('[data-request-profile-empty-row]')],
     statisticsModal: document.querySelector('[data-request-profile-statistics-modal]'),
+    qrModal: document.querySelector('[data-request-profile-qr-modal]'),
+    qrTitle: document.querySelector('[data-request-profile-qr-title]'),
+    qrCode: document.querySelector('[data-request-profile-qr-code]'),
+    qrImage: document.querySelector('[data-request-profile-qr-image]'),
+    qrLink: document.querySelector('[data-request-profile-qr-link]'),
+    qrCopy: document.querySelector('[data-request-profile-qr-copy]'),
+    qrDataScript: document.querySelector('[data-request-profile-qr-data]'),
     unlimitedToggle: document.querySelector('[data-request-profile-unlimited-toggle]'),
     quotaPanels: [...document.querySelectorAll('[data-request-profile-quotas]')],
     quotaInputs: [...document.querySelectorAll('[data-request-profile-quota-input]')],
@@ -2233,6 +2328,72 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasSearchWithoutResults = Boolean(query) && visibleCount === 0;
     list?.classList.toggle('hidden', hasSearchWithoutResults);
     emptyState?.classList.toggle('hidden', !hasSearchWithoutResults);
+  };
+
+  const openRequestProfileQrModal = (trigger) => {
+    const {
+      qrModal,
+      qrTitle,
+      qrCode,
+      qrImage,
+      qrLink,
+      qrCopy,
+      qrDataScript,
+    } = getRequestProfileElements();
+
+    if (!qrModal || !trigger) {
+      return;
+    }
+
+    const profileId = String(trigger.dataset.requestProfileId || '').trim();
+    let qrData = {};
+
+    if (profileId && qrDataScript?.textContent) {
+      try {
+        qrData = JSON.parse(qrDataScript.textContent || '{}')?.[profileId] || {};
+      } catch (error) {
+        qrData = {};
+      }
+    }
+
+    const profileName = String(qrData.name || trigger.dataset.requestProfileName || '').trim();
+    const inviteUrl = String(qrData.inviteUrl || trigger.dataset.requestProfileInviteUrl || '').trim();
+    const qrSrc = String(qrData.qrSrc || trigger.dataset.requestProfileQrSrc || '').trim();
+
+    if (qrTitle) {
+      qrTitle.textContent = profileName || qrTitle.textContent;
+    }
+
+    if (qrImage) {
+      qrImage.src = qrSrc;
+      qrImage.hidden = !qrSrc;
+    }
+
+    qrCode?.classList.toggle('hidden', !qrSrc);
+
+    if (qrLink) {
+      qrLink.href = inviteUrl || '#';
+      qrLink.textContent = inviteUrl;
+    }
+
+    if (qrCopy) {
+      qrCopy.dataset.copyText = inviteUrl;
+      qrCopy.disabled = !inviteUrl;
+    }
+
+    qrModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+  };
+
+  const closeRequestProfileQrModal = () => {
+    const { qrModal } = getRequestProfileElements();
+
+    if (!qrModal) {
+      return;
+    }
+
+    qrModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
   };
 
   const openRequestProfileStatisticsModal = () => {
@@ -4919,9 +5080,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activePortalWorkspaceView === 'request') {
       elements.workspaceTitle.textContent = activePortalRequestMode === 'edit'
         ? (ui.editRequestTitle || 'Edit request')
-        : activePortalRequestType === 'pass'
-          ? (ui.addPassTitle || 'Add pass')
-          : (ui.addWristbandTitle || 'Add wristband');
+        : activePortalRequestMode === 'copy'
+          ? (ui.copyRequestTitle || 'Copy request')
+          : activePortalRequestType === 'pass'
+            ? (ui.addPassTitle || 'Add pass')
+            : (ui.addWristbandTitle || 'Add wristband');
       elements.workspaceDescription.textContent = copy.requestDescription || '';
       return;
     }
@@ -4953,7 +5116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncPortalWorkspaceHeader();
   };
 
-  const fillCategoryOptions = (select, type, currentCategoryId = null) => {
+  const fillCategoryOptions = (select, type, currentCategoryId = null, options = {}) => {
     if (!select) {
       return;
     }
@@ -4965,14 +5128,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const source = type === 'pass' ? state.passQuotaUsage || [] : state.wristbandQuotaUsage || [];
+    const includeCurrentCategory = options.includeCurrentCategory !== false;
     const eligible = source.filter(
       (entry) => (
         entry.can_create !== false
-        || Number(entry.category_id) === Number(currentCategoryId)
+        || (includeCurrentCategory && Number(entry.category_id) === Number(currentCategoryId))
       ) && (
         entry.is_unlimited
         || Number(entry.remaining_count) > 0
-        || Number(entry.category_id) === Number(currentCategoryId)
+        || (includeCurrentCategory && Number(entry.category_id) === Number(currentCategoryId))
       ),
     );
     const explicitCategoryId = currentCategoryId ? String(currentCategoryId) : '';
@@ -5029,15 +5193,19 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.requestMethodHolder.innerHTML = '';
     }
 
-    if (mode === 'edit' && request) {
-      elements.requestForm.action = `/p/${type}/${request.id}?_method=PUT`;
-
+    if (request && (mode === 'edit' || mode === 'copy')) {
       setNamedFormFieldValue(elements.requestForm, 'fullName', request.fullName || '');
       setNamedFormFieldValue(elements.requestForm, 'companyName', request.companyName || '');
       setNamedFormFieldValue(elements.requestForm, 'phone', request.phone || '');
       setNamedFormFieldValue(elements.requestForm, 'email', request.email || '');
-      setNamedFormFieldValue(elements.requestForm, 'vehiclePlate', request.vehiclePlate || '');
+      setNamedFormFieldValue(elements.requestForm, 'vehiclePlate', mode === 'copy' ? '' : (request.vehiclePlate || ''));
       setNamedFormFieldValue(elements.requestForm, 'notes', request.notes || '');
+    }
+
+    if (mode === 'edit' && request) {
+      elements.requestForm.action = `/p/${type}/${request.id}?_method=PUT`;
+      fillCategoryOptions(elements.requestCategorySelect, type, request.categoryId);
+    } else if (mode === 'copy' && request) {
       fillCategoryOptions(elements.requestCategorySelect, type, request.categoryId);
     } else {
       fillCategoryOptions(elements.requestCategorySelect, type);
@@ -5309,6 +5477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (event.key === 'Escape') {
+      hideTooltip();
       closeAccessActionMenus();
       closeAccessProfileFilter();
       closeSidebar();
@@ -5318,8 +5487,59 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAccessRequestModal();
       closeAccessExportModal();
       closeRequestProfileStatisticsModal();
+      closeRequestProfileQrModal();
       closePassPrintPreviewModal();
       setPassPrintFullscreen(false);
+    }
+  });
+
+  document.addEventListener('pointerover', (event) => {
+    const trigger = findClosestTarget(event.target, tooltipTriggerSelector);
+
+    if (trigger && activeTooltipTrigger !== trigger) {
+      showTooltip(trigger);
+    }
+  });
+
+  document.addEventListener('pointerout', (event) => {
+    const trigger = findClosestTarget(event.target, tooltipTriggerSelector);
+    const nextTarget = event.relatedTarget;
+    const isMovingWithinTrigger = nextTarget instanceof Node && trigger?.contains(nextTarget);
+
+    if (trigger && !isMovingWithinTrigger) {
+      hideTooltip(trigger);
+    }
+  });
+
+  document.addEventListener('focusin', (event) => {
+    const trigger = findClosestTarget(event.target, tooltipTriggerSelector);
+
+    if (trigger) {
+      showTooltip(trigger);
+    }
+  });
+
+  document.addEventListener('focusout', (event) => {
+    const trigger = findClosestTarget(event.target, tooltipTriggerSelector);
+
+    if (trigger) {
+      hideTooltip(trigger);
+    }
+  });
+
+  document.addEventListener('pointerdown', () => {
+    hideTooltip();
+  });
+
+  window.addEventListener('scroll', () => {
+    if (activeTooltipTrigger) {
+      positionTooltip(activeTooltipTrigger);
+    }
+  }, true);
+
+  window.addEventListener('resize', () => {
+    if (activeTooltipTrigger) {
+      positionTooltip(activeTooltipTrigger);
     }
   });
 
@@ -5502,6 +5722,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (portalSummaryToggle) {
       togglePortalSummaryCard(portalSummaryToggle.closest('[data-portal-summary-card]'));
+      return;
+    }
+
+    const requestProfileQrOpenTrigger = closest('[data-request-profile-qr-open]');
+
+    if (requestProfileQrOpenTrigger) {
+      event.preventDefault();
+      openRequestProfileQrModal(requestProfileQrOpenTrigger);
+      return;
+    }
+
+    const requestProfileQrCloseTrigger = closest('[data-request-profile-qr-close]');
+
+    if (requestProfileQrCloseTrigger) {
+      event.preventDefault();
+      closeRequestProfileQrModal();
       return;
     }
 
@@ -5800,6 +6036,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (createTrigger) {
       openRequestPanel({
         type: createTrigger.dataset.requestType,
+      });
+      return;
+    }
+
+    const portalCopyTrigger = closest('[data-portal-copy-request]');
+
+    if (portalCopyTrigger) {
+      openRequestPanel({
+        type: portalCopyTrigger.dataset.requestType,
+        mode: 'copy',
+        request: {
+          categoryId: portalCopyTrigger.dataset.categoryId,
+          fullName: portalCopyTrigger.dataset.fullName,
+          companyName: portalCopyTrigger.dataset.companyName,
+          phone: portalCopyTrigger.dataset.phone,
+          email: portalCopyTrigger.dataset.email,
+          vehiclePlate: '',
+          notes: portalCopyTrigger.dataset.notes,
+        },
       });
       return;
     }

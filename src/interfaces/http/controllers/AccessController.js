@@ -1644,6 +1644,7 @@ function buildAccessController({ categoryService, accessService }) {
           ui: {
             noAvailableCategories: req.t('portal.import.noAvailableCategories'),
             editRequestTitle: req.t('portal.modal.editRequest'),
+            copyRequestTitle: req.t('portal.modal.copyRequest'),
             addPassTitle: req.t('portal.modal.addPass'),
             addWristbandTitle: req.t('portal.modal.addWristband'),
             addRequest: req.t('portal.addRequest'),

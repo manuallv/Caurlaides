@@ -1,3 +1,11 @@
+const { createTranslator } = require('../../../shared/i18n');
+
+function getRequestTranslator(req) {
+  return typeof req.t === 'function'
+    ? req.t
+    : createTranslator(req.locale || 'en');
+}
+
 function wantsJson(req) {
   return req.get('X-Requested-With') === 'XMLHttpRequest'
     || req.xhr
@@ -5,8 +13,10 @@ function wantsJson(req) {
 }
 
 function notFoundHandler(req, res) {
+  const t = getRequestTranslator(req);
+
   res.status(404).render('errors/404', {
-    pageTitle: req.t('errors.notFound.title'),
+    pageTitle: t('errors.notFound.title'),
   });
 }
 
@@ -15,11 +25,12 @@ function errorHandler(error, req, res, next) {
     return next(error);
   }
 
+  const t = getRequestTranslator(req);
   const isCsrfError = error.code === 'EBADCSRFTOKEN';
   const statusCode = error.statusCode || (isCsrfError ? 403 : 500);
   const message = isCsrfError
-    ? req.t('errors.csrf')
-    : error.message || req.t('errors.genericMessage');
+    ? t('errors.csrf')
+    : error.message || t('errors.genericMessage');
 
   if (statusCode >= 500) {
     console.error(error);
@@ -33,7 +44,7 @@ function errorHandler(error, req, res, next) {
   }
 
   res.status(statusCode).render('errors/error', {
-    pageTitle: req.t('errors.generic.title'),
+    pageTitle: t('errors.generic.title'),
     statusCode,
     message,
     currentUser: req.currentUser || null,
@@ -43,7 +54,7 @@ function errorHandler(error, req, res, next) {
     currentPath: req.originalUrl || '',
     csrfToken: '',
     locale: req.locale || 'en',
-    t: req.t,
+    t,
     supportedLocales: res.locals.supportedLocales || ['en', 'lv'],
     flash: {
       success: req.flash ? req.flash('success') : [],

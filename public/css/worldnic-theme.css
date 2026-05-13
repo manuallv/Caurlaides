@@ -3372,17 +3372,60 @@ body.portal-modal-open {
   stroke-linejoin: round;
 }
 
-.request-profile-statistics-modal {
+.request-profile-statistics-modal,
+.request-profile-qr-modal {
   align-items: flex-start;
   padding-top: clamp(1rem, 6vh, 3.2rem);
   padding-bottom: 1rem;
 }
 
-.request-profile-statistics-modal .portal-modal__backdrop {
+.request-profile-statistics-modal .portal-modal__backdrop,
+.request-profile-qr-modal .portal-modal__backdrop {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.08) 28%, rgba(15, 23, 42, 0.06));
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
+}
+
+.request-profile-qr-modal .portal-modal__dialog {
+  width: min(100%, 30rem);
+}
+
+.request-profile-qr-shell {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  padding-top: 1rem;
+  text-align: center;
+}
+
+.request-profile-qr-shell > p {
+  max-width: 24rem;
+  color: #64748b;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.request-profile-qr-code {
+  padding: 0.85rem;
+  border: 1px solid rgba(205, 215, 230, 0.95);
+  border-radius: 1.1rem;
+  background: #fff;
+  box-shadow: var(--wn-shadow-sm);
+}
+
+.request-profile-qr-code img {
+  display: block;
+  width: min(18rem, 72vw);
+  height: auto;
+}
+
+.request-profile-qr-link {
+  max-width: 100%;
+  color: var(--wn-primary);
+  font-size: 0.9rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .request-profile-statistics-shell {
@@ -3674,6 +3717,38 @@ body.portal-modal-open {
   border-color: rgba(0, 116, 255, 0.65);
   background: linear-gradient(180deg, #19b8d4 0%, var(--wn-primary) 100%);
   transform: none;
+}
+
+.app-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(18rem, calc(100vw - 2rem));
+  padding: 0.46rem 0.68rem;
+  border-radius: 0.68rem;
+  background: rgba(15, 23, 42, 0.96);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, -0.35rem, 0);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.app-tooltip.is-visible {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+}
+
+.app-tooltip[data-placement="bottom"] {
+  transform: translate3d(-50%, 0.35rem, 0);
+}
+
+.app-tooltip[data-placement="bottom"].is-visible {
+  transform: translate3d(-50%, 0, 0);
 }
 
 .request-profile-empty {

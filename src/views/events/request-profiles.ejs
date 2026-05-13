@@ -1,6 +1,25 @@
 <%
   const passCategoryStats = profileCategoryStats?.pass || [];
   const wristbandCategoryStats = profileCategoryStats?.wristband || [];
+  const tr = (key, fallback, params) => {
+    const value = t(key, params);
+    return value === key ? fallback : value;
+  };
+  const qrJsonEscapeMap = {
+    '<': '\\u003c',
+    '>': '\\u003e',
+    '&': '\\u0026',
+    '\u2028': '\\u2028',
+    '\u2029': '\\u2029',
+  };
+  const requestProfileQrJson = JSON.stringify(Object.fromEntries(profiles.map((profile) => [
+    String(profile.id),
+    {
+      name: profile.name || '',
+      inviteUrl: profile.invite_url || '',
+      qrSrc: profile.invite_qr_data_url || '',
+    },
+  ]))).replace(/[<>&\u2028\u2029]/g, (char) => qrJsonEscapeMap[char]);
 %>
 <section class="request-profile-page request-profile-page--list space-y-6">
   <section class="shell-card request-profile-table-card">
@@ -35,7 +54,7 @@
             class="btn-secondary request-profile-application-link-group__copy"
             data-copy-text="<%= profileApplicationUrl %>"
             data-copy-success-message="<%= t('requestProfileApplications.copySuccess') %>"
-            title="<%= t('requestProfileApplications.copyPublicLink') %>"
+            data-tooltip="<%= t('requestProfileApplications.copyPublicLink') %>"
             aria-label="<%= t('requestProfileApplications.copyPublicLink') %>"
           >
             <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -134,7 +153,8 @@
                   <a
                     href="/events/<%= activeEvent.id %>/request-profiles/<%= profile.id %>/edit"
                     class="table-icon-button"
-                    title="<%= t('requestProfiles.editProfile') %>"
+                    data-tooltip="<%= t('requestProfiles.editProfile') %>"
+                    aria-label="<%= t('requestProfiles.editProfile') %>"
                   >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                       <path d="M13.85 2.85a1.8 1.8 0 0 1 2.55 2.55l-8.1 8.1-3.38.83.84-3.38zm1.42 1.13-1.7-1.7" />
@@ -150,7 +170,7 @@
                     <button
                       type="submit"
                       class="table-icon-button"
-                      title="<%= profile.contact_email ? t('requestProfiles.sendInviteEmail') : t('requestProfiles.sendInviteEmailMissing') %>"
+                      data-tooltip="<%= profile.contact_email ? t('requestProfiles.sendInviteEmail') : t('requestProfiles.sendInviteEmailMissing') %>"
                       aria-label="<%= profile.contact_email ? t('requestProfiles.sendInviteEmail') : t('requestProfiles.sendInviteEmailMissing') %>"
                       <%= profile.contact_email ? '' : 'disabled' %>
                     >
@@ -164,9 +184,26 @@
                   <button
                     type="button"
                     class="table-icon-button"
+                    data-request-profile-qr-open
+                    data-request-profile-id="<%= profile.id %>"
+                    data-request-profile-name="<%= profile.name %>"
+                    data-request-profile-invite-url="<%= profile.invite_url %>"
+                    data-tooltip="<%= tr('requestProfiles.showQr', 'Rādīt QR kodu') %>"
+                    aria-label="<%= tr('requestProfiles.showQr', 'Rādīt QR kodu') %>"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3z" />
+                      <path d="M12 12h2v2h-2zM15 12h2v5h-2zM12 15h2v2h-2z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="table-icon-button"
                     data-copy-text="<%= profile.invite_url %>"
                     data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
-                    title="<%= t('requestProfiles.copyInviteLink') %>"
+                    data-tooltip="<%= t('requestProfiles.copyInviteLink') %>"
+                    aria-label="<%= t('requestProfiles.copyInviteLink') %>"
                   >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                       <path d="M7 3.5A2.5 2.5 0 0 1 9.5 1h6A2.5 2.5 0 0 1 18 3.5v6A2.5 2.5 0 0 1 15.5 12h-6A2.5 2.5 0 0 1 7 9.5zM4.5 6A2.5 2.5 0 0 0 2 8.5v6A2.5 2.5 0 0 0 4.5 17h6A2.5 2.5 0 0 0 13 14.5V14" />
@@ -178,7 +215,8 @@
                     target="_blank"
                     rel="noreferrer"
                     class="table-icon-button"
-                    title="<%= t('requestProfiles.openInviteLink') %>"
+                    data-tooltip="<%= t('requestProfiles.openInviteLink') %>"
+                    aria-label="<%= t('requestProfiles.openInviteLink') %>"
                   >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                       <path d="M11 3h6v6M10 10l7-7M16 11v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" />
@@ -199,6 +237,48 @@
     </div>
   </section>
 
+  <script type="application/json" data-request-profile-qr-data><%- requestProfileQrJson %></script>
+
+  <div class="portal-modal request-profile-qr-modal" data-request-profile-qr-modal>
+    <button type="button" class="portal-modal__backdrop" data-request-profile-qr-close></button>
+    <div class="portal-modal__dialog shell-card" role="dialog" aria-modal="true" aria-labelledby="request-profile-qr-title">
+      <div class="portal-modal__header">
+        <div class="portal-modal__title-block">
+          <p class="worldnic-eyebrow"><%= tr('requestProfiles.qrEyebrow', 'Profila QR') %></p>
+          <h2 id="request-profile-qr-title" data-request-profile-qr-title><%= tr('requestProfiles.qrTitle', 'Profila piekļuves QR') %></h2>
+        </div>
+        <button
+          type="button"
+          class="table-icon-button"
+          data-request-profile-qr-close
+          data-tooltip="<%= tr('requestProfiles.qrClose', 'Aizvērt QR kodu') %>"
+          aria-label="<%= tr('requestProfiles.qrClose', 'Aizvērt QR kodu') %>"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5 5 15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="request-profile-qr-shell">
+        <p><%= tr('requestProfiles.qrDescription', 'Noskenē šo QR kodu, lai atvērtu tiešo profila ielūguma linku.') %></p>
+        <div class="request-profile-qr-code" data-request-profile-qr-code>
+          <img src="" alt="<%= tr('requestProfiles.qrAlt', 'QR kods profila ielūguma linkam') %>" data-request-profile-qr-image />
+        </div>
+        <a href="#" target="_blank" rel="noreferrer" class="request-profile-qr-link" data-request-profile-qr-link></a>
+        <button
+          type="button"
+          class="btn-secondary"
+          data-request-profile-qr-copy
+          data-copy-text=""
+          data-copy-success-message="<%= t('requestProfiles.copySuccess') %>"
+        >
+          <%= t('requestProfiles.copyInviteLink') %>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="portal-modal request-profile-statistics-modal" data-request-profile-statistics-modal>
     <button type="button" class="portal-modal__backdrop" data-request-profile-statistics-close></button>
     <div class="portal-modal__dialog portal-modal__dialog-wide shell-card" role="dialog" aria-modal="true" aria-labelledby="request-profile-statistics-title">
@@ -211,7 +291,7 @@
           type="button"
           class="table-icon-button"
           data-request-profile-statistics-close
-          title="<%= t('requestProfiles.statistics.close') %>"
+          data-tooltip="<%= t('requestProfiles.statistics.close') %>"
           aria-label="<%= t('requestProfiles.statistics.close') %>"
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
