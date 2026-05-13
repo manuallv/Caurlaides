@@ -80,6 +80,7 @@ function normalizeRequestProfilePayload(body) {
     contactPhone: body.contactPhone || null,
     notifyContactOnCreate: body.notifyContactOnCreate === 'on',
     unlimitedQuota: body.unlimitedQuota === 'on',
+    allowDuplicateVehiclePlates: body.allowDuplicateVehiclePlates === 'on',
     notes: body.notes || null,
     isActive: body.isActive === 'on',
     passQuota: normalizeBracketMap(body, 'passQuota'),
@@ -105,6 +106,7 @@ function normalizeRequestProfileApplicationDecisionPayload(body) {
     contactPhone: body.contactPhone,
     notes: Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : undefined,
     reason: body.reason || null,
+    allowDuplicateVehiclePlates: body.allowDuplicateVehiclePlates === 'on',
     passQuota: normalizeBracketMap(body, 'passQuota'),
     wristbandQuota: normalizeBracketMap(body, 'wristbandQuota'),
   };

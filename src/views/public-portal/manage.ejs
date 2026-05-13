@@ -265,12 +265,12 @@
                       data-sort-created="<%= new Date(request.created_at || request.updated_at).getTime() || 0 %>"
                       data-sort-updated="<%= new Date(request.updated_at).getTime() || 0 %>"
                     >
-                      <td>
+                      <td data-cell-label="<%= t('portal.table.type') %>">
                         <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
                           <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>
                         </span>
                       </td>
-                      <td>
+                      <td data-cell-label="<%= t('portal.table.name') %>">
                         <div class="portal-person-cell">
                           <p class="portal-person-cell__title"><%= request.full_name %></p>
                           <% if (request.email) { %>
@@ -281,15 +281,15 @@
                           <% } %>
                         </div>
                       </td>
-                      <td><div class="portal-data-cell"><%= request.category_name %></div></td>
-                      <td><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
-                      <td><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
-                      <td>
+                      <td data-cell-label="<%= t('portal.table.category') %>"><div class="portal-data-cell"><%= request.category_name %></div></td>
+                      <td data-cell-label="<%= t('portal.table.company') %>"><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
+                      <td data-cell-label="<%= t('portal.table.phone') %>"><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
+                      <td data-cell-label="<%= t('portal.table.status') %>">
                         <div class="portal-status-stack">
                           <span class="portal-status-pill <%= statusToneClass %>"><%= t(request.display_status_label_key || `statuses.${request.status}`) %></span>
                         </div>
                       </td>
-                      <td>
+                      <td data-cell-label="<%= t('portal.table.actions') %>">
                         <div class="portal-row-actions">
                           <button
                             type="button"

@@ -85,6 +85,37 @@ function hasAssignedRequestProfileQuota(passQuotas = [], wristbandQuotas = []) {
   return passQuotas.length > 0 || wristbandQuotas.length > 0;
 }
 
+function isFlagEnabled(value) {
+  return value === true || value === '1' || Number(value) === 1;
+}
+
+function resolveVehiclePlateDuplicatePolicy(profile = {}) {
+  const requestProfileId = Number(profile?.id || profile?.requestProfileId || profile?.request_profile_id || 0);
+
+  return {
+    requestProfileId,
+    allowDuplicateVehiclePlates: requestProfileId > 0 && isFlagEnabled(
+      profile?.allow_duplicate_vehicle_plates ?? profile?.allowDuplicateVehiclePlates,
+    ),
+  };
+}
+
+function isVehiclePlateConflict(request, excludeRequestId, policy = {}) {
+  if (Number(request.id) === Number(excludeRequestId || 0)) {
+    return false;
+  }
+
+  if (
+    policy.allowDuplicateVehiclePlates
+    && Number(policy.requestProfileId || 0) > 0
+    && Number(request.request_profile_id || 0) === Number(policy.requestProfileId)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase() || null;
 }
@@ -2551,6 +2582,7 @@ class AccessService {
         contactEmail,
         contactPhone,
         notifyContactOnCreate: true,
+        allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
         notes: notes || null,
         isActive: 1,
       });
@@ -2588,6 +2620,7 @@ class AccessService {
             name: profileName,
             contactEmail,
             contactPhone,
+            allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates ? 1 : 0,
             passQuotas,
             wristbandQuotas,
           },
@@ -2767,6 +2800,7 @@ class AccessService {
         contactEmail,
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
+        allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
@@ -2799,6 +2833,7 @@ class AccessService {
             contactEmail,
             contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
             notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
+            allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates ? 1 : 0,
             isUnlimitedQuota: isUnlimitedQuota ? 1 : 0,
             passQuotas: sanitizedPassQuotas,
             wristbandQuotas: sanitizedWristbandQuotas,
@@ -2902,6 +2937,7 @@ class AccessService {
         contactEmail,
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
+        allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
@@ -2937,6 +2973,7 @@ class AccessService {
             contactEmail,
             contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
             notifyContactOnCreate: payload.notifyContactOnCreate ? 1 : 0,
+            allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates ? 1 : 0,
             isUnlimitedQuota: isUnlimitedQuota ? 1 : 0,
             passQuotas: sanitizedPassQuotas,
             wristbandQuotas: sanitizedWristbandQuotas,
@@ -3438,7 +3475,14 @@ class AccessService {
     }
 
     assertPassVehiclePlateRequired(type, normalizedPayload.vehiclePlateNormalized, tx);
-    await this.assertVehiclePlateAvailable(eventId, type, normalizedPayload.vehiclePlateNormalized, null, tx);
+    await this.assertVehiclePlateAvailable(
+      eventId,
+      type,
+      normalizedPayload.vehiclePlateNormalized,
+      null,
+      tx,
+      resolveVehiclePlateDuplicatePolicy(profile),
+    );
 
     let requestId = null;
     const connection = await this.pool.getConnection();
@@ -3544,6 +3588,7 @@ class AccessService {
       normalizedPayload.vehiclePlateNormalized,
       requestId,
       tx,
+      resolveVehiclePlateDuplicatePolicy(profile),
     );
 
     const connection = await this.pool.getConnection();
@@ -3795,6 +3840,7 @@ class AccessService {
       payload.vehiclePlateNormalized,
       null,
       tx,
+      resolveVehiclePlateDuplicatePolicy(portal.profile),
     );
     await this.assertPortalRequestAllowed(portal.profile, type, payload.categoryId, null, tx);
 
@@ -3875,6 +3921,7 @@ class AccessService {
       normalizedPayload.vehiclePlateNormalized,
       requestId,
       tx,
+      resolveVehiclePlateDuplicatePolicy(portal.profile),
     );
     await this.assertPortalRequestAllowed(portal.profile, type, normalizedPayload.categoryId, requestId, tx);
 
@@ -4048,6 +4095,7 @@ class AccessService {
       throw new AppError(tx('service.portal.importEmpty'), 422);
     }
 
+    const duplicatePolicy = resolveVehiclePlateDuplicatePolicy(portal.profile);
     const seenVehiclePlates = new Set();
     const rows = rawRows.map((row, index) => {
       const normalizedRow = normalizeImportRow(row, index, portal.profile.name);
@@ -4082,7 +4130,7 @@ class AccessService {
         errors.push(tx('validation.portal.vehiclePlateRequired'));
       }
 
-      if (type === 'pass' && normalizedVehiclePlate) {
+      if (type === 'pass' && normalizedVehiclePlate && !duplicatePolicy.allowDuplicateVehiclePlates) {
         if (seenVehiclePlates.has(normalizedVehiclePlate)) {
           errors.push(tx('service.vehicleEntry.duplicatePlate'));
         } else {
@@ -4107,13 +4155,13 @@ class AccessService {
           continue;
         }
 
-        // Prevent ambiguous scanner matches before the user confirms import.
+        // Apply the same vehicle plate policy during preview and final import.
         const existingRequests = await this.requestRepository.listPassesByVehiclePlate(
           portal.profile.event_id,
           row.vehiclePlateNormalized,
         );
 
-        if (existingRequests.length) {
+        if (existingRequests.some((request) => isVehiclePlateConflict(request, null, duplicatePolicy))) {
           row.errors.push(tx('service.vehicleEntry.duplicatePlate'));
         }
       }
@@ -4216,6 +4264,7 @@ class AccessService {
     try {
       await connection.beginTransaction();
 
+      const duplicatePolicy = resolveVehiclePlateDuplicatePolicy(portal.profile);
       const seenVehiclePlates = new Set();
 
       for (const row of importBatch.rows) {
@@ -4223,7 +4272,7 @@ class AccessService {
 
         assertPassVehiclePlateRequired(importBatch.type, normalizedVehiclePlate, tx);
 
-        if (normalizedVehiclePlate) {
+        if (normalizedVehiclePlate && !duplicatePolicy.allowDuplicateVehiclePlates) {
           if (seenVehiclePlates.has(normalizedVehiclePlate)) {
             throw new AppError(tx('service.vehicleEntry.duplicatePlate'), 409);
           }
@@ -4237,6 +4286,7 @@ class AccessService {
           normalizedVehiclePlate,
           null,
           tx,
+          duplicatePolicy,
         );
 
         const requestId = await this.requestRepository.create(connection, importBatch.type, {
@@ -4911,7 +4961,7 @@ class AccessService {
     }
   }
 
-  async assertVehiclePlateAvailable(eventId, type, vehiclePlateNormalized, excludeRequestId, t) {
+  async assertVehiclePlateAvailable(eventId, type, vehiclePlateNormalized, excludeRequestId, t, policy = {}) {
     const tx = resolveTranslate(t);
 
     if (type !== 'pass' || !vehiclePlateNormalized) {
@@ -4919,9 +4969,7 @@ class AccessService {
     }
 
     const matches = await this.requestRepository.listPassesByVehiclePlate(eventId, vehiclePlateNormalized);
-    const conflictingRequest = matches.find(
-      (request) => Number(request.id) !== Number(excludeRequestId || 0),
-    );
+    const conflictingRequest = matches.find((request) => isVehiclePlateConflict(request, excludeRequestId, policy));
 
     if (conflictingRequest) {
       throw new AppError(tx('service.vehicleEntry.duplicatePlate'), 409);

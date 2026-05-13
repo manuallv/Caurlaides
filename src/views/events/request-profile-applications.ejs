@@ -141,7 +141,11 @@
 
             <% if (application.status === 'pending') { %>
               <div class="request-profile-application-actions request-profile-application-actions--primary">
-                <form action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/approve" method="POST">
+                <form
+                  action="/events/<%= activeEvent.id %>/request-profile-applications/<%= application.id %>/approve"
+                  method="POST"
+                  class="request-profile-application-approve-form"
+                >
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                   <% passCategories.forEach((category) => { %>
                     <input type="hidden" name="passQuota[category_<%= category.id %>]" value="<%= application.requestedPassQuotaMap[Number(category.id)] || 0 %>" />
@@ -149,6 +153,10 @@
                   <% wristbandCategories.forEach((category) => { %>
                     <input type="hidden" name="wristbandQuota[category_<%= category.id %>]" value="<%= application.requestedWristbandQuotaMap[Number(category.id)] || 0 %>" />
                   <% }) %>
+                  <label class="request-profile-toggle request-profile-application-duplicate-toggle">
+                    <input type="checkbox" name="allowDuplicateVehiclePlates" />
+                    <span><%= t('requestProfiles.fields.allowDuplicateVehiclePlates') %></span>
+                  </label>
                   <button type="submit" class="btn-primary"><%= t('requestProfileApplications.approve') %></button>
                 </form>
 
@@ -216,6 +224,14 @@
                             class="field-input"
                             placeholder="<%= t('requestProfileApplications.notesPlaceholder') %>"
                           ><%= application.notes || '' %></textarea>
+                        </label>
+
+                        <label class="request-profile-toggle request-profile-toggle--wide request-profile-application-form__full">
+                          <input type="checkbox" name="allowDuplicateVehiclePlates" />
+                          <span>
+                            <strong><%= t('requestProfiles.fields.allowDuplicateVehiclePlates') %></strong>
+                            <small><%= t('requestProfiles.fields.allowDuplicateVehiclePlatesHelp') %></small>
+                          </span>
                         </label>
                       </div>
                     </section>

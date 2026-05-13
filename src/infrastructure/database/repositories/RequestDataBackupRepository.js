@@ -16,6 +16,7 @@ const REQUEST_PROFILE_COLUMNS = [
   'access_code_hash',
   'max_people',
   'is_unlimited_quota',
+  'allow_duplicate_vehicle_plates',
   'contact_email',
   'contact_phone',
   'notify_contact_on_create',
@@ -148,6 +149,10 @@ function serializeJsonColumn(value) {
 }
 
 function normalizeValue(column, value) {
+  if (column === 'allow_duplicate_vehicle_plates' && (value === undefined || value === null || value === '')) {
+    return 0;
+  }
+
   if (value === undefined) {
     return null;
   }
@@ -219,6 +224,7 @@ function backupCurrentRequestProfileSql() {
         'access_code_hash', profile.access_code_hash,
         'max_people', profile.max_people,
         'is_unlimited_quota', profile.is_unlimited_quota,
+        'allow_duplicate_vehicle_plates', profile.allow_duplicate_vehicle_plates,
         'notes', profile.notes,
         'notify_contact_on_create', profile.notify_contact_on_create,
         'is_active', profile.is_active,

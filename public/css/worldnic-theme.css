@@ -3970,6 +3970,19 @@ body.portal-modal-open {
   margin: 0;
 }
 
+.request-profile-application-approve-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.request-profile-application-duplicate-toggle {
+  min-height: 3rem;
+  width: auto;
+}
+
 .request-profile-application-edit {
   display: block;
   width: auto;
@@ -5340,6 +5353,14 @@ body.portal-modal-open {
     width: 100%;
   }
 
+  .request-profile-application-approve-form {
+    justify-content: stretch;
+  }
+
+  .request-profile-application-duplicate-toggle {
+    width: 100%;
+  }
+
   .worldnic-menu-btn {
     display: inline-flex;
     width: 2.95rem;
@@ -5718,6 +5739,111 @@ body.portal-modal-open {
   .portal-table-search svg {
     width: 0.9rem;
     height: 0.9rem;
+  }
+
+  .portal-table-scroll {
+    overflow-x: visible;
+    padding-top: 0.75rem;
+  }
+
+  .portal-requests-table,
+  .portal-requests-table tbody,
+  .portal-request-row,
+  .portal-request-row td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .portal-requests-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .portal-requests-table colgroup,
+  .portal-requests-table thead {
+    display: none;
+  }
+
+  .portal-requests-table tbody {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .portal-request-row {
+    padding: 0.9rem;
+    border: 1px solid rgba(205, 215, 230, 0.86);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--wn-shadow-sm);
+  }
+
+  .portal-request-row.hidden {
+    display: none;
+  }
+
+  .portal-request-row td {
+    display: grid;
+    grid-template-columns: minmax(6.6rem, 0.38fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid rgba(223, 229, 240, 0.72);
+  }
+
+  .portal-request-row td:first-child {
+    padding-top: 0;
+  }
+
+  .portal-request-row td:last-child {
+    grid-template-columns: 1fr;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .portal-request-row td::before {
+    content: attr(data-cell-label);
+    color: #7a89a0;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  .portal-request-row td:last-child::before {
+    margin-bottom: -0.1rem;
+  }
+
+  .portal-person-cell__title {
+    font-size: 0.98rem;
+  }
+
+  .portal-type-pill,
+  .portal-status-pill {
+    justify-self: start;
+  }
+
+  .portal-row-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    width: 100%;
+  }
+
+  .portal-row-actions form,
+  .portal-row-actions .portal-action-button,
+  .portal-row-actions form .portal-action-button {
+    width: 100%;
+  }
+
+  .portal-row-actions form:last-child:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .portal-lock-stack {
+    grid-column: 1 / -1;
   }
 
   .portal-table-controls {

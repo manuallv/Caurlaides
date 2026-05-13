@@ -111,6 +111,18 @@
                   <small><%= t('requestProfiles.fields.unlimitedQuotaHelp') %></small>
                 </span>
               </label>
+
+              <label class="request-profile-toggle request-profile-toggle--wide">
+                <input
+                  type="checkbox"
+                  name="allowDuplicateVehiclePlates"
+                  <%= editingProfile?.allow_duplicate_vehicle_plates ? 'checked' : '' %>
+                />
+                <span>
+                  <strong><%= t('requestProfiles.fields.allowDuplicateVehiclePlates') %></strong>
+                  <small><%= t('requestProfiles.fields.allowDuplicateVehiclePlatesHelp') %></small>
+                </span>
+              </label>
             </div>
 
             <% if (isEditMode) { %>

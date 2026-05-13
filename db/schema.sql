@@ -193,6 +193,7 @@ CREATE TABLE IF NOT EXISTS request_profiles (
   access_code_hash VARCHAR(255) NOT NULL,
   max_people INT UNSIGNED NOT NULL DEFAULT 1,
   is_unlimited_quota TINYINT(1) NOT NULL DEFAULT 0,
+  allow_duplicate_vehicle_plates TINYINT(1) NOT NULL DEFAULT 0,
   notes TEXT NULL,
   notify_contact_on_create TINYINT(1) NOT NULL DEFAULT 1,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
