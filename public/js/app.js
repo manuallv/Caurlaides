@@ -2588,6 +2588,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusSectionLabel: workspace.dataset.accessStatusSectionLabel,
       filteredCountTemplate: workspace.dataset.accessFilteredCountTemplate,
       vehiclePlateLabel: workspace.dataset.accessVehiclePlateLabel,
+      passNumberLabel: workspace.dataset.accessPassNumberLabel,
       entryAtLabel: workspace.dataset.accessEntryAtLabel,
       entryButtonLabel: workspace.dataset.accessEntryButtonLabel,
       exitButtonLabel: workspace.dataset.accessExitButtonLabel,
@@ -3718,6 +3719,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filters.query) {
       const haystack = [
         request.fullName,
+        request.id,
         request.companyName,
         request.phone,
         request.email,
@@ -3746,6 +3748,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return {
       type: ui.pageType,
+      id: row.dataset.requestRowId || '',
       requestProfileId: row.dataset.requestProfileId || '',
       categoryId: row.dataset.requestCategoryId || '',
       status: row.dataset.requestStatus || '',
@@ -4093,6 +4096,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>
           <div class="access-data-stack">
             <strong>${escapeHtml(request.vehiclePlate || notSet)}</strong>
+            <span class="access-pass-number">${escapeHtml(ui.passNumberLabel || 'Pass no.')}: ${escapeHtml(request.id || '')}</span>
           </div>
         </td>
       ` : ''}

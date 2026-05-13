@@ -50,6 +50,7 @@
     data-access-filtered-count-value="<%= filteredRequestCount %>"
     data-access-pagination-enabled="true"
     data-access-vehicle-plate-label="<%= t('access.fields.vehiclePlate') %>"
+    data-access-pass-number-label="<%= t('access.fields.passNumber') %>"
     data-access-entry-at-label="<%= t('access.entryAt') %>"
     data-access-entry-button-label="<%= isPass ? t('access.passState.entered') : t('check.direction.entry') %>"
     data-access-exit-button-label="<%= isPass ? t('access.passState.exited') : t('check.direction.exit') %>"
@@ -362,6 +363,7 @@
                       <td>
                         <div class="access-data-stack">
                           <strong><%= request.vehicle_plate || t('common.notSet') %></strong>
+                          <span class="access-pass-number"><%= t('access.fields.passNumber') %>: <%= request.id %></span>
                         </div>
                       </td>
                     <% } %>

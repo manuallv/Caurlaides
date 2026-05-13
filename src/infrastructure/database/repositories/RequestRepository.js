@@ -62,6 +62,7 @@ function buildAdminRequestQuerySpec(config, type, eventId, filters = {}) {
   const params = [eventId];
   const passEntryAtExpression = 'COALESCE(request.last_entry_at, request.entered_at)';
   const searchColumns = [
+    'CAST(request.id AS CHAR)',
     'request.full_name',
     'request.phone',
     'request.email',

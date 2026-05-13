@@ -1855,6 +1855,11 @@ body.is-access-fullscreen {
   font-weight: 700;
 }
 
+.access-pass-number {
+  color: #48607e;
+  font-weight: 700;
+}
+
 .access-row-actions--menu {
   position: relative;
   flex-wrap: nowrap;
