@@ -181,6 +181,24 @@ function normalizeSelectedPassPrintPayload(body) {
     requestIds: requestIds
       .map((requestId) => Number(requestId))
       .filter((requestId) => Number.isInteger(requestId) && requestId > 0),
+    recipientName: String(body.recipientName || body.handedOutRecipientName || '').trim(),
+  };
+}
+
+function normalizeSelectedWristbandReceivePayload(body) {
+  const rawRequestIds = body.requestIds || body.requestIdsJson || body.request_ids || [];
+  const parsedRequestIds = parseJsonValue(rawRequestIds);
+  const requestIds = Array.isArray(parsedRequestIds)
+    ? parsedRequestIds
+    : Array.isArray(rawRequestIds)
+      ? rawRequestIds
+      : [rawRequestIds];
+
+  return {
+    requestIds: requestIds
+      .map((requestId) => Number(requestId))
+      .filter((requestId) => Number.isInteger(requestId) && requestId > 0),
+    recipientName: String(body.recipientName || body.handedOutRecipientName || '').trim(),
   };
 }
 
@@ -299,6 +317,7 @@ function buildAccessRequestLivePayload(req, res, type, request, summary = null) 
       profileName: request.profile_name || '',
       categoryName: request.category_name || '',
       status: rawStatus,
+      handedOutRecipientName: request.handed_out_recipient_name || '',
       displayStatus,
       statusLabel: req.t(resolveRequestDisplayStatusLabelKey(type, request)),
       statusTone: resolveRequestDisplayStatusTone(type, request),
@@ -347,6 +366,8 @@ function formatHistorySourceLabel(req, source) {
       return req.t('access.history.sourceMovementButton');
     case 'selected-print':
       return req.t('access.history.sourceSelectedPrint');
+    case 'admin-wristband-bulk':
+      return req.t('access.history.sourceWristbandBulk');
     default:
       return source || req.t('common.notSet');
   }
@@ -413,6 +434,7 @@ function buildRequestHistoryAuditPayload(req, res, entry) {
   const nextStatus = metadata.nextStatus || afterState.status || 'pending';
   const sourceLabel = formatHistorySourceLabel(req, source);
   const actorLabel = entry.actor_name || req.t('audit.actor.system');
+  const recipientName = String(metadata.recipientName || afterState.handedOutRecipientName || '').trim();
   const localizedMessage = metadata.messageKey
     ? req.t(metadata.messageKey, metadata.messageParams || {})
     : (entry.message || req.t('common.notSet'));
@@ -452,6 +474,9 @@ function buildRequestHistoryAuditPayload(req, res, entry) {
       ? req.t('access.history.detailPrintedAndIssued')
       : req.t('access.history.detailPrinted');
     detailChips.push(`${req.t('access.history.status')}: ${formatPassRequestRawStatusLabel(req, nextStatus)}`);
+    if (recipientName) {
+      detailChips.push(`${req.t('access.history.recipientName')}: ${recipientName}`);
+    }
   } else if (historyKind === 'status-change') {
     const statusWasRemoved = nextStatus !== 'handed_out';
     eventLabel = req.t(statusWasRemoved ? 'access.history.eventIssueRemoved' : 'access.history.eventIssued');
@@ -459,6 +484,9 @@ function buildRequestHistoryAuditPayload(req, res, entry) {
       from: formatPassRequestRawStatusLabel(req, previousStatus),
       to: formatPassRequestRawStatusLabel(req, nextStatus),
     });
+    if (recipientName) {
+      detailChips.push(`${req.t('access.history.recipientName')}: ${recipientName}`);
+    }
   }
 
   return {
@@ -855,6 +883,63 @@ function buildAccessController({ categoryService, accessService }) {
       return res.redirect(`/events/${req.params.eventId}/passes/print`);
     },
 
+    async exportPassPrintTemplate(req, res) {
+      try {
+        const templateFile = await accessService.exportPassPrintTemplate(
+          req.params.eventId,
+          req.currentUser.id,
+          req.t,
+        );
+
+        res.setHeader('Content-Type', templateFile.contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${templateFile.filename}"`);
+        return res.send(templateFile.buffer);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/passes/print`);
+        }
+
+        throw error;
+      }
+    },
+
+    async importPassPrintTemplate(req, res) {
+      try {
+        await accessService.importPassPrintTemplate(
+          req.params.eventId,
+          req.currentUser.id,
+          req.file || null,
+          req.t,
+        );
+
+        if (isAsyncRequest(req)) {
+          return res.json({
+            success: true,
+            message: req.t('flash.passPrintTemplateImported'),
+            redirectTo: `/events/${req.params.eventId}/passes/print`,
+          });
+        }
+
+        req.flash('success', req.t('flash.passPrintTemplateImported'));
+        return res.redirect(`/events/${req.params.eventId}/passes/print`);
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode < 500) {
+          if (isAsyncRequest(req)) {
+            return res.status(error.statusCode || 422).json({
+              success: false,
+              error: error.message,
+            });
+          }
+
+          req.flash('error', error.message);
+          return res.redirect(`/events/${req.params.eventId}/passes/print`);
+        }
+
+        throw error;
+      }
+    },
+
     async previewPassPrintPdf(req, res) {
       try {
         const previewFile = await accessService.previewPassPrintPdf(
@@ -905,10 +990,12 @@ function buildAccessController({ categoryService, accessService }) {
 
     async printSelectedPassPrintPdf(req, res) {
       try {
+        const payload = normalizeSelectedPassPrintPayload(req.body);
         const result = await accessService.printSelectedPassRequests(
           req.params.eventId,
           req.currentUser.id,
-          normalizeSelectedPassPrintPayload(req.body).requestIds,
+          payload.requestIds,
+          payload.recipientName,
           req.t,
         );
 
@@ -1187,6 +1274,9 @@ function buildAccessController({ categoryService, accessService }) {
         type,
         req.body.status,
         req.t,
+        {
+          recipientName: req.body.recipientName || req.body.handedOutRecipientName,
+        },
       );
 
       const liveRequestUpsert = buildAccessRequestLivePayload(
@@ -1206,6 +1296,38 @@ function buildAccessController({ categoryService, accessService }) {
         message: req.t('flash.requestStatusUpdated'),
         payload: {
           liveRequestUpsert,
+        },
+      });
+    },
+
+    async updateWristbandRequestStatuses(req, res) {
+      const payload = normalizeSelectedWristbandReceivePayload(req.body);
+      const result = await accessService.updateWristbandRequestStatuses(
+        req.params.eventId,
+        req.currentUser.id,
+        payload.requestIds,
+        payload.recipientName,
+        req.t,
+      );
+      const liveRequestUpserts = result.requests.map((request) => buildAccessRequestLivePayload(
+        req,
+        res,
+        'wristband',
+        request,
+        result.summary,
+      )).filter(Boolean);
+
+      liveRequestUpserts.forEach((liveRequestUpsert) => {
+        emitEventUpdate(req.app.locals.io, result.event.id, 'access:request-upsert', liveRequestUpsert);
+      });
+      emitEventUpdate(req.app.locals.io, result.event.id, 'dashboard:refresh', {
+        eventId: result.event.id,
+      });
+      return sendMutationResponse(req, res, {
+        redirectTo: `/events/${result.event.id}/wristbands`,
+        message: req.t('flash.wristbandBulkReceived'),
+        payload: {
+          liveRequestUpserts,
         },
       });
     },

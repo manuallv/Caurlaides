@@ -14,6 +14,16 @@ function parseJson(value) {
   }
 }
 
+function normalizeLimit(limit, fallback = 20) {
+  const numericLimit = Number.parseInt(limit, 10);
+
+  if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+    return fallback;
+  }
+
+  return Math.min(numericLimit, 500);
+}
+
 class AuditLogRepository {
   constructor(pool) {
     this.pool = pool;
@@ -52,6 +62,7 @@ class AuditLogRepository {
   }
 
   async listByEvent(eventId, limit = 20) {
+    const safeLimit = normalizeLimit(limit, 20);
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -69,9 +80,9 @@ class AuditLogRepository {
         LEFT JOIN users user ON user.id = audit.user_id
         WHERE audit.event_id = ?
         ORDER BY audit.created_at DESC
-        LIMIT ?
+        LIMIT ${safeLimit}
       `,
-      [eventId, limit],
+      [eventId],
     );
 
     return rows.map((row) => ({
@@ -83,6 +94,7 @@ class AuditLogRepository {
   }
 
   async listByEntity(entityType, entityId, limit = 100) {
+    const safeLimit = normalizeLimit(limit, 100);
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -101,9 +113,9 @@ class AuditLogRepository {
         WHERE audit.entity_type = ?
           AND audit.entity_id = ?
         ORDER BY audit.created_at DESC, audit.id DESC
-        LIMIT ?
+        LIMIT ${safeLimit}
       `,
-      [entityType, entityId, Number(limit)],
+      [entityType, entityId],
     );
 
     return rows.map((row) => ({

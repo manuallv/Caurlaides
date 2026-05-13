@@ -20,6 +20,13 @@ const PASS_PRINT_BACKGROUND_MIME_TYPES = new Map([
   ['image/jpeg', 'jpg'],
   ['image/jpg', 'jpg'],
 ]);
+const PASS_PRINT_BACKGROUND_MIME_TYPES_BY_EXTENSION = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+]);
+const PASS_PRINT_TEMPLATE_FILE_FORMAT = 'caurlaides-pass-print-template';
+const PASS_PRINT_TEMPLATE_MAX_BACKGROUND_BYTES = 5 * 1024 * 1024;
 const PASS_PRINT_FIELD_DEFINITIONS = [
   { type: 'id', labelKey: 'passPrint.variables.id' },
   { type: 'vehiclePlate', labelKey: 'passPrint.variables.vehiclePlate' },
@@ -79,6 +86,14 @@ function hasAssignedRequestProfileQuota(passQuotas = [], wristbandQuotas = []) {
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase() || null;
+}
+
+function normalizeHandedOutRecipientName(value) {
+  const normalized = String(value || '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim();
+
+  return normalized ? normalized.slice(0, 160) : null;
 }
 
 function formatVehiclePlate(value) {
@@ -326,6 +341,32 @@ async function unlinkPassPrintTemplateFile(backgroundPath) {
   await Promise.all(candidates.map((candidatePath) => fs.unlink(candidatePath).catch(() => {})));
 }
 
+function resolvePassPrintBackgroundMimeType(backgroundPath) {
+  const extension = path.extname(String(backgroundPath || '')).toLowerCase();
+  return PASS_PRINT_BACKGROUND_MIME_TYPES_BY_EXTENSION.get(extension) || '';
+}
+
+async function writePassPrintTemplateBackground(eventId, buffer, mimeType) {
+  const fileExtension = PASS_PRINT_BACKGROUND_MIME_TYPES.get(mimeType);
+
+  if (!fileExtension) {
+    return '';
+  }
+
+  const relativePath = path.posix.join(
+    'uploads',
+    'pass-print-templates',
+    `event-${eventId}`,
+    `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${fileExtension}`,
+  );
+  const absolutePath = buildPassPrintTemplateAbsolutePath(relativePath);
+
+  await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+  await fs.writeFile(absolutePath, buffer);
+
+  return relativePath;
+}
+
 function getPassPrintVariableDefinitions(t) {
   const tx = resolveTranslate(t);
 
@@ -447,6 +488,52 @@ function sanitizePassPrintTemplateFields(rawFields, t) {
   }
 
   return fields;
+}
+
+function parsePassPrintTemplateImportFile(templateFile, t) {
+  const tx = resolveTranslate(t);
+
+  if (!templateFile?.buffer?.length) {
+    throw new AppError(tx('service.passPrint.templateImportFileMissing'), 422);
+  }
+
+  try {
+    return JSON.parse(templateFile.buffer.toString('utf8'));
+  } catch (error) {
+    throw new AppError(tx('service.passPrint.templateImportInvalid'), 422);
+  }
+}
+
+function decodePassPrintTemplateBackground(background, t) {
+  const tx = resolveTranslate(t);
+
+  if (!background || typeof background !== 'object' || !background.dataBase64) {
+    return null;
+  }
+
+  const mimeType = String(background.mimeType || '').trim().toLowerCase();
+  if (!PASS_PRINT_BACKGROUND_MIME_TYPES.has(mimeType)) {
+    throw new AppError(tx('service.passPrint.backgroundInvalid'), 422);
+  }
+
+  const base64 = String(background.dataBase64 || '').replace(/\s+/g, '');
+  const buffer = Buffer.from(base64, 'base64');
+
+  if (!buffer.length || buffer.length > PASS_PRINT_TEMPLATE_MAX_BACKGROUND_BYTES) {
+    throw new AppError(tx('service.passPrint.templateImportInvalid'), 422);
+  }
+
+  const normalizedSource = base64.replace(/=+$/g, '');
+  const normalizedRoundTrip = buffer.toString('base64').replace(/=+$/g, '');
+
+  if (normalizedSource !== normalizedRoundTrip) {
+    throw new AppError(tx('service.passPrint.templateImportInvalid'), 422);
+  }
+
+  return {
+    buffer,
+    mimeType,
+  };
 }
 
 function buildPassPrintTemplateFromEvent(event, t) {
@@ -1018,6 +1105,7 @@ function buildAdminExportRows(requests = [], typeLabel = '', type = '') {
     'Status Updated By': request.status_updated_by_name || '',
     'Handed Out At': formatExportDateTime(request.handed_out_at),
     'Handed Out By': request.handed_out_by_name || '',
+    'Handed Out Recipient': request.handed_out_recipient_name || '',
     'Created At': formatExportDateTime(request.created_at),
     'Updated At': formatExportDateTime(request.updated_at),
     'Notes': request.notes || '',
@@ -1612,27 +1700,195 @@ class AccessService {
     let replacedBackgroundPath = '';
 
     if (backgroundImage?.buffer?.length) {
-      const fileExtension = PASS_PRINT_BACKGROUND_MIME_TYPES.get(backgroundImage.mimetype);
-
-      if (!fileExtension) {
+      if (!PASS_PRINT_BACKGROUND_MIME_TYPES.has(backgroundImage.mimetype)) {
         throw new AppError(tx('service.passPrint.backgroundInvalid'), 422);
       }
 
-      const relativePath = path.posix.join(
-        'uploads',
-        'pass-print-templates',
-        `event-${eventId}`,
-        `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${fileExtension}`,
-      );
-      const absolutePath = buildPassPrintTemplateAbsolutePath(relativePath);
-
-      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-      await fs.writeFile(absolutePath, backgroundImage.buffer);
+      const relativePath = await writePassPrintTemplateBackground(eventId, backgroundImage.buffer, backgroundImage.mimetype);
       replacedBackgroundPath = event.pass_print_template_background_path || '';
       backgroundPath = relativePath;
     } else if (removeBackground) {
       replacedBackgroundPath = event.pass_print_template_background_path || '';
       backgroundPath = '';
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updatePassPrintTemplate(connection, eventId, {
+        name: templateName,
+        backgroundPath: backgroundPath || null,
+        backgroundRotation,
+        orientation,
+        fieldsJson: JSON.stringify(templateFields),
+      });
+
+      await this.auditLogService.record(
+        {
+          eventId,
+          userId: actorId,
+          entityType: 'event',
+          entityId: eventId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.passPrintTemplateUpdated', {
+            name: event.name,
+          }),
+          beforeState: {
+            passPrintTemplateName: event.pass_print_template_name || null,
+            hasPassPrintBackground: Boolean(event.pass_print_template_background_path),
+            passPrintFieldCount: parsePassPrintTemplateFields(event.pass_print_template_fields_json).length,
+          },
+          afterState: {
+            passPrintTemplateName: templateName,
+            hasPassPrintBackground: Boolean(backgroundPath),
+            passPrintFieldCount: templateFields.length,
+          },
+          metadata: buildAuditMetadata('audit.message.passPrintTemplateUpdated', {
+            name: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+
+      if (backgroundPath && backgroundPath !== event.pass_print_template_background_path) {
+        await unlinkPassPrintTemplateFile(backgroundPath);
+      }
+
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    if (replacedBackgroundPath && replacedBackgroundPath !== backgroundPath) {
+      await unlinkPassPrintTemplateFile(replacedBackgroundPath);
+    }
+
+    return {
+      event: await this.eventService.getEventAccessOrFail(eventId, actorId, tx),
+      template: {
+        name: templateName,
+        backgroundPath,
+        backgroundUrl: buildPassPrintTemplatePublicUrl(backgroundPath),
+        backgroundRotation,
+        orientation,
+        fields: templateFields,
+      },
+    };
+  }
+
+  async exportPassPrintTemplate(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const template = buildPassPrintTemplateFromEvent(event, tx);
+
+    if (!template.fields.length) {
+      throw new AppError(tx('service.passPrint.templateExportMissing'), 422);
+    }
+
+    let background = null;
+    const backgroundAbsolutePath = await resolvePassPrintTemplateAbsolutePath(template.backgroundPath);
+
+    if (backgroundAbsolutePath) {
+      const mimeType = resolvePassPrintBackgroundMimeType(backgroundAbsolutePath);
+
+      if (mimeType) {
+        const backgroundBuffer = await fs.readFile(backgroundAbsolutePath);
+
+        background = {
+          filename: path.basename(template.backgroundPath || backgroundAbsolutePath),
+          mimeType,
+          dataBase64: backgroundBuffer.toString('base64'),
+        };
+      }
+    }
+
+    const exportedAt = new Date().toISOString();
+    const payload = {
+      format: PASS_PRINT_TEMPLATE_FILE_FORMAT,
+      version: 1,
+      exportedAt,
+      sourceEvent: {
+        id: Number(event.id),
+        name: event.name || '',
+      },
+      template: {
+        name: template.name,
+        orientation: template.orientation,
+        backgroundRotation: template.backgroundRotation,
+        textColor: template.textColor,
+        fields: template.fields,
+      },
+      background,
+    };
+    const timestamp = dayjs(exportedAt).format('YYYYMMDD-HHmmss');
+
+    return {
+      buffer: Buffer.from(JSON.stringify(payload, null, 2), 'utf8'),
+      filename: `${sanitizeFileName(`${event.name}-pass-template-${timestamp}`)}.json`,
+      contentType: 'application/json; charset=utf-8',
+    };
+  }
+
+  async importPassPrintTemplate(eventId, actorId, templateFile, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    const payload = parsePassPrintTemplateImportFile(templateFile, tx);
+    const templatePayload = payload?.template && typeof payload.template === 'object'
+      ? payload.template
+      : payload;
+    const backgroundPayload = Object.prototype.hasOwnProperty.call(payload || {}, 'background')
+      ? payload.background
+      : templatePayload?.background;
+    const hasBackgroundPayload = Object.prototype.hasOwnProperty.call(payload || {}, 'background')
+      || Object.prototype.hasOwnProperty.call(templatePayload || {}, 'background');
+
+    if (payload?.format && payload.format !== PASS_PRINT_TEMPLATE_FILE_FORMAT) {
+      throw new AppError(tx('service.passPrint.templateImportInvalid'), 422);
+    }
+
+    const textColor = normalizePassPrintColor(templatePayload?.textColor);
+    const rawFields = parsePassPrintTemplateFields(templatePayload?.fields || payload?.fields)
+      .map((field) => ({
+        ...field,
+        textColor: field?.textColor || textColor,
+      }));
+    const templateFields = sanitizePassPrintTemplateFields(rawFields, tx);
+    const templateName = String(templatePayload?.name || payload?.name || tx('passPrint.defaultTemplateName'))
+      .trim()
+      .slice(0, 160) || tx('passPrint.defaultTemplateName');
+    const backgroundRotation = normalizePassPrintRotation(templatePayload?.backgroundRotation ?? payload?.backgroundRotation);
+    const orientation = normalizePassPrintOrientation(templatePayload?.orientation ?? payload?.orientation);
+    const decodedBackground = decodePassPrintTemplateBackground(backgroundPayload, tx);
+    let backgroundPath = event.pass_print_template_background_path || '';
+    let replacedBackgroundPath = '';
+
+    if (hasBackgroundPayload) {
+      replacedBackgroundPath = event.pass_print_template_background_path || '';
+
+      if (decodedBackground) {
+        backgroundPath = await writePassPrintTemplateBackground(
+          eventId,
+          decodedBackground.buffer,
+          decodedBackground.mimeType,
+        );
+      } else {
+        backgroundPath = '';
+      }
     }
 
     const connection = await this.pool.getConnection();
@@ -1805,7 +2061,7 @@ class AccessService {
     };
   }
 
-  async printSelectedPassRequests(eventId, actorId, requestIds, t) {
+  async printSelectedPassRequests(eventId, actorId, requestIds, recipientName, t) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -1817,6 +2073,12 @@ class AccessService {
 
     if (!normalizedIds.length) {
       throw new AppError(tx('service.passPrint.noSelectedRequests'), 422);
+    }
+
+    const normalizedRecipientName = normalizeHandedOutRecipientName(recipientName);
+
+    if (!normalizedRecipientName) {
+      throw new AppError(tx('service.passPrint.recipientNameRequired'), 422);
     }
 
     const template = buildPassPrintTemplateFromEvent(event, tx);
@@ -1858,6 +2120,7 @@ class AccessService {
         await this.requestRepository.setStatuses(connection, 'pass', requestIdsToMark, {
           status: 'handed_out',
           userId: actorId,
+          recipientName: normalizedRecipientName,
         });
       }
 
@@ -1876,6 +2139,7 @@ class AccessService {
             beforeState: request,
             afterState: {
               status: statusChanged ? 'handed_out' : request.status,
+              handedOutRecipientName: normalizedRecipientName,
               statusUpdatedAt: new Date().toISOString(),
               statusUpdatedByUserId: actorId,
               printedAt: new Date().toISOString(),
@@ -1894,6 +2158,7 @@ class AccessService {
                 previousStatus: request.status || 'pending',
                 nextStatus: statusChanged ? 'handed_out' : (request.status || 'pending'),
                 statusChanged,
+                recipientName: normalizedRecipientName,
               },
             ),
           },
@@ -2771,10 +3036,13 @@ class AccessService {
     return accessCode;
   }
 
-  async updateRequestStatus(eventId, requestId, actorId, type, status, t) {
+  async updateRequestStatus(eventId, requestId, actorId, type, status, t, options = {}) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
     const existingRequest = await this.requestRepository.findById(type, requestId);
+    const recipientName = status === 'handed_out'
+      ? normalizeHandedOutRecipientName(options.recipientName || options.handedOutRecipientName)
+      : null;
 
     if (!existingRequest || Number(existingRequest.event_id) !== Number(eventId)) {
       throw new AppError(tx('service.request.notFound'), 404);
@@ -2783,6 +3051,7 @@ class AccessService {
     await this.requestRepository.setStatus(type, requestId, {
       status,
       userId: actorId,
+      recipientName,
     });
 
     await this.auditLogService.record({
@@ -2799,6 +3068,7 @@ class AccessService {
       beforeState: existingRequest,
       afterState: {
         status,
+        handedOutRecipientName: recipientName,
         statusUpdatedAt: new Date().toISOString(),
         statusUpdatedByUserId: actorId,
       },
@@ -2814,6 +3084,7 @@ class AccessService {
           source: 'admin-status-button',
           previousStatus: existingRequest.status || 'pending',
           nextStatus: status,
+          recipientName,
         },
       ),
     });
@@ -2824,6 +3095,109 @@ class AccessService {
     return {
       event,
       request,
+      summary,
+    };
+  }
+
+  async updateWristbandRequestStatuses(eventId, actorId, requestIds, recipientName, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.request.manage'), 403);
+    }
+
+    const normalizedIds = [...new Set((requestIds || [])
+      .map((requestId) => Number(requestId))
+      .filter((requestId) => Number.isInteger(requestId) && requestId > 0))];
+
+    if (!normalizedIds.length) {
+      throw new AppError(tx('service.request.bulkSelectionRequired'), 422);
+    }
+
+    const normalizedRecipientName = normalizeHandedOutRecipientName(recipientName);
+
+    if (!normalizedRecipientName) {
+      throw new AppError(tx('service.request.recipientNameRequired'), 422);
+    }
+
+    const requests = await this.requestRepository.findByIds('wristband', normalizedIds);
+    const requestsById = new Map(requests.map((request) => [Number(request.id), request]));
+    const orderedRequests = normalizedIds.map((requestId) => requestsById.get(Number(requestId))).filter(Boolean);
+
+    if (orderedRequests.length !== normalizedIds.length) {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    if (orderedRequests.some((request) => Number(request.event_id) !== Number(eventId))) {
+      throw new AppError(tx('service.request.notFound'), 404);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.requestRepository.setStatuses(connection, 'wristband', normalizedIds, {
+        status: 'handed_out',
+        userId: actorId,
+        recipientName: normalizedRecipientName,
+      });
+
+      for (const request of orderedRequests) {
+        await this.auditLogService.record(
+          {
+            eventId,
+            userId: actorId,
+            entityType: 'wristband_request',
+            entityId: request.id,
+            action: 'status_updated',
+            message: translate(DEFAULT_LOCALE, 'audit.message.requestStatusUpdated', {
+              type: translate(DEFAULT_LOCALE, 'accessType.wristband'),
+              name: request.full_name,
+              status: translate(DEFAULT_LOCALE, 'statuses.handed_out'),
+            }),
+            beforeState: request,
+            afterState: {
+              status: 'handed_out',
+              handedOutRecipientName: normalizedRecipientName,
+              statusUpdatedAt: new Date().toISOString(),
+              statusUpdatedByUserId: actorId,
+            },
+            metadata: buildRequestHistoryAuditMetadata(
+              'audit.message.requestStatusUpdated',
+              {
+                type: tx('accessType.wristband'),
+                name: request.full_name,
+                status: tx('statuses.handed_out'),
+              },
+              {
+                historyKind: 'status-change',
+                source: 'admin-wristband-bulk',
+                previousStatus: request.status || 'pending',
+                nextStatus: 'handed_out',
+                recipientName: normalizedRecipientName,
+              },
+            ),
+          },
+          connection,
+        );
+      }
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const updatedRequests = await this.requestRepository.findByIds('wristband', normalizedIds);
+    const updatedRequestsById = new Map(updatedRequests.map((request) => [Number(request.id), request]));
+    const summary = await this.requestRepository.getAdminSummary(eventId, 'wristband');
+
+    return {
+      event,
+      requests: normalizedIds.map((requestId) => updatedRequestsById.get(Number(requestId))).filter(Boolean),
       summary,
     };
   }

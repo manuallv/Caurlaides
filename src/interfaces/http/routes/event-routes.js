@@ -25,6 +25,12 @@ function buildEventRoutes({ eventController, accessController }) {
       fileSize: 5 * 1024 * 1024,
     },
   });
+  const templateUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 12 * 1024 * 1024,
+    },
+  });
 
   router.get('/events/new', requireAuth, eventController.showCreateForm);
   router.post('/events', requireAuth, eventValidator, validateRequest, asyncHandler(eventController.create));
@@ -65,6 +71,17 @@ function buildEventRoutes({ eventController, accessController }) {
 
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));
   router.get('/events/:eventId/passes/print', requireAuth, asyncHandler(accessController.showPassPrintPage));
+  router.get(
+    '/events/:eventId/passes/print/template/export',
+    requireAuth,
+    asyncHandler(accessController.exportPassPrintTemplate),
+  );
+  router.post(
+    '/events/:eventId/passes/print/template/import',
+    requireAuth,
+    templateUpload.single('templateFile'),
+    asyncHandler(accessController.importPassPrintTemplate),
+  );
   router.post(
     '/events/:eventId/passes/print/template',
     requireAuth,
@@ -195,6 +212,11 @@ function buildEventRoutes({ eventController, accessController }) {
     adminRequestEditorValidator,
     validateRequest,
     asyncHandler(accessController.createRequest),
+  );
+  router.post(
+    '/events/:eventId/wristbands/status',
+    requireAuth,
+    asyncHandler(accessController.updateWristbandRequestStatuses),
   );
   router.put(
     '/events/:eventId/:type/requests/:requestId/status',

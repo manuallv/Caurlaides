@@ -17,6 +17,26 @@ const REQUEST_CONFIG = {
   },
 };
 
+function normalizePositiveInteger(value, fallback = null, max = 500) {
+  const number = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    return fallback;
+  }
+
+  return Math.min(number, max);
+}
+
+function normalizeOffset(value) {
+  const number = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    return 0;
+  }
+
+  return number;
+}
+
 function buildVehiclePlateSelect(config, alias = 'request') {
   if (config.supportsVehiclePlate) {
     return `
@@ -142,6 +162,7 @@ function buildRequestBackupSnapshot(config) {
           'status', request.status,
           'submitted_by_user_id', request.submitted_by_user_id,
           'handed_out_by_user_id', request.handed_out_by_user_id,
+          'handed_out_recipient_name', request.handed_out_recipient_name,
           'returned_by_user_id', request.returned_by_user_id,
           'handed_out_at', request.handed_out_at,
           'returned_at', request.returned_at,
@@ -195,11 +216,12 @@ async function setStatusWithExecutor(executor, config, requestId, payload) {
           status = 'handed_out',
           handed_out_at = NOW(),
           handed_out_by_user_id = ?,
+          handed_out_recipient_name = ?,
           status_updated_at = NOW(),
           status_updated_by_user_id = ?
         WHERE id = ?
       `,
-      [payload.userId, payload.userId, requestId],
+      [payload.userId, payload.recipientName || null, payload.userId, requestId],
     );
     return;
   }
@@ -211,6 +233,7 @@ async function setStatusWithExecutor(executor, config, requestId, payload) {
         status = 'pending',
         handed_out_at = NULL,
         handed_out_by_user_id = NULL,
+        handed_out_recipient_name = NULL,
         status_updated_at = NOW(),
         status_updated_by_user_id = ?
       WHERE id = ?
@@ -239,23 +262,15 @@ class RequestRepository {
     const orderDirection = filters.sort === 'oldest' ? 'ASC' : 'DESC';
     const { whereSql, params } = buildAdminRequestQuerySpec(config, type, eventId, filters);
     const queryParams = [...params];
-    const limit = Number.isInteger(Number(options.limit)) && Number(options.limit) > 0
-      ? Number(options.limit)
-      : null;
-    const offset = limit && Number.isInteger(Number(options.offset)) && Number(options.offset) > 0
-      ? Number(options.offset)
-      : 0;
-    const paginationSql = limit ? ' LIMIT ? OFFSET ?' : '';
+    const limit = normalizePositiveInteger(options.limit);
+    const offset = limit ? normalizeOffset(options.offset) : 0;
+    const paginationSql = limit ? ` LIMIT ${limit} OFFSET ${offset}` : '';
     const orderSql = options.randomOrder
       ? 'RAND()'
       : `
           request.created_at ${orderDirection},
           request.id ${orderDirection}
         `;
-
-    if (limit) {
-      queryParams.push(limit, offset);
-    }
 
     const [rows] = await this.pool.execute(
       `
@@ -272,6 +287,7 @@ class RequestRepository {
           request.notes,
           request.status,
           request.handed_out_at,
+          request.handed_out_recipient_name,
           request.status_updated_at,
           request.created_at,
           request.updated_at,
@@ -704,6 +720,7 @@ class RequestRepository {
           request.notes,
           request.status,
           request.handed_out_at,
+          request.handed_out_recipient_name,
           request.status_updated_at,
           request.created_at,
           request.updated_at,
@@ -837,6 +854,7 @@ class RequestRepository {
   }
 
   async listRecentPassVehicleMovements(eventId, limit = 20) {
+    const safeLimit = normalizePositiveInteger(limit, 20);
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -866,15 +884,16 @@ class RequestRepository {
           AND request.deleted_at IS NULL
           AND category.deleted_at IS NULL
         ORDER BY log.created_at DESC, log.id DESC
-        LIMIT ?
+        LIMIT ${safeLimit}
       `,
-      [eventId, Number(limit)],
+      [eventId],
     );
 
     return rows;
   }
 
   async listPassVehicleMovements(requestId, limit = 100) {
+    const safeLimit = normalizePositiveInteger(limit, 100);
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -904,9 +923,9 @@ class RequestRepository {
           AND request.deleted_at IS NULL
           AND category.deleted_at IS NULL
         ORDER BY log.created_at DESC, log.id DESC
-        LIMIT ?
+        LIMIT ${safeLimit}
       `,
-      [requestId, Number(limit)],
+      [requestId],
     );
 
     return rows;

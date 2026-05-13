@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeAccessView = window.location.hash === '#types' ? 'types' : 'requests';
   let accessFullscreen = false;
   let selectedAccessPrintRequestIds = new Set();
+  let selectedAccessWristbandRequestIds = new Set();
   let refreshInProgress = false;
   let pendingLiveRefresh = false;
   let liveFilterTimer = null;
@@ -939,6 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabs: [...document.querySelectorAll('[data-pass-print-tab]')],
       panels: [...document.querySelectorAll('[data-pass-print-panel]')],
       form: document.querySelector('[data-pass-print-form]'),
+      importForm: document.querySelector('[data-pass-print-import-form]'),
       fieldsInput: document.querySelector('[data-pass-print-fields-input]'),
       backgroundRotationInput: document.querySelector('[data-pass-print-background-rotation-input]'),
       templateOrientationInput: document.querySelector('[data-pass-print-template-orientation]'),
@@ -1861,6 +1863,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const submitPassPrintImportForm = async (form) => {
+    const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch(form.action, {
+        method: (form.method || 'POST').toUpperCase(),
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-Token': csrfValue,
+        },
+        credentials: 'same-origin',
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed');
+      }
+
+      if (payload?.message) {
+        showLiveNotice(payload.message, 'success');
+      }
+
+      window.location.href = payload?.redirectTo || response.url || window.location.href;
+    } catch (error) {
+      showLiveNotice(error.message || 'Request failed', 'error');
+    }
+  };
+
   const closePassPrintPreviewModal = () => {
     const { previewModal, previewFrame, previewLoading, previewError } = getPassPrintElements();
 
@@ -2403,6 +2436,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportModal = document.querySelector('[data-access-export-modal]');
     const historyModal = document.querySelector('[data-access-history-modal]');
     const requestModal = document.querySelector('[data-access-request-modal]');
+    const printReceiveModal = document.querySelector('[data-access-print-receive-modal]');
+    const wristbandReceiveModal = document.querySelector('[data-access-wristband-receive-modal]');
     const typeForm = document.querySelector('[data-access-type-form]');
 
     return {
@@ -2413,6 +2448,18 @@ document.addEventListener('DOMContentLoaded', () => {
       fullscreenLabels: [...document.querySelectorAll('[data-access-fullscreen-label]')],
       printSelectedButton: document.querySelector('[data-access-print-selected]'),
       printSelectedLabel: document.querySelector('[data-access-print-selected-button-label]'),
+      printReceiveModal,
+      printReceiveForm: printReceiveModal?.querySelector('[data-access-print-receive-form]') || null,
+      printReceiveTitle: printReceiveModal?.querySelector('[data-access-print-receive-title]') || null,
+      printReceiveCount: printReceiveModal?.querySelector('[data-access-print-receive-count]') || null,
+      printRecipientInput: printReceiveModal?.querySelector('[data-access-print-recipient-input]') || null,
+      wristbandSelectedButton: document.querySelector('[data-access-wristband-selected]'),
+      wristbandSelectedLabel: document.querySelector('[data-access-wristband-selected-button-label]'),
+      wristbandReceiveModal,
+      wristbandReceiveForm: wristbandReceiveModal?.querySelector('[data-access-wristband-receive-form]') || null,
+      wristbandReceiveTitle: wristbandReceiveModal?.querySelector('[data-access-wristband-receive-title]') || null,
+      wristbandReceiveCount: wristbandReceiveModal?.querySelector('[data-access-wristband-receive-count]') || null,
+      wristbandRecipientInput: wristbandReceiveModal?.querySelector('[data-access-wristband-recipient-input]') || null,
       filterForm: document.querySelector('[data-live-filter-form]'),
       profileFilter: document.querySelector('[data-access-profile-filter]'),
       profileFilterTrigger: document.querySelector('[data-access-profile-filter-trigger]'),
@@ -2477,6 +2524,18 @@ document.addEventListener('DOMContentLoaded', () => {
       printSelectedLabel: workspace.dataset.accessPrintSelectedLabel,
       printSelectedCountTemplate: workspace.dataset.accessPrintSelectedCountTemplate,
       printSelectedSuccess: workspace.dataset.accessPrintSelectedSuccess,
+      printModalTitle: workspace.dataset.accessPrintModalTitle,
+      printModalCountTemplate: workspace.dataset.accessPrintModalCountTemplate,
+      wristbandSelectedUrl: workspace.dataset.accessWristbandSelectedAction,
+      wristbandToggleLabel: workspace.dataset.accessWristbandToggleLabel,
+      wristbandSelectedToggleLabel: workspace.dataset.accessWristbandSelectedToggleLabel,
+      wristbandReceivedLabel: workspace.dataset.accessWristbandReceivedLabel,
+      wristbandSelectedLabel: workspace.dataset.accessWristbandSelectedLabel,
+      wristbandSelectedCountTemplate: workspace.dataset.accessWristbandSelectedCountTemplate,
+      wristbandSelectedSuccess: workspace.dataset.accessWristbandSelectedSuccess,
+      wristbandModalTitle: workspace.dataset.accessWristbandModalTitle,
+      wristbandModalCountTemplate: workspace.dataset.accessWristbandModalCountTemplate,
+      wristbandRecipientTemplate: workspace.dataset.accessWristbandRecipientTemplate,
       canManage: workspace.dataset.accessCanManage === 'true',
       requestCreateAction: workspace.dataset.accessRequestCreateAction,
       requestCreateTitle: workspace.dataset.accessRequestCreateTitle,
@@ -2513,6 +2572,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pageType: workspace.dataset.accessPageType,
       singularLabel: workspace.dataset.accessSingularLabel,
       editLabel: workspace.dataset.accessEditLabel,
+      cancelLabel: workspace.dataset.accessCancelLabel,
       notSet: workspace.dataset.accessNotSet,
       statusPendingLabel: workspace.dataset.accessStatusPendingLabel,
       statusHandedOutLabel: workspace.dataset.accessStatusHandedOutLabel,
@@ -2640,8 +2700,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setAccessFullscreen(!accessFullscreen);
   };
 
-  const getSelectedAccessPrintIds = () => [...selectedAccessPrintRequestIds];
-
   const syncAccessPrintSelection = () => {
     const elements = getAccessElements();
     const ui = getAccessUi();
@@ -2699,19 +2757,73 @@ document.addEventListener('DOMContentLoaded', () => {
     syncAccessPrintSelection();
   };
 
-  const submitSelectedAccessPrintRequests = async (trigger) => {
-    const ui = getAccessUi();
-    const requestIds = [...document.querySelectorAll('[data-access-requests-body] [data-request-row-id]')]
-      .map((row) => String(row.dataset.requestRowId || ''))
-      .filter((requestId) => selectedAccessPrintRequestIds.has(requestId))
-      .map((requestId) => Number(requestId))
-      .filter((requestId) => Number.isInteger(requestId) && requestId > 0);
+  const getSelectedAccessPrintIds = () => [...document.querySelectorAll('[data-access-requests-body] [data-request-row-id]')]
+    .map((row) => String(row.dataset.requestRowId || ''))
+    .filter((requestId) => selectedAccessPrintRequestIds.has(requestId))
+    .map((requestId) => Number(requestId))
+    .filter((requestId) => Number.isInteger(requestId) && requestId > 0);
 
-    if (!requestIds.length || !ui.printSelectedUrl) {
+  const closeAccessPrintReceiveModal = () => {
+    const { printReceiveModal, printReceiveForm } = getAccessElements();
+
+    if (!printReceiveModal) {
       return;
     }
 
-    const csrfValue = document.querySelector('[data-access-request-form] input[name="_csrf"]')?.value || '';
+    printReceiveModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
+
+    if (printReceiveForm) {
+      printReceiveForm.reset();
+    }
+  };
+
+  const openAccessPrintReceiveModal = () => {
+    const {
+      printReceiveModal,
+      printReceiveTitle,
+      printReceiveCount,
+      printRecipientInput,
+    } = getAccessElements();
+    const ui = getAccessUi();
+    const requestIds = getSelectedAccessPrintIds();
+
+    if (!printReceiveModal || !requestIds.length) {
+      return;
+    }
+
+    closeAccessHistoryModal();
+    closeAccessRequestModal();
+    closeAccessWristbandReceiveModal();
+    closeAccessExportModal();
+
+    if (printReceiveTitle) {
+      printReceiveTitle.textContent = ui.printModalTitle || ui.printSelectedLabel || 'Print selected passes';
+    }
+
+    if (printReceiveCount) {
+      const template = ui.printModalCountTemplate || ui.printSelectedCountTemplate || '__COUNT__ selected';
+      printReceiveCount.textContent = template.replace('__COUNT__', requestIds.length);
+    }
+
+    printReceiveModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+    window.setTimeout(() => printRecipientInput?.focus(), 50);
+  };
+
+  const submitSelectedAccessPrintRequests = async (trigger) => {
+    const ui = getAccessUi();
+    const elements = getAccessElements();
+    const requestIds = getSelectedAccessPrintIds();
+    const recipientName = String(elements.printRecipientInput?.value || '').trim();
+
+    if (!requestIds.length || !ui.printSelectedUrl || !recipientName) {
+      return;
+    }
+
+    const csrfValue = elements.printReceiveForm?.querySelector('input[name="_csrf"]')?.value
+      || document.querySelector('[data-access-request-form] input[name="_csrf"]')?.value
+      || '';
     const printWindow = window.open('', '_blank', 'noopener');
 
     setLiveSubmitterState(trigger, true);
@@ -2728,6 +2840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           _csrf: csrfValue,
           requestIds,
+          recipientName,
         }),
       });
       const contentType = response.headers.get('content-type') || '';
@@ -2753,6 +2866,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 60_000);
 
       clearAccessPrintSelection();
+      closeAccessPrintReceiveModal();
       await triggerSocketLiveRefresh();
       showLiveNotice(ui.printSelectedSuccess || 'PDF opened for printing.', 'success');
     } catch (error) {
@@ -2760,6 +2874,216 @@ document.addEventListener('DOMContentLoaded', () => {
         printWindow.close();
       }
 
+      if (isAbortError(error)) {
+        return;
+      }
+
+      showLiveNotice(error.message, 'error');
+    } finally {
+      setLiveSubmitterState(trigger, false);
+    }
+  };
+
+  const getSelectedAccessWristbandIds = () => [...document.querySelectorAll('[data-access-requests-body] [data-request-row-id]')]
+    .filter((row) => row.dataset.requestRawStatus !== 'handed_out')
+    .map((row) => String(row.dataset.requestRowId || ''))
+    .filter((requestId) => selectedAccessWristbandRequestIds.has(requestId))
+    .map((requestId) => Number(requestId))
+    .filter((requestId) => Number.isInteger(requestId) && requestId > 0);
+
+  const formatWristbandRecipientLabel = (recipientName) => {
+    const ui = getAccessUi();
+    const normalizedName = String(recipientName || '').trim();
+
+    if (!normalizedName) {
+      return '\u00A0';
+    }
+
+    return (ui.wristbandRecipientTemplate || 'Received by: __NAME__')
+      .replace('__NAME__', normalizedName);
+  };
+
+  const syncAccessWristbandSelection = () => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+
+    document.querySelectorAll('[data-access-wristband-toggle]').forEach((button) => {
+      const requestId = String(button.dataset.requestId || '');
+      const row = button.closest('[data-request-row-id]');
+      const isReceived = row?.dataset.requestRawStatus === 'handed_out' || button.dataset.wristbandReceived === 'true';
+
+      if (isReceived && requestId) {
+        selectedAccessWristbandRequestIds.delete(requestId);
+      }
+    });
+
+    const selectedCount = selectedAccessWristbandRequestIds.size;
+    const isVisible = ui.pageType === 'wristband' && ui.canManage && selectedCount > 0;
+    const selectLabel = ui.wristbandToggleLabel || 'Select wristband';
+    const deselectLabel = ui.wristbandSelectedToggleLabel || 'Remove wristband';
+    const receivedLabel = ui.wristbandReceivedLabel || ui.statusHandedOutLabel || 'Received';
+
+    document.querySelectorAll('[data-access-wristband-toggle]').forEach((button) => {
+      const requestId = String(button.dataset.requestId || '');
+      const row = button.closest('[data-request-row-id]');
+      const isReceived = row?.dataset.requestRawStatus === 'handed_out' || button.dataset.wristbandReceived === 'true';
+      const isSelected = !isReceived && selectedAccessWristbandRequestIds.has(requestId);
+      const label = isReceived ? receivedLabel : (isSelected ? deselectLabel : selectLabel);
+
+      button.classList.toggle('is-selected', isSelected);
+      button.classList.toggle('is-received', isReceived);
+      button.dataset.wristbandReceived = isReceived ? 'true' : 'false';
+      button.setAttribute('aria-pressed', isSelected || isReceived ? 'true' : 'false');
+      button.setAttribute('aria-disabled', isReceived ? 'true' : 'false');
+      button.setAttribute('title', label);
+      button.setAttribute('aria-label', label);
+    });
+
+    if (elements.wristbandSelectedButton) {
+      elements.wristbandSelectedButton.hidden = !isVisible;
+      elements.wristbandSelectedButton.disabled = !isVisible;
+    }
+
+    if (elements.wristbandSelectedLabel) {
+      const template = ui.wristbandSelectedCountTemplate || ui.wristbandSelectedLabel || 'Receive selected';
+      elements.wristbandSelectedLabel.textContent = template.replace('__COUNT__', selectedCount);
+    }
+  };
+
+  const clearAccessWristbandSelection = () => {
+    selectedAccessWristbandRequestIds = new Set();
+    syncAccessWristbandSelection();
+  };
+
+  const toggleAccessWristbandSelection = (trigger) => {
+    const ui = getAccessUi();
+
+    if (ui.pageType !== 'wristband' || !ui.canManage) {
+      return;
+    }
+
+    const row = trigger?.closest('[data-request-row-id]');
+
+    if (row?.dataset.requestRawStatus === 'handed_out' || trigger?.dataset.wristbandReceived === 'true') {
+      return;
+    }
+
+    const requestId = String(trigger?.dataset.requestId || row?.dataset.requestRowId || '');
+
+    if (!requestId) {
+      return;
+    }
+
+    if (selectedAccessWristbandRequestIds.has(requestId)) {
+      selectedAccessWristbandRequestIds.delete(requestId);
+    } else {
+      selectedAccessWristbandRequestIds.add(requestId);
+    }
+
+    syncAccessWristbandSelection();
+  };
+
+  const closeAccessWristbandReceiveModal = () => {
+    const { wristbandReceiveModal, wristbandReceiveForm } = getAccessElements();
+
+    if (!wristbandReceiveModal) {
+      return;
+    }
+
+    wristbandReceiveModal.classList.remove('is-open');
+    document.body.classList.remove('portal-modal-open');
+
+    if (wristbandReceiveForm) {
+      wristbandReceiveForm.reset();
+    }
+  };
+
+  const openAccessWristbandReceiveModal = () => {
+    const {
+      wristbandReceiveModal,
+      wristbandReceiveTitle,
+      wristbandReceiveCount,
+      wristbandRecipientInput,
+    } = getAccessElements();
+    const ui = getAccessUi();
+    const requestIds = getSelectedAccessWristbandIds();
+
+    if (!wristbandReceiveModal || !requestIds.length) {
+      return;
+    }
+
+    closeAccessHistoryModal();
+    closeAccessRequestModal();
+    closeAccessPrintReceiveModal();
+    closeAccessExportModal();
+
+    if (wristbandReceiveTitle) {
+      wristbandReceiveTitle.textContent = ui.wristbandModalTitle || ui.wristbandSelectedLabel || 'Receive wristbands';
+    }
+
+    if (wristbandReceiveCount) {
+      const template = ui.wristbandModalCountTemplate || ui.wristbandSelectedCountTemplate || '__COUNT__ selected';
+      wristbandReceiveCount.textContent = template.replace('__COUNT__', requestIds.length);
+    }
+
+    wristbandReceiveModal.classList.add('is-open');
+    document.body.classList.add('portal-modal-open');
+    window.setTimeout(() => wristbandRecipientInput?.focus(), 50);
+  };
+
+  const submitSelectedAccessWristbands = async (trigger) => {
+    const elements = getAccessElements();
+    const ui = getAccessUi();
+    const requestIds = getSelectedAccessWristbandIds();
+    const recipientName = String(elements.wristbandRecipientInput?.value || '').trim();
+
+    if (!requestIds.length || !ui.wristbandSelectedUrl || !recipientName) {
+      return;
+    }
+
+    const csrfValue = elements.wristbandReceiveForm?.querySelector('input[name="_csrf"]')?.value
+      || document.querySelector('[data-access-request-form] input[name="_csrf"]')?.value
+      || '';
+
+    setLiveSubmitterState(trigger, true);
+
+    try {
+      const response = await fetch(ui.wristbandSelectedUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-Token': csrfValue,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          _csrf: csrfValue,
+          requestIds,
+          recipientName,
+        }),
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.errors?.[0] || 'Request failed');
+      }
+
+      const upserts = Array.isArray(payload?.liveRequestUpserts)
+        ? payload.liveRequestUpserts
+        : (payload?.liveRequestUpsert ? [payload.liveRequestUpsert] : []);
+      const handled = upserts.length > 0 && upserts.every((liveRequestUpsert) => applyAccessRequestUpsert(liveRequestUpsert));
+
+      suppressSocketRefreshUntil = Date.now() + 1800;
+      clearAccessWristbandSelection();
+      closeAccessWristbandReceiveModal();
+
+      if (!handled) {
+        await refreshLiveSections();
+      }
+
+      showLiveNotice(payload?.message || ui.wristbandSelectedSuccess || 'Wristbands updated.', 'success');
+    } catch (error) {
       if (isAbortError(error)) {
         return;
       }
@@ -2940,6 +3264,8 @@ document.addEventListener('DOMContentLoaded', () => {
     [
       '[data-access-history-modal]',
       '[data-access-request-modal]',
+      '[data-access-print-receive-modal]',
+      '[data-access-wristband-receive-modal]',
       '[data-access-export-modal]',
     ].forEach((selector) => {
       const modal = document.querySelector(selector);
@@ -2970,6 +3296,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.removeEventListener('fullscreenchange', syncAccessFullscreenFromBrowser);
     document.addEventListener('fullscreenchange', syncAccessFullscreenFromBrowser);
     syncAccessPrintSelection();
+    syncAccessWristbandSelection();
     if (elements.entryWindowsList && !elements.entryWindowsList.children.length) {
       setAccessEntryWindows([], { ensureBlank: true });
     }
@@ -3708,6 +4035,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const exitButtonToneClass = displayStatus === 'exited'
       ? 'access-mini-button--primary'
       : 'access-mini-button--secondary';
+    const isWristbandReceived = !isPass && rawStatus === 'handed_out';
+    const isWristbandSelected = !isWristbandReceived && selectedAccessWristbandRequestIds.has(String(request.id || ''));
+    const wristbandToggleLabel = isWristbandReceived
+      ? (ui.wristbandReceivedLabel || ui.statusHandedOutLabel || 'Received')
+      : isWristbandSelected
+        ? (ui.wristbandSelectedToggleLabel || 'Remove wristband')
+        : (ui.wristbandToggleLabel || 'Select wristband');
     const statusToneClass = request.statusTone === 'completed'
       ? 'status-completed'
       : request.statusTone === 'active'
@@ -3777,6 +4111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="access-data-stack">
           <span class="${statusToneClass}" data-request-status-badge>${escapeHtml(request.statusLabel || '')}</span>
           <span class="access-status-time" data-request-status-time>${escapeHtml(request.statusUpdatedAtLabel || '\u00A0')}</span>
+          ${!isPass ? `<span class="access-status-recipient" data-request-recipient-name>${escapeHtml(formatWristbandRecipientLabel(request.handedOutRecipientName || ''))}</span>` : ''}
         </div>
       </td>
       <td>
@@ -3836,11 +4171,40 @@ document.addEventListener('DOMContentLoaded', () => {
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5"></path>
             </svg>
           </button>
-            <form action="/events/${escapeHtml(ui.eventId || '')}/${escapeHtml(ui.pageType || '')}/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
-              <input type="hidden" name="_csrf" value="${csrfValue}" />
-              <input type="hidden" name="status" value="${escapeHtml(request.nextStatus || 'pending')}" data-request-status-input />
-              <button type="submit" class="access-mini-button ${request.nextStatusTone === 'primary' ? 'access-mini-button--primary' : 'access-mini-button--secondary'}" data-request-status-button>${escapeHtml(request.nextStatusLabel || '')}</button>
-            </form>
+          <form action="/events/${escapeHtml(ui.eventId || '')}/wristband/requests/${escapeHtml(request.id)}/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
+            <input type="hidden" name="_csrf" value="${csrfValue}" />
+            <input type="hidden" name="status" value="${isWristbandReceived ? 'pending' : 'handed_out'}" data-request-status-input />
+            ${isWristbandReceived ? '' : `<input type="hidden" name="recipientName" value="${escapeHtml(request.fullName || '')}" />`}
+            <button
+              type="submit"
+              class="access-mini-button access-wristband-quick-button ${isWristbandReceived ? 'access-mini-button--secondary is-returning' : 'access-mini-button--primary'}"
+              data-request-status-button
+              title="${escapeHtml(isWristbandReceived ? (ui.markPendingLabel || 'Mark as pending') : (ui.markHandedOutLabel || 'Mark as received'))}"
+              aria-label="${escapeHtml(isWristbandReceived ? (ui.markPendingLabel || 'Mark as pending') : (ui.markHandedOutLabel || 'Mark as received'))}"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
+                <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"></path>
+              </svg>
+              <span>${escapeHtml(isWristbandReceived ? (ui.cancelLabel || 'Cancel') : (ui.statusHandedOutLabel || 'Received'))}</span>
+            </button>
+          </form>
+          <button
+            type="button"
+            class="table-icon-button access-wristband-toggle ${isWristbandSelected ? 'is-selected' : ''} ${isWristbandReceived ? 'is-received' : ''}"
+            data-access-wristband-toggle
+            data-request-id="${escapeHtml(request.id)}"
+            data-wristband-received="${isWristbandReceived ? 'true' : 'false'}"
+            aria-pressed="${isWristbandSelected || isWristbandReceived ? 'true' : 'false'}"
+            aria-disabled="${isWristbandReceived ? 'true' : 'false'}"
+            title="${escapeHtml(wristbandToggleLabel)}"
+            aria-label="${escapeHtml(wristbandToggleLabel)}"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5.5 10.3 8.5 13.2 14.5 7.2"></path>
+              <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"></path>
+            </svg>
+          </button>
           `}
         </div>
       </td>
@@ -3916,7 +4280,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (existingRow) {
         existingRow.remove();
         selectedAccessPrintRequestIds.delete(String(request.id));
+        selectedAccessWristbandRequestIds.delete(String(request.id));
         syncAccessPrintSelection();
+        syncAccessWristbandSelection();
         applyAccessFilters();
         return true;
       }
@@ -3934,6 +4300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (existingRow) {
       existingRow.replaceWith(nextRow);
       syncAccessPrintSelection();
+      syncAccessWristbandSelection();
       applyAccessFilters();
       return true;
     }
@@ -3944,6 +4311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     insertAccessRowSorted(nextRow);
     syncAccessPrintSelection();
+    syncAccessWristbandSelection();
     applyAccessFilters();
     return true;
   };
@@ -3973,7 +4341,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     row.remove();
     selectedAccessPrintRequestIds.delete(String(requestId));
+    selectedAccessWristbandRequestIds.delete(String(requestId));
     syncAccessPrintSelection();
+    syncAccessWristbandSelection();
     applyAccessFilters();
     return true;
   };
@@ -4183,6 +4553,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeAccessRequestModal();
     closeAccessExportModal();
+    closeAccessPrintReceiveModal();
+    closeAccessWristbandReceiveModal();
     closeAccessHistoryModal();
 
     if (historyTitle) {
@@ -4275,6 +4647,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeAccessHistoryModal();
     closeAccessExportModal();
+    closeAccessPrintReceiveModal();
+    closeAccessWristbandReceiveModal();
 
     const eventId = ui.eventId || document.body.dataset.eventRoom || '';
     const accessType = ui.pageType || (window.location.pathname.includes('/wristbands') ? 'wristband' : 'pass');
@@ -4351,6 +4725,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeAccessHistoryModal();
     closeAccessRequestModal();
+    closeAccessPrintReceiveModal();
+    closeAccessWristbandReceiveModal();
     exportModal.classList.add('is-open');
     document.body.classList.add('portal-modal-open');
   };
@@ -5200,7 +5576,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessPrintSelectedTrigger = closest('[data-access-print-selected]');
 
     if (accessPrintSelectedTrigger) {
-      await submitSelectedAccessPrintRequests(accessPrintSelectedTrigger);
+      openAccessPrintReceiveModal();
+      return;
+    }
+
+    const accessWristbandToggleTrigger = closest('[data-access-wristband-toggle]');
+
+    if (accessWristbandToggleTrigger) {
+      toggleAccessWristbandSelection(accessWristbandToggleTrigger);
+      return;
+    }
+
+    const accessWristbandSelectedTrigger = closest('[data-access-wristband-selected]');
+
+    if (accessWristbandSelectedTrigger) {
+      openAccessWristbandReceiveModal();
       return;
     }
 
@@ -5277,6 +5667,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessExportCloseTrigger) {
       closeAccessExportModal();
+      return;
+    }
+
+    const accessWristbandReceiveCloseTrigger = closest('[data-access-wristband-receive-close]');
+
+    if (accessWristbandReceiveCloseTrigger) {
+      closeAccessWristbandReceiveModal();
+      return;
+    }
+
+    const accessPrintReceiveCloseTrigger = closest('[data-access-print-receive-close]');
+
+    if (accessPrintReceiveCloseTrigger) {
+      closeAccessPrintReceiveModal();
       return;
     }
 
@@ -5699,6 +6103,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (form.matches('[data-pass-print-import-form]')) {
+      event.preventDefault();
+      await submitPassPrintImportForm(form);
+      return;
+    }
+
+    if (form.matches('[data-access-print-receive-form]')) {
+      event.preventDefault();
+      await submitSelectedAccessPrintRequests(event.submitter);
+      return;
+    }
+
+    if (form.matches('[data-access-wristband-receive-form]')) {
+      event.preventDefault();
+      await submitSelectedAccessWristbands(event.submitter);
+      return;
+    }
+
     if (form.matches('[data-live-filter-form]')) {
       event.preventDefault();
       if (getAccessElements().workspace) {
@@ -5825,6 +6247,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('codex:live-sections-refreshed', () => {
     closeAccessHistoryModal();
     closeAccessRequestModal();
+    closeAccessPrintReceiveModal();
+    closeAccessWristbandReceiveModal();
     closeAccessExportModal();
     closeRequestProfileStatisticsModal();
     initializeEventDashboardTabs();

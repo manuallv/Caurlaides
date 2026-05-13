@@ -39,6 +39,7 @@
     data-access-can-manage="<%= canManage ? 'true' : 'false' %>"
     data-access-singular-label="<%= typeLabel %>"
     data-access-edit-label="<%= t('access.actions.editRequest') %>"
+    data-access-cancel-label="<%= t('buttons.cancel') %>"
     data-access-not-set="<%= t('common.notSet') %>"
     data-access-status-pending-label="<%= t('statuses.pending') %>"
     data-access-status-handed-out-label="<%= isPass ? t('access.passState.handed_out') : t('statuses.handed_out') %>"
@@ -58,6 +59,18 @@
     data-access-print-selected-count-template="<%= t('access.actions.printSelectedCount', { count: '__COUNT__' }) %>"
     data-access-print-selected-action="/events/<%= activeEvent.id %>/passes/print/selected"
     data-access-print-selected-success="<%= t('flash.passPrintSelectedReady') %>"
+    data-access-print-modal-title="<%= t('access.print.receiveModalTitle') %>"
+    data-access-print-modal-count-template="<%= t('access.print.receiveModalCount', { count: '__COUNT__' }) %>"
+    data-access-wristband-toggle-label="<%= t('access.actions.selectWristbandForReceive') %>"
+    data-access-wristband-selected-toggle-label="<%= t('access.actions.deselectWristbandForReceive') %>"
+    data-access-wristband-received-label="<%= t('access.wristbands.alreadyReceived') %>"
+    data-access-wristband-selected-label="<%= t('access.actions.receiveSelectedWristbands') %>"
+    data-access-wristband-selected-count-template="<%= t('access.actions.receiveSelectedWristbandsCount', { count: '__COUNT__' }) %>"
+    data-access-wristband-selected-action="/events/<%= activeEvent.id %>/wristbands/status"
+    data-access-wristband-selected-success="<%= t('flash.wristbandBulkReceived') %>"
+    data-access-wristband-modal-title="<%= t('access.wristbands.receiveModalTitle') %>"
+    data-access-wristband-modal-count-template="<%= t('access.wristbands.receiveModalCount', { count: '__COUNT__' }) %>"
+    data-access-wristband-recipient-template="<%= t('access.wristbands.receivedBy', { name: '__NAME__' }) %>"
     data-access-create-action="/events/<%= activeEvent.id %>/<%= accessType %>/types"
     data-access-create-title="<%= t('access.types.editorCreate', { type: typeLabel }) %>"
     data-access-edit-title="<%= t('access.types.editorEdit', { type: typeLabel }) %>"
@@ -254,6 +267,15 @@
                 <span data-access-print-selected-button-label><%= t('access.actions.printSelected') %></span>
               </button>
             <% } %>
+            <% if (!isPass && canManage) { %>
+              <button type="button" class="btn-primary" data-access-wristband-selected hidden>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
+                  <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+                </svg>
+                <span data-access-wristband-selected-button-label><%= t('access.actions.receiveSelectedWristbands') %></span>
+              </button>
+            <% } %>
             <% if (canManage) { %>
               <button type="button" class="btn-primary" data-access-create-request>
                 <%= t('access.actions.addRequest', { type: typeLabel }) %>
@@ -308,6 +330,7 @@
                 <tr
                   data-request-row-id="<%= request.id %>"
                   data-request-status="<%= requestDisplayStatus %>"
+                  data-request-raw-status="<%= requestIssuedStatus %>"
                   data-request-created-ts="<%= new Date(request.created_at).getTime() || 0 %>"
                   data-request-category-id="<%= request.category_id %>"
                   data-request-profile-id="<%= request.request_profile_id || '' %>"
@@ -370,6 +393,11 @@
                           <span class="access-status-time" data-request-status-time><%= helpers.formatDateTime(requestStatusAt) %></span>
                         <% } else { %>
                           <span class="access-status-time" data-request-status-time>&nbsp;</span>
+                        <% } %>
+                        <% if (!isPass && request.handed_out_recipient_name) { %>
+                          <span class="access-status-recipient" data-request-recipient-name><%= t('access.wristbands.receivedBy', { name: request.handed_out_recipient_name }) %></span>
+                        <% } else if (!isPass) { %>
+                          <span class="access-status-recipient" data-request-recipient-name>&nbsp;</span>
                         <% } %>
                       </div>
                     </td>
@@ -552,16 +580,44 @@
                             </svg>
                           </button>
 
+                          <% const isWristbandReceived = requestIssuedStatus === 'handed_out'; %>
                           <form action="/events/<%= activeEvent.id %>/<%= accessType %>/requests/<%= request.id %>/status?_method=PUT" method="POST" class="access-status-form" data-live-form data-request-status-form>
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                            <% if (request.status === 'handed_out') { %>
-                              <input type="hidden" name="status" value="pending" data-request-status-input />
-                              <button type="submit" class="access-mini-button access-mini-button--secondary" data-request-status-button><%= t('statuses.pending') %></button>
-                            <% } else { %>
-                              <input type="hidden" name="status" value="handed_out" data-request-status-input />
-                              <button type="submit" class="access-mini-button access-mini-button--primary" data-request-status-button><%= t('statuses.handed_out') %></button>
+                            <input type="hidden" name="status" value="<%= isWristbandReceived ? 'pending' : 'handed_out' %>" data-request-status-input />
+                            <% if (!isWristbandReceived) { %>
+                              <input type="hidden" name="recipientName" value="<%= request.full_name %>" />
                             <% } %>
+                            <button
+                              type="submit"
+                              class="access-mini-button access-wristband-quick-button <%= isWristbandReceived ? 'access-mini-button--secondary is-returning' : 'access-mini-button--primary' %>"
+                              data-request-status-button
+                              title="<%= isWristbandReceived ? t('access.actions.markPending') : t('access.actions.markHandedOut') %>"
+                              aria-label="<%= isWristbandReceived ? t('access.actions.markPending') : t('access.actions.markHandedOut') %>"
+                            >
+                              <svg viewBox="0 0 20 20" aria-hidden="true">
+                                <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
+                                <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+                              </svg>
+                              <span><%= isWristbandReceived ? t('buttons.cancel') : t('statuses.handed_out') %></span>
+                            </button>
                           </form>
+
+                          <button
+                            type="button"
+                            class="table-icon-button access-wristband-toggle <%= isWristbandReceived ? 'is-received' : '' %>"
+                            data-access-wristband-toggle
+                            data-request-id="<%= request.id %>"
+                            data-wristband-received="<%= isWristbandReceived ? 'true' : 'false' %>"
+                            aria-pressed="<%= isWristbandReceived ? 'true' : 'false' %>"
+                            aria-disabled="<%= isWristbandReceived ? 'true' : 'false' %>"
+                            title="<%= isWristbandReceived ? t('access.wristbands.alreadyReceived') : t('access.actions.selectWristbandForReceive') %>"
+                            aria-label="<%= isWristbandReceived ? t('access.wristbands.alreadyReceived') : t('access.actions.selectWristbandForReceive') %>"
+                          >
+                            <svg viewBox="0 0 20 20" aria-hidden="true">
+                              <path d="M5.5 10.3 8.5 13.2 14.5 7.2" />
+                              <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+                            </svg>
+                          </button>
                         <% } %>
                       </div>
                     </td>
@@ -923,6 +979,95 @@
           <div class="portal-modal__actions">
             <button type="button" class="btn-secondary" data-access-request-close><%= t('buttons.cancel') %></button>
             <button type="submit" class="btn-primary" data-access-request-submit-label><%= t('buttons.save') %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="portal-modal" data-access-wristband-receive-modal>
+      <button type="button" class="portal-modal__backdrop" data-access-wristband-receive-close></button>
+      <div class="portal-modal__dialog shell-card">
+        <div class="portal-modal__header">
+          <div class="portal-modal__title-block">
+            <p class="worldnic-eyebrow"><%= t('nav.wristbands') %></p>
+            <h2 data-access-wristband-receive-title><%= t('access.wristbands.receiveModalTitle') %></h2>
+            <p class="mt-2 text-sm text-slate-500" data-access-wristband-receive-count></p>
+          </div>
+
+          <button type="button" class="table-icon-button" data-access-wristband-receive-close aria-label="<%= t('buttons.cancel') %>">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5 5 15" />
+            </svg>
+          </button>
+        </div>
+
+        <form action="/events/<%= activeEvent.id %>/wristbands/status" method="POST" class="portal-modal__form" data-access-wristband-receive-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <div>
+            <label class="field-label"><%= t('access.wristbands.recipientName') %></label>
+            <input
+              name="recipientName"
+              type="text"
+              class="field-input"
+              maxlength="160"
+              required
+              autocomplete="off"
+              placeholder="<%= t('access.wristbands.recipientPlaceholder') %>"
+              data-access-wristband-recipient-input
+            />
+          </div>
+
+          <div class="portal-modal__actions">
+            <button type="button" class="btn-secondary" data-access-wristband-receive-close><%= t('buttons.cancel') %></button>
+            <button type="submit" class="btn-primary" data-access-wristband-receive-submit><%= t('access.wristbands.receiveSubmit') %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="portal-modal" data-access-print-receive-modal>
+      <button type="button" class="portal-modal__backdrop" data-access-print-receive-close></button>
+      <div class="portal-modal__dialog shell-card">
+        <div class="portal-modal__header">
+          <div class="portal-modal__title-block">
+            <p class="worldnic-eyebrow"><%= t('nav.passes') %></p>
+            <h2 data-access-print-receive-title><%= t('access.print.receiveModalTitle') %></h2>
+            <p class="mt-2 text-sm text-slate-500" data-access-print-receive-count></p>
+          </div>
+
+          <button type="button" class="table-icon-button" data-access-print-receive-close aria-label="<%= t('buttons.cancel') %>">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5 5 15" />
+            </svg>
+          </button>
+        </div>
+
+        <form action="/events/<%= activeEvent.id %>/passes/print/selected" method="POST" class="portal-modal__form" data-access-print-receive-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <div>
+            <label class="field-label"><%= t('access.print.recipientName') %></label>
+            <input
+              name="recipientName"
+              type="text"
+              class="field-input"
+              maxlength="160"
+              required
+              autocomplete="off"
+              placeholder="<%= t('access.print.recipientPlaceholder') %>"
+              data-access-print-recipient-input
+            />
+          </div>
+
+          <div class="portal-modal__actions">
+            <button type="button" class="btn-secondary" data-access-print-receive-close><%= t('buttons.cancel') %></button>
+            <button type="submit" class="btn-danger" data-access-print-receive-submit>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9V3h12v6" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <path d="M6 14h12v7H6z" />
+              </svg>
+              <span><%= t('access.print.printSubmit') %></span>
+            </button>
           </div>
         </form>
       </div>

@@ -77,23 +77,73 @@
 >
   <div class="shell-card overflow-hidden">
     <div class="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-      <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
+      <div class="pass-print-hero">
+        <div class="pass-print-hero__copy">
           <p class="worldnic-eyebrow"><%= t('event.sidebar.autoPasses') %></p>
           <h1 class="mt-3 text-2xl font-bold text-slate-900"><%= t('passPrint.title') %></h1>
           <p class="mt-2 text-sm text-slate-500"><%= t('passPrint.description') %></p>
+
+          <div class="pass-print-tabs mt-5">
+            <button type="button" class="pass-print-tab is-active" data-pass-print-tab="editor"><%= t('passPrint.tabs.editor') %></button>
+            <button type="button" class="pass-print-tab" data-pass-print-tab="print"><%= t('passPrint.tabs.print') %></button>
+          </div>
         </div>
 
         <% if (!canManage) { %>
           <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <%= t('passPrint.readOnlyHint') %>
           </div>
-        <% } %>
-      </div>
+        <% } else { %>
+          <div class="pass-print-transfer">
+            <div>
+              <h2><%= t('passPrint.transfer.title') %></h2>
+              <p><%= t('passPrint.transfer.description') %></p>
+            </div>
 
-      <div class="pass-print-tabs mt-5">
-        <button type="button" class="pass-print-tab is-active" data-pass-print-tab="editor"><%= t('passPrint.tabs.editor') %></button>
-        <button type="button" class="pass-print-tab" data-pass-print-tab="print"><%= t('passPrint.tabs.print') %></button>
+            <form
+              action="/events/<%= activeEvent.id %>/passes/print/template/import"
+              method="POST"
+              enctype="multipart/form-data"
+              class="pass-print-transfer__form"
+              data-pass-print-import-form
+            >
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <input
+                id="pass-print-template-file"
+                name="templateFile"
+                type="file"
+                class="field-input pass-print-transfer__file"
+                accept=".json,application/json"
+                required
+                aria-label="<%= t('passPrint.transfer.importFile') %>"
+              />
+              <button
+                type="submit"
+                class="pass-print-transfer__icon-button"
+                title="<%= t('passPrint.transfer.import') %>"
+                aria-label="<%= t('passPrint.transfer.import') %>"
+              >
+                <svg class="pass-print-toolbar__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 21V9"></path>
+                  <path d="m17 14-5-5-5 5"></path>
+                  <path d="M5 3h14"></path>
+                </svg>
+              </button>
+              <a
+                href="/events/<%= activeEvent.id %>/passes/print/template/export"
+                class="pass-print-transfer__icon-button"
+                title="<%= t('passPrint.transfer.export') %>"
+                aria-label="<%= t('passPrint.transfer.export') %>"
+              >
+                <svg class="pass-print-toolbar__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v12"></path>
+                  <path d="m7 10 5 5 5-5"></path>
+                  <path d="M5 21h14"></path>
+                </svg>
+              </a>
+            </form>
+          </div>
+        <% } %>
       </div>
     </div>
 

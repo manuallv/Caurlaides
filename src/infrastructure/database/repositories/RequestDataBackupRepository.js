@@ -63,6 +63,7 @@ const PASS_REQUEST_COLUMNS = [
   'status',
   'submitted_by_user_id',
   'handed_out_by_user_id',
+  'handed_out_recipient_name',
   'returned_by_user_id',
   'handed_out_at',
   'returned_at',
@@ -91,6 +92,7 @@ const WRISTBAND_REQUEST_COLUMNS = [
   'status',
   'submitted_by_user_id',
   'handed_out_by_user_id',
+  'handed_out_recipient_name',
   'returned_by_user_id',
   'handed_out_at',
   'returned_at',
@@ -308,6 +310,7 @@ function backupCurrentPassRequestSql() {
         'status', request.status,
         'submitted_by_user_id', request.submitted_by_user_id,
         'handed_out_by_user_id', request.handed_out_by_user_id,
+        'handed_out_recipient_name', request.handed_out_recipient_name,
         'returned_by_user_id', request.returned_by_user_id,
         'handed_out_at', request.handed_out_at,
         'returned_at', request.returned_at,
@@ -359,6 +362,7 @@ function backupCurrentWristbandRequestSql() {
         'status', request.status,
         'submitted_by_user_id', request.submitted_by_user_id,
         'handed_out_by_user_id', request.handed_out_by_user_id,
+        'handed_out_recipient_name', request.handed_out_recipient_name,
         'returned_by_user_id', request.returned_by_user_id,
         'handed_out_at', request.handed_out_at,
         'returned_at', request.returned_at,
@@ -582,9 +586,9 @@ class RequestDataBackupRepository {
         LEFT JOIN request_profiles profile ON profile.id = backup.request_profile_id
         ${whereSql}
         ORDER BY backup.created_at DESC, backup.id DESC
-        LIMIT ?
+        LIMIT ${limit}
       `,
-      [...params, limit],
+      params,
     );
 
     return rows.map((row) => this.normalize(row));
