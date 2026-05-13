@@ -1986,18 +1986,29 @@ class AccessService {
       backgroundPath = '';
     }
 
-    const requests = await this.requestRepository.listAdminRequests(
-      eventId,
-      'pass',
-      { sort: 'newest' },
-      { limit: 1, randomOrder: true },
-    );
+    let request = null;
 
-    if (!requests.length) {
-      throw new AppError(tx('service.passPrint.noRequests'), 422);
+    if (payload.previewRequestId) {
+      request = await this.requestRepository.findById('pass', payload.previewRequestId);
+
+      if (!request || Number(request.event_id) !== Number(event.id)) {
+        throw new AppError(tx('service.request.notFound'), 404);
+      }
+    } else {
+      const requests = await this.requestRepository.listAdminRequests(
+        eventId,
+        'pass',
+        { sort: 'newest' },
+        { limit: 1, randomOrder: true },
+      );
+
+      if (!requests.length) {
+        throw new AppError(tx('service.passPrint.noRequests'), 422);
+      }
+
+      request = requests[0];
     }
 
-    const request = requests[0];
     const timestamp = dayjs().format('YYYYMMDD-HHmm');
     const baseFileName = sanitizeFileName(`${event.name}-preview-${request.id}-${timestamp}`);
 

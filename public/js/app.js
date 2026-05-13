@@ -978,6 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
       previewFrame: document.querySelector('[data-pass-print-preview-frame]'),
       previewLoading: document.querySelector('[data-pass-print-preview-loading]'),
       previewError: document.querySelector('[data-pass-print-preview-error]'),
+      previewRequestId: document.querySelector('[data-pass-print-preview-request-id]'),
     };
   };
 
@@ -1967,7 +1968,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const submitPassPrintPreview = async (trigger) => {
-    const { form, previewFrame, previewLoading, previewError } = getPassPrintElements();
+    const { form, previewFrame, previewLoading, previewError, previewRequestId } = getPassPrintElements();
     const previewUrl = trigger?.dataset.passPrintPreviewUrl || '';
 
     if (!form || !previewUrl) {
@@ -1987,6 +1988,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const csrfValue = form.querySelector('input[name="_csrf"]')?.value || '';
       const formData = new FormData(form);
+      const requestId = String(previewRequestId?.value || '').trim();
+
+      if (requestId) {
+        formData.set('previewRequestId', requestId);
+      }
+
       const response = await fetch(previewUrl, {
         method: 'POST',
         body: formData,
@@ -5387,6 +5394,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (passPrintPreviewTrigger) {
       await submitPassPrintPreview(passPrintPreviewTrigger);
+      return;
+    }
+
+    const passPrintPreviewRefreshTrigger = closest('[data-pass-print-preview-refresh]');
+
+    if (passPrintPreviewRefreshTrigger) {
+      await submitPassPrintPreview(passPrintPreviewRefreshTrigger);
       return;
     }
 

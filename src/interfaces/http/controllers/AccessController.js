@@ -153,12 +153,15 @@ function normalizeRequestPayload(body) {
 }
 
 function normalizePassPrintTemplatePayload(body) {
+  const previewRequestId = Number.parseInt(body.previewRequestId || body.requestId, 10);
+
   return {
     templateName: body.templateName || '',
     templateFields: body.templateFields || '[]',
     templateOrientation: body.templateOrientation || 'portrait',
     backgroundRotation: body.backgroundRotation || 0,
     removeBackground: body.removeBackground === 'on' || body.removeBackground === '1',
+    previewRequestId: Number.isInteger(previewRequestId) && previewRequestId > 0 ? previewRequestId : null,
   };
 }
 

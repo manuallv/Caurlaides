@@ -6457,6 +6457,22 @@ body.is-pass-print-fullscreen {
   max-height: calc(100vh - 2rem);
 }
 
+.pass-print-preview-modal__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.pass-print-preview-modal__id-input {
+  width: 8.2rem;
+  min-height: 2.3rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .pass-print-preview-modal__body {
   display: grid;
   gap: 0.9rem;
