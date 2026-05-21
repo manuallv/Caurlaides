@@ -1555,6 +1555,31 @@ body.is-access-fullscreen {
   font-weight: 600;
 }
 
+.access-request-profile-picker {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.access-request-profile-picker .field-label {
+  margin-bottom: 0.05rem;
+}
+
+.access-request-profile-search {
+  min-height: 2.75rem;
+  box-shadow: none;
+}
+
+.access-request-profile-select {
+  width: 100%;
+}
+
+.access-request-profile-empty {
+  margin: 0;
+  color: #7f8ea3;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .access-filter-grid > .field-input:first-child {
   flex-basis: 19rem;
 }
@@ -5055,13 +5080,62 @@ body.portal-modal-open {
   line-height: 1.25;
 }
 
-.check-form-card .btn-primary.is-disabled,
-.check-form-card .btn-secondary.is-disabled {
+.check-screen {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.check-page-head {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.25rem 0.2rem 0;
+}
+
+.check-page-head h1 {
+  margin: 0;
+  color: var(--wn-text);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.check-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.86fr) minmax(0, 1.14fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.check-side-stack,
+.check-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.check-form-card,
+.check-result-card,
+.check-recent-card {
+  padding: 1rem;
+}
+
+.check-form-card .check-action-button.is-disabled {
   opacity: 0.72;
   pointer-events: none;
 }
 
 .check-vehicle-input {
+  width: 100%;
+  min-height: 5.6rem;
+  padding: 0.8rem 1rem;
+  text-align: center;
+  color: var(--wn-text);
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
@@ -5095,10 +5169,85 @@ body.portal-modal-open {
   color: #bf315a;
 }
 
+.check-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.check-action-button {
+  min-height: 4.35rem;
+  border: 1px solid rgba(210, 221, 238, 0.95);
+  border-radius: 1rem;
+  background: #fff;
+  color: #314158;
+  box-shadow: 0 14px 30px rgba(31, 45, 71, 0.08);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.check-action-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 116, 255, 0.28);
+  box-shadow: 0 18px 34px rgba(0, 116, 255, 0.12);
+}
+
+.check-action-button--check {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #1fc4d9 0%, #0074ff 100%);
+  color: #fff;
+}
+
+.check-action-button--entry {
+  border-color: rgba(0, 116, 255, 0.26);
+  color: #0067d9;
+}
+
+.check-action-button--exit {
+  border-color: rgba(31, 157, 99, 0.28);
+  color: #168157;
+}
+
+.check-gate-control {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.check-gate-input {
+  min-height: 3.4rem;
+}
+
 .check-result-card {
+  position: relative;
+  overflow: hidden;
   transition:
     border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.check-result-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(0, 116, 255, 0.06), rgba(31, 157, 99, 0));
+  opacity: 0;
+}
+
+.check-result-card.is-entry::before,
+.check-result-card.is-check::before,
+.check-result-card.is-exit::before,
+.check-result-card.is-denied::before {
+  opacity: 1;
 }
 
 .check-result-card.is-entry {
@@ -5114,6 +5263,292 @@ body.portal-modal-open {
 .check-result-card.is-exit {
   border-color: rgba(31, 157, 99, 0.22);
   box-shadow: 0 20px 40px rgba(31, 157, 99, 0.08);
+}
+
+.check-result-card.is-denied {
+  border-color: rgba(195, 51, 93, 0.26);
+  box-shadow: 0 20px 40px rgba(195, 51, 93, 0.1);
+}
+
+.check-result-card.is-denied::before {
+  background: linear-gradient(135deg, rgba(195, 51, 93, 0.08), rgba(195, 51, 93, 0));
+}
+
+.check-result-ready {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.5rem;
+  min-height: 10rem;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.check-result-ready span,
+.check-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 116, 255, 0.1);
+  color: #0065d9;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.check-result-ready strong {
+  color: #718098;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.check-result-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.85rem;
+}
+
+.check-result-hero {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.check-result-hero strong {
+  color: var(--wn-text);
+  font-size: 2.8rem;
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.check-result-hero p {
+  margin: 0;
+  color: #51627a;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.check-result-card.is-denied .check-status-badge {
+  background: rgba(195, 51, 93, 0.12);
+  color: #bf315a;
+}
+
+.check-result-card.is-exit .check-status-badge {
+  background: rgba(31, 157, 99, 0.12);
+  color: #168157;
+}
+
+.check-result-message,
+.check-result-note {
+  margin: 0;
+  border-radius: 0.9rem;
+  padding: 0.85rem 0.95rem;
+  background: rgba(0, 116, 255, 0.08);
+  color: #314158;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.check-result-card.is-denied .check-result-message {
+  background: rgba(195, 51, 93, 0.08);
+  color: #9b2747;
+}
+
+.check-result-note {
+  border: 1px solid rgba(232, 175, 63, 0.3);
+  background: rgba(255, 247, 222, 0.96);
+  color: #8a5d12;
+}
+
+.check-result-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.check-result-detail {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 4.35rem;
+  align-content: center;
+  border: 1px solid rgba(218, 226, 239, 0.86);
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.82rem;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.check-result-detail--wide {
+  grid-column: 1 / -1;
+}
+
+.check-result-detail span {
+  color: #7a8aa1;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.check-result-detail strong {
+  color: var(--wn-text);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.24;
+  overflow-wrap: anywhere;
+}
+
+.check-recent-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.check-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.check-recent-empty {
+  margin: 0;
+  color: #66788f;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.check-recent-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.check-recent-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid rgba(218, 226, 239, 0.86);
+  border-radius: 0.9rem;
+  padding: 0.78rem 0.85rem;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.check-recent-item p,
+.check-recent-item span,
+.check-recent-item small {
+  display: block;
+  margin: 0;
+  line-height: 1.32;
+}
+
+.check-recent-item p {
+  color: var(--wn-text);
+  font-size: 0.93rem;
+  font-weight: 800;
+}
+
+.check-recent-item span,
+.check-recent-item small {
+  margin-top: 0.2rem;
+  color: #66788f;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.check-recent-item .check-recent-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  margin-top: 0;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(0, 116, 255, 0.1);
+  color: #0065d9;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.check-recent-item .check-recent-pill.is-exit {
+  background: rgba(31, 157, 99, 0.12);
+  color: #168157;
+}
+
+@media (max-width: 820px) {
+  .check-screen {
+    gap: 0.75rem;
+  }
+
+  .check-page-head h1 {
+    font-size: 1.35rem;
+  }
+
+  .check-layout {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .check-form-card,
+  .check-result-card,
+  .check-recent-card {
+    padding: 0.82rem;
+    border-radius: 1rem;
+  }
+
+  .check-form,
+  .check-side-stack {
+    gap: 0.75rem;
+  }
+
+  .check-vehicle-input {
+    min-height: 5.2rem;
+    font-size: 2.55rem;
+  }
+
+  .check-action-button {
+    min-height: 4rem;
+    font-size: 1rem;
+  }
+
+  .check-result-hero strong {
+    font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .check-vehicle-input {
+    min-height: 4.8rem;
+    font-size: 2.1rem;
+  }
+
+  .check-action-grid,
+  .check-result-detail-grid {
+    gap: 0.55rem;
+  }
+
+  .check-result-detail {
+    min-height: 4rem;
+    padding: 0.62rem 0.7rem;
+  }
+
+  .check-recent-item {
+    grid-template-columns: 1fr;
+  }
+
+  .check-recent-item .check-recent-pill {
+    justify-self: start;
+  }
 }
 
 .portal-modal__form {

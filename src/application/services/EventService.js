@@ -37,7 +37,7 @@ class EventService {
       return '';
     }
 
-    return `${env.appUrl.replace(/\/$/, '')}/check/${encodeURIComponent(token)}`;
+    return `${env.appUrl.replace(/\/$/, '')}/c/${encodeURIComponent(token)}`;
   }
 
   buildVehicleGateApiUrl(token) {
@@ -50,7 +50,9 @@ class EventService {
 
   async generateUniqueVehicleCheckToken() {
     for (let index = 0; index < 12; index += 1) {
-      const token = crypto.randomBytes(20).toString('hex');
+      const token = BigInt(`0x${crypto.randomBytes(12).toString('hex')}`)
+        .toString(36)
+        .padStart(19, '0');
       const existingEvent = await this.eventRepository.findByVehicleCheckToken(token);
 
       if (!existingEvent) {

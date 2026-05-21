@@ -530,6 +530,7 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
     : result.direction === 'check'
       ? 'check'
       : 'entry';
+  const allowed = result.allowed !== false;
   const currentPresence = result.currentPresence === 'inside'
     ? 'inside'
     : result.currentPresence === 'outside'
@@ -537,8 +538,8 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
       : 'unknown';
 
   return {
-    allowed: result.allowed !== false,
-    decision: result.decision || (result.allowed === false ? 'denied' : 'success'),
+    allowed,
+    decision: result.decision || (allowed ? 'success' : 'denied'),
     checkedPlate: result.checkedPlate || request.vehicle_plate || fallbackPlate,
     direction,
     directionTitle: req.t(
@@ -548,6 +549,16 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
           ? 'check.resultDirectionCheck'
           : 'check.resultDirectionEntry',
     ),
+    statusLabel: req.t(
+      !allowed
+        ? 'check.resultDeniedStatus'
+        : direction === 'exit'
+          ? 'check.resultExitStatus'
+          : direction === 'entry'
+            ? 'check.resultEntryStatus'
+            : 'check.resultAllowedStatus',
+    ),
+    message: result.message || '',
     alreadyEntered: Boolean(result.alreadyEntered),
     alreadyEnteredMessage: result.alreadyEntered && direction === 'entry' ? req.t('check.resultAlreadyEntered') : '',
     currentPresence,
@@ -578,6 +589,16 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
       lastExitAtLabel: request.last_exit_at ? res.locals.helpers.formatDateTime(request.last_exit_at) : '',
     },
   };
+}
+
+function buildPublicVehicleCheckAction(req) {
+  const currentPath = String(req.originalUrl || '').split('?')[0];
+
+  if (currentPath.startsWith('/c/') || currentPath.startsWith('/check/')) {
+    return currentPath;
+  }
+
+  return `/check/${encodeURIComponent(req.params.token || '')}`;
 }
 
 function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fallbackPlate = '') {
@@ -1518,7 +1539,7 @@ function buildAccessController({ categoryService, accessService }) {
         events: [],
         recentMovements: data.recentMovements,
         checkResult: null,
-        checkAction: `/check/${encodeURIComponent(req.params.token)}`,
+        checkAction: buildPublicVehicleCheckAction(req),
         showEventPicker: false,
         isPublicPortal: true,
         isPublicVehicleCheck: true,
@@ -1568,7 +1589,7 @@ function buildAccessController({ categoryService, accessService }) {
         events: [],
         recentMovements: data.recentMovements,
         checkResult: buildVehicleCheckResultPayload(req, res, result, payload.vehiclePlate),
-        checkAction: `/check/${encodeURIComponent(req.params.token)}`,
+        checkAction: buildPublicVehicleCheckAction(req),
         showEventPicker: false,
         isPublicPortal: true,
         isPublicVehicleCheck: true,

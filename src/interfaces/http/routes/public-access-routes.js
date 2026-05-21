@@ -27,6 +27,8 @@ function buildPublicAccessRoutes({ accessController }) {
     validateRequest,
     asyncHandler(accessController.submitRequestProfileApplication),
   );
+  router.get('/c/:token', asyncHandler(accessController.showPublicVehicleCheck));
+  router.post('/c/:token', publicVehicleCheckValidator, validateRequest, asyncHandler(accessController.submitPublicVehicleCheck));
   router.get('/check/:token', asyncHandler(accessController.showPublicVehicleCheck));
   router.post('/check/:token', publicVehicleCheckValidator, validateRequest, asyncHandler(accessController.submitPublicVehicleCheck));
   router.post('/p/access', portalCodeValidator, validateRequest, asyncHandler(accessController.authorizePortal));

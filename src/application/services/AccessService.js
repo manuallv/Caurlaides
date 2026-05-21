@@ -1540,8 +1540,9 @@ class AccessService {
     const tx = resolveTranslate(t);
     const profileName = String(payload.profileName || payload.name || '').trim();
     const contactEmail = normalizeEmail(payload.contactEmail);
+    const matchNameOnly = Boolean(payload.matchNameOnly);
 
-    if (!profileName || !contactEmail) {
+    if (!profileName || (!matchNameOnly && !contactEmail)) {
       return;
     }
 
@@ -1549,6 +1550,7 @@ class AccessService {
       name: profileName,
       contactEmail,
       excludeProfileId: payload.excludeProfileId,
+      matchNameOnly,
     });
 
     if (duplicateProfile) {
@@ -1564,6 +1566,7 @@ class AccessService {
       contactEmail,
       statuses: payload.applicationStatuses || ['pending', 'approved'],
       excludeId: payload.excludeApplicationId,
+      matchNameOnly,
     });
 
     if (duplicateApplication) {
@@ -2432,6 +2435,7 @@ class AccessService {
     await this.assertRequestProfileIdentityAvailable(form.event.id, {
       profileName,
       contactEmail,
+      matchNameOnly: true,
       messageKey: 'service.requestProfileApplication.duplicate',
       applicationMessageKey: 'service.requestProfileApplication.duplicate',
     }, tx);
@@ -2560,6 +2564,7 @@ class AccessService {
       contactEmail,
       excludeApplicationId: applicationId,
       applicationStatuses: ['approved'],
+      matchNameOnly: true,
       messageKey: 'service.requestProfile.duplicate',
       applicationMessageKey: 'service.requestProfile.duplicate',
     }, tx);

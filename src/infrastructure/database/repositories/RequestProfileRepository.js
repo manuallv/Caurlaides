@@ -151,7 +151,9 @@ class RequestProfileRepository {
       `
         SELECT
           rp.id,
-          rp.name
+          rp.name,
+          rp.contact_email,
+          rp.contact_phone
         FROM request_profiles rp
         WHERE rp.event_id = ?
           AND rp.deleted_at IS NULL
@@ -197,16 +199,24 @@ class RequestProfileRepository {
   }
 
   async findByEventIdentity(eventId, payload = {}) {
-    if (!payload.name || !payload.contactEmail) {
+    const matchNameOnly = Boolean(payload.matchNameOnly);
+
+    if (!payload.name || (!matchNameOnly && !payload.contactEmail)) {
       return null;
     }
 
+    const emailCondition = matchNameOnly
+      ? ''
+      : "AND LOWER(TRIM(COALESCE(rp.contact_email, ''))) = LOWER(TRIM(?))";
     const excludeCondition = payload.excludeProfileId ? 'AND rp.id <> ?' : '';
     const params = [
       eventId,
       payload.name,
-      payload.contactEmail,
     ];
+
+    if (!matchNameOnly) {
+      params.push(payload.contactEmail);
+    }
 
     if (payload.excludeProfileId) {
       params.push(payload.excludeProfileId);
@@ -237,7 +247,7 @@ class RequestProfileRepository {
         WHERE rp.event_id = ?
           AND rp.deleted_at IS NULL
           AND LOWER(TRIM(rp.name)) = LOWER(TRIM(?))
-          AND LOWER(TRIM(COALESCE(rp.contact_email, ''))) = LOWER(TRIM(?))
+          ${emailCondition}
           ${excludeCondition}
         ORDER BY rp.is_active DESC, rp.created_at ASC, rp.id ASC
         LIMIT 1

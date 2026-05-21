@@ -37,6 +37,35 @@ function normalizeOffset(value) {
   return number;
 }
 
+function normalizeVehiclePlateSearch(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '') || null;
+}
+
+function buildVehiclePlateNormalizedExpression(alias = 'request') {
+  return `
+    REPLACE(
+      REPLACE(
+        REPLACE(
+          REPLACE(
+            REPLACE(UPPER(COALESCE(${alias}.vehicle_plate, '')), ' ', ''),
+            '-',
+            ''
+          ),
+          '.',
+          ''
+        ),
+        '/',
+        ''
+      ),
+      '_',
+      ''
+    )
+  `;
+}
+
 function buildVehiclePlateSelect(config, alias = 'request') {
   if (config.supportsVehiclePlate) {
     return `
@@ -122,9 +151,22 @@ function buildAdminRequestQuerySpec(config, type, eventId, filters = {}) {
   }
 
   if (filters.query) {
-    where.push(`(${searchColumns.map((column) => `${column} LIKE ?`).join(' OR ')})`);
+    const searchConditions = searchColumns.map((column) => `${column} LIKE ?`);
     const like = `%${filters.query}%`;
     params.push(...searchColumns.map(() => like));
+
+    if (config.supportsVehiclePlate) {
+      const normalizedVehiclePlateQuery = normalizeVehiclePlateSearch(filters.query);
+
+      if (normalizedVehiclePlateQuery) {
+        const normalizedLike = `%${normalizedVehiclePlateQuery}%`;
+        searchConditions.push('request.vehicle_plate_normalized LIKE ?');
+        searchConditions.push(`${buildVehiclePlateNormalizedExpression()} LIKE ?`);
+        params.push(normalizedLike, normalizedLike);
+      }
+    }
+
+    where.push(`(${searchConditions.join(' OR ')})`);
   }
 
   return {

@@ -95,19 +95,24 @@ class RequestProfileApplicationRepository {
     const allowedStatuses = new Set(['pending', 'approved', 'rejected']);
     const statuses = (payload.statuses || ['pending', 'approved'])
       .filter((status) => allowedStatuses.has(status));
+    const matchNameOnly = Boolean(payload.matchNameOnly);
 
-    if (!statuses.length || !payload.profileName || !payload.contactEmail) {
+    if (!statuses.length || !payload.profileName || (!matchNameOnly && !payload.contactEmail)) {
       return null;
     }
 
     const statusPlaceholders = statuses.map(() => '?').join(', ');
+    const emailCondition = matchNameOnly ? '' : 'AND LOWER(TRIM(contact_email)) = LOWER(TRIM(?))';
     const excludeCondition = payload.excludeId ? 'AND id <> ?' : '';
     const params = [
       eventId,
       ...statuses,
       payload.profileName,
-      payload.contactEmail,
     ];
+
+    if (!matchNameOnly) {
+      params.push(payload.contactEmail);
+    }
 
     if (payload.excludeId) {
       params.push(payload.excludeId);
@@ -135,7 +140,7 @@ class RequestProfileApplicationRepository {
         WHERE event_id = ?
           AND status IN (${statusPlaceholders})
           AND LOWER(TRIM(profile_name)) = LOWER(TRIM(?))
-          AND LOWER(TRIM(contact_email)) = LOWER(TRIM(?))
+          ${emailCondition}
           ${excludeCondition}
         ORDER BY FIELD(status, 'approved', 'pending', 'rejected'), created_at ASC, id ASC
         LIMIT 1

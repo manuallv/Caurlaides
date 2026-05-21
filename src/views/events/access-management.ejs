@@ -195,6 +195,7 @@
                     data-access-profile-filter-option
                     data-profile-id="<%= profile.id %>"
                     data-profile-name="<%= profile.name %>"
+                    data-profile-search="<%= [profile.name, profile.contact_email || '', profile.contact_phone || '', String(profile.contact_phone || '').replace(/\D/g, '')].join(' ').toLowerCase() %>"
                     aria-selected="<%= Number(filters.profileId) === Number(profile.id) ? 'true' : 'false' %>"
                   >
                     <span><%= profile.name %></span>
@@ -926,14 +927,26 @@
           </div>
 
           <div class="portal-form-grid">
-            <div>
+            <div class="access-request-profile-picker">
               <label class="field-label"><%= t('access.fields.profileOptional') %></label>
-              <select name="requestProfileId" class="field-input" data-access-request-profile>
+              <input
+                type="search"
+                class="field-input access-request-profile-search"
+                placeholder="<%= t('access.filters.searchProfiles') %>"
+                autocomplete="off"
+                spellcheck="false"
+                data-access-request-profile-search
+              />
+              <select name="requestProfileId" class="field-input access-request-profile-select" data-access-request-profile>
                 <option value=""><%= t('access.filters.allProfiles') %></option>
                 <% profiles.forEach((profile) => { %>
-                  <option value="<%= profile.id %>"><%= profile.name %></option>
+                  <option
+                    value="<%= profile.id %>"
+                    data-profile-search="<%= [profile.name, profile.contact_email || '', profile.contact_phone || '', String(profile.contact_phone || '').replace(/\D/g, '')].join(' ').toLowerCase() %>"
+                  ><%= profile.name %></option>
                 <% }) %>
               </select>
+              <p class="access-request-profile-empty hidden" data-access-request-profile-empty><%= t('access.filters.noProfilesFound') %></p>
             </div>
 
             <div>

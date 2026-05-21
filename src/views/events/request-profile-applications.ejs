@@ -63,6 +63,7 @@
             application.profile_name,
             application.contact_email,
             application.contact_phone,
+            String(application.contact_phone || '').replace(/\D/g, ''),
             t(`requestProfileApplications.status.${application.status}`),
             helpers.formatDateTime(application.created_at),
             application.approved_access_code,

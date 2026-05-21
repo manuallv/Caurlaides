@@ -44,6 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(value).replace(/["\\]/g, '\\$&');
   };
 
+  const normalizeVehiclePlateSearch = (value) => String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .toLowerCase();
+
   const isAbortError = (error) => (
     error?.name === 'AbortError'
     || String(error?.message || '').toLowerCase().includes('aborted')
@@ -659,8 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
     resultCard: document.querySelector('[data-check-result-card]'),
     resultEmpty: document.querySelector('[data-check-result-empty]'),
     resultContent: document.querySelector('[data-check-result-content]'),
+    resultStatus: document.querySelector('[data-check-result-status]'),
     resultTitle: document.querySelector('[data-check-result-title]'),
     resultPlate: document.querySelector('[data-check-result-plate]'),
+    resultMessage: document.querySelector('[data-check-result-message]'),
     resultPerson: document.querySelector('[data-check-result-person]'),
     resultCompany: document.querySelector('[data-check-result-company]'),
     resultType: document.querySelector('[data-check-result-type]'),
@@ -748,18 +756,16 @@ document.addEventListener('DOMContentLoaded', () => {
     ].filter(Boolean);
 
     return `
-      <div class="rounded-2xl border border-slate-200 px-4 py-3">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="text-sm font-semibold text-slate-900">${escapeHtml(item.vehiclePlate || '')} · ${escapeHtml(item.fullName || '')}</p>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.directionLabel || '')} · ${escapeHtml(item.createdAtLabel || '')}</p>
-            ${detailParts.length ? `<p class="mt-2 text-xs text-slate-500">${escapeHtml(detailParts.join(' · '))}</p>` : ''}
-          </div>
-
-          <span class="portal-type-pill ${item.direction === 'exit' ? 'is-wristband' : 'is-pass'}">
-            ${escapeHtml(item.directionLabel || '')}
-          </span>
+      <div class="check-recent-item">
+        <div>
+          <p>${escapeHtml(item.vehiclePlate || '')} · ${escapeHtml(item.fullName || '')}</p>
+          <span>${escapeHtml(item.directionLabel || '')} · ${escapeHtml(item.createdAtLabel || '')}</span>
+          ${detailParts.length ? `<small>${escapeHtml(detailParts.join(' · '))}</small>` : ''}
         </div>
+
+        <span class="check-recent-pill ${item.direction === 'exit' ? 'is-exit' : 'is-entry'}">
+            ${escapeHtml(item.directionLabel || '')}
+        </span>
       </div>
     `;
   }).join('');
@@ -769,8 +775,10 @@ document.addEventListener('DOMContentLoaded', () => {
       resultCard,
       resultEmpty,
       resultContent,
+      resultStatus,
       resultTitle,
       resultPlate,
+      resultMessage,
       resultPerson,
       resultCompany,
       resultType,
@@ -784,9 +792,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    resultCard.classList.remove('is-entry', 'is-exit', 'is-check');
+    resultCard.classList.remove('is-entry', 'is-exit', 'is-check', 'is-denied');
     resultCard.classList.add(
-      result.direction === 'exit'
+      result.allowed === false
+        ? 'is-denied'
+        : result.direction === 'exit'
         ? 'is-exit'
         : result.direction === 'check'
           ? 'is-check'
@@ -795,12 +805,21 @@ document.addEventListener('DOMContentLoaded', () => {
     resultEmpty.classList.add('hidden');
     resultContent.classList.remove('hidden');
 
+    if (resultStatus) {
+      resultStatus.textContent = result.statusLabel || result.directionTitle || '';
+    }
+
     if (resultTitle) {
       resultTitle.textContent = result.directionTitle || '';
     }
 
     if (resultPlate) {
       resultPlate.textContent = result.request?.vehiclePlate || result.checkedPlate || '';
+    }
+
+    if (resultMessage) {
+      resultMessage.textContent = result.message || '';
+      resultMessage.classList.toggle('hidden', !result.message);
     }
 
     if (resultPerson) {
@@ -922,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resultEmpty && !resultContent?.classList.contains('hidden')) {
       resultEmpty.classList.add('hidden');
     } else if (resultEmpty && resultContent?.classList.contains('hidden')) {
-      resultEmpty.textContent = ui.resultHint || resultEmpty.textContent;
+      resultEmpty.classList.remove('hidden');
     }
 
     if (recentEmpty && recentList) {
@@ -2662,6 +2681,8 @@ document.addEventListener('DOMContentLoaded', () => {
       requestMethodHolder: requestModal?.querySelector('[data-access-request-method-holder]') || null,
       requestSubmitLabel: requestModal?.querySelector('[data-access-request-submit-label]') || null,
       requestProfile: requestModal?.querySelector('[data-access-request-profile]') || null,
+      requestProfileSearch: requestModal?.querySelector('[data-access-request-profile-search]') || null,
+      requestProfileEmpty: requestModal?.querySelector('[data-access-request-profile-empty]') || null,
       requestCategory: requestModal?.querySelector('[data-access-request-category]') || null,
       entryWindowsList: document.querySelector('[data-access-entry-windows-list]'),
       entryWindowsEmpty: document.querySelector('[data-access-entry-windows-empty]'),
@@ -3580,8 +3601,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let visibleCount = 0;
 
     profileFilterOptions.forEach((option) => {
-      const optionName = String(option.dataset.profileName || option.textContent || '').trim().toLowerCase();
-      const matches = !normalizedQuery || optionName.includes(normalizedQuery);
+      const searchIndex = String(
+        option.dataset.profileSearch || option.dataset.profileName || option.textContent || '',
+      ).trim().toLowerCase();
+      const matches = !normalizedQuery || searchIndex.includes(normalizedQuery);
 
       option.hidden = !matches;
 
@@ -3635,6 +3658,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (profileFilterEmpty) {
       profileFilterEmpty.classList.add('hidden');
     }
+  };
+
+  const filterAccessRequestProfileOptions = () => {
+    const { requestProfile, requestProfileSearch, requestProfileEmpty } = getAccessElements();
+
+    if (!requestProfile) {
+      return;
+    }
+
+    const query = String(requestProfileSearch?.value || '').trim().toLowerCase();
+    let visibleProfileCount = 0;
+
+    [...requestProfile.options].forEach((option) => {
+      const isDefaultOption = !option.value;
+      const searchIndex = String(option.dataset.profileSearch || option.textContent || '').trim().toLowerCase();
+      const matches = isDefaultOption || !query || searchIndex.includes(query);
+
+      option.hidden = !matches;
+
+      if (!isDefaultOption && matches) {
+        visibleProfileCount += 1;
+      }
+    });
+
+    if (requestProfileEmpty) {
+      requestProfileEmpty.classList.toggle('hidden', !query || visibleProfileCount > 0);
+    }
+  };
+
+  const resetAccessRequestProfileSearch = () => {
+    const { requestProfileSearch, requestProfileEmpty } = getAccessElements();
+
+    if (requestProfileSearch) {
+      requestProfileSearch.value = '';
+    }
+
+    if (requestProfileEmpty) {
+      requestProfileEmpty.classList.add('hidden');
+    }
+
+    filterAccessRequestProfileOptions();
   };
 
   const applyAccessProfileFilterSelection = async (option) => {
@@ -3878,6 +3942,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (filters.query) {
+      const normalizedVehiclePlateQuery = normalizeVehiclePlateSearch(filters.query);
+      const normalizedRequestPlate = normalizeVehiclePlateSearch(request.vehiclePlate);
       const haystack = [
         request.fullName,
         request.id,
@@ -3892,7 +3958,10 @@ document.addEventListener('DOMContentLoaded', () => {
         .join(' ')
         .toLowerCase();
 
-      if (!haystack.includes(filters.query)) {
+      if (
+        !haystack.includes(filters.query)
+        && (!normalizedVehiclePlateQuery || !normalizedRequestPlate.includes(normalizedVehiclePlateQuery))
+      ) {
         return false;
       }
     }
@@ -4531,6 +4600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     requestModal.classList.remove('is-open');
     document.body.classList.remove('portal-modal-open');
     requestForm.reset();
+    resetAccessRequestProfileSearch();
     requestForm.action = ui.requestCreateAction || '';
 
     if (requestMethodHolder) {
@@ -4827,6 +4897,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isEdit = Boolean(trigger?.dataset.requestId);
 
     requestForm.reset();
+    resetAccessRequestProfileSearch();
     requestForm.action = isEdit
       ? `/events/${eventId}/${accessType}/requests/${trigger.dataset.requestId}?_method=PUT`
       : (ui.requestCreateAction || `/events/${eventId}/${accessType}/requests`);
@@ -4871,6 +4942,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (requestProfile) {
       requestProfile.value = trigger?.dataset.requestProfileId || '';
     }
+
+    filterAccessRequestProfileOptions();
 
     requestModal.classList.add('is-open');
     document.body.classList.add('portal-modal-open');
@@ -6325,6 +6398,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.target.matches('[data-access-profile-filter-search]')) {
       filterAccessProfileOptions();
+      return;
+    }
+
+    if (event.target.matches('[data-access-request-profile-search]')) {
+      filterAccessRequestProfileOptions();
       return;
     }
 
