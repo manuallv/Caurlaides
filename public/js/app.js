@@ -658,6 +658,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const getCheckElements = () => ({
     app: document.querySelector('[data-check-app]'),
     form: document.querySelector('[data-check-form]'),
+    formCard: document.querySelector('.check-form-card'),
+    formStatus: document.querySelector('[data-check-form-status]'),
+    formStatusLabel: document.querySelector('[data-check-form-status-label]'),
+    formStatusPlate: document.querySelector('[data-check-form-status-plate]'),
     feedback: document.querySelector('[data-check-feedback]'),
     vehiclePlateInput: document.querySelector('[data-check-vehicle-plate]'),
     gateNameInput: document.querySelector('[data-check-gate-name]'),
@@ -695,6 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let checkFeedbackTimer = null;
   let checkInputToneTimer = null;
+  let checkFormCardToneTimer = null;
 
   const setCheckFormLoading = (isLoading) => {
     const { submitButtons } = getCheckElements();
@@ -748,6 +753,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1200);
   };
 
+  const pulseCheckFormCard = (tone = 'success') => {
+    const { formCard } = getCheckElements();
+
+    if (!formCard) {
+      return;
+    }
+
+    window.clearTimeout(checkFormCardToneTimer);
+    formCard.classList.remove('is-check-success', 'is-check-error');
+    formCard.classList.add(tone === 'error' ? 'is-check-error' : 'is-check-success');
+
+    checkFormCardToneTimer = window.setTimeout(() => {
+      formCard.classList.remove('is-check-success', 'is-check-error');
+    }, 1300);
+  };
+
   const renderCheckRecentItems = (items = []) => items.map((item) => {
     const detailParts = [
       item.companyName,
@@ -775,6 +796,9 @@ document.addEventListener('DOMContentLoaded', () => {
       resultCard,
       resultEmpty,
       resultContent,
+      formStatus,
+      formStatusLabel,
+      formStatusPlate,
       resultStatus,
       resultTitle,
       resultPlate,
@@ -804,6 +828,19 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     resultEmpty.classList.add('hidden');
     resultContent.classList.remove('hidden');
+
+    if (formStatus) {
+      formStatus.classList.remove('hidden', 'is-denied');
+      formStatus.classList.toggle('is-denied', result.allowed === false);
+    }
+
+    if (formStatusLabel) {
+      formStatusLabel.textContent = result.statusLabel || result.directionTitle || '';
+    }
+
+    if (formStatusPlate) {
+      formStatusPlate.textContent = result.request?.vehiclePlate || result.checkedPlate || '';
+    }
 
     if (resultStatus) {
       resultStatus.textContent = result.statusLabel || result.directionTitle || '';
@@ -910,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isAllowed = payload?.allowed !== false && payload?.result?.allowed !== false;
       setCheckFeedback(payload.message || '', isAllowed ? 'success' : 'error');
       pulseCheckVehicleInput(isAllowed ? 'success' : 'error');
+      pulseCheckFormCard(isAllowed ? 'success' : 'error');
 
       if (vehiclePlateInput) {
         if (isAllowed) {
@@ -923,6 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       setCheckFeedback(error.message || 'Request failed.', 'error');
       pulseCheckVehicleInput('error');
+      pulseCheckFormCard('error');
       vehiclePlateInput?.focus?.();
       vehiclePlateInput?.select?.();
     } finally {

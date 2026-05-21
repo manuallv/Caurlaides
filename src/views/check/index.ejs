@@ -32,6 +32,11 @@
             <input type="hidden" name="eventId" value="<%= selectedEvent.id %>" />
           <% } %>
 
+          <div class="check-form-status<%= hasCheckResult ? '' : ' hidden' %><%= hasCheckResult && checkResult.allowed === false ? ' is-denied' : '' %>" data-check-form-status>
+            <span data-check-form-status-label><%= hasCheckResult ? (checkResult.statusLabel || '') : '' %></span>
+            <strong data-check-form-status-plate><%= resultPlate %></strong>
+          </div>
+
           <div class="check-plate-control">
             <label class="field-label" for="check-vehicle-plate"><%= t('check.vehiclePlate') %></label>
             <input

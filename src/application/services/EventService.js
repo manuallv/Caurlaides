@@ -19,6 +19,12 @@ function safeCompare(left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+function generateShortVehicleCheckToken(length = 4) {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+  return Array.from({ length }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
+}
+
 class EventService {
   constructor({ pool, eventRepository, userRepository, auditLogService, dashboardRepository }) {
     this.pool = pool;
@@ -49,10 +55,8 @@ class EventService {
   }
 
   async generateUniqueVehicleCheckToken() {
-    for (let index = 0; index < 12; index += 1) {
-      const token = BigInt(`0x${crypto.randomBytes(12).toString('hex')}`)
-        .toString(36)
-        .padStart(19, '0');
+    for (let index = 0; index < 80; index += 1) {
+      const token = generateShortVehicleCheckToken();
       const existingEvent = await this.eventRepository.findByVehicleCheckToken(token);
 
       if (!existingEvent) {
@@ -209,7 +213,7 @@ class EventService {
 
   async getPublicVehicleCheckEventOrFail(token, t) {
     const tx = resolveTranslate(t);
-    const normalizedToken = String(token || '').trim();
+    const normalizedToken = String(token || '').trim().toLowerCase();
 
     if (!normalizedToken) {
       throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
