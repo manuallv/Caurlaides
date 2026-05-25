@@ -22,6 +22,17 @@ const DEFAULT_EMAIL_TEMPLATES = {
     `,
     text_content: 'You have been granted access to {{eventName}}.\nProfile: {{profileName}}\nCode: {{accessCode}}\nLink: {{inviteUrl}}\nWristbands: {{wristbandSummary}}\nPasses: {{passSummary}}',
   },
+  event_member_added: {
+    subject: 'You have been added to {{eventName}}',
+    html_content: `
+      <p>Hello {{recipientName}},</p>
+      <p>You have been added to <strong>{{eventName}}</strong> in Caurlaides.</p>
+      <p>Your role: <strong>{{roleLabel}}</strong></p>
+      <p>Added by: {{invitedByName}}</p>
+      <p><a href="{{eventUrl}}">Open event</a></p>
+    `,
+    text_content: 'Hello {{recipientName}},\n\nYou have been added to {{eventName}} in Caurlaides.\nRole: {{roleLabel}}\nAdded by: {{invitedByName}}\n\nOpen event: {{eventUrl}}',
+  },
   profile_application_notification: {
     subject: 'New profile application for {{eventName}}',
     html_content: `
@@ -74,6 +85,12 @@ const EMAIL_TEMPLATE_DEFINITIONS = [
     titleKey: 'system.settings.template.portalInvite.title',
     descriptionKey: 'system.settings.template.portalInvite.description',
     variables: ['{{eventName}}', '{{profileName}}', '{{accessCode}}', '{{inviteUrl}}', '{{wristbandSummary}}', '{{passSummary}}'],
+  },
+  {
+    key: 'event_member_added',
+    titleKey: 'system.settings.template.eventMemberAdded.title',
+    descriptionKey: 'system.settings.template.eventMemberAdded.description',
+    variables: ['{{recipientName}}', '{{eventName}}', '{{roleLabel}}', '{{invitedByName}}', '{{eventUrl}}'],
   },
   {
     key: 'profile_application_notification',

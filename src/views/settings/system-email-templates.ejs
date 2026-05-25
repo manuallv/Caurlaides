@@ -84,7 +84,10 @@
 
               <div class="request-profile-editor__actions">
                 <span class="system-settings-help"><%= t('system.settings.templateSaveHelp') %></span>
-                <button type="submit" class="btn-primary"><%= t('system.settings.saveTemplate') %></button>
+                <div class="request-profile-editor__actions-right">
+                  <button type="button" class="btn-secondary" data-system-template-preview><%= t('system.settings.previewTemplate') %></button>
+                  <button type="submit" class="btn-primary"><%= t('system.settings.saveTemplate') %></button>
+                </div>
               </div>
             </form>
           </section>
@@ -93,3 +96,34 @@
     </div>
   </section>
 </section>
+
+<div class="portal-modal system-template-preview-modal" data-system-template-preview-modal aria-hidden="true">
+  <button type="button" class="portal-modal__backdrop" data-system-template-preview-close aria-label="<%= t('system.settings.previewClose') %>"></button>
+  <div class="shell-card portal-modal__dialog portal-modal__dialog-wide">
+    <div class="portal-modal__header">
+      <div class="portal-modal__title-block">
+        <p class="worldnic-eyebrow"><%= t('system.settings.previewEyebrow') %></p>
+        <h2 data-system-template-preview-title><%= t('system.settings.previewTitle') %></h2>
+      </div>
+
+      <button type="button" class="table-icon-button" data-system-template-preview-close aria-label="<%= t('system.settings.previewClose') %>">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M5 5l10 10M15 5 5 15" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="system-template-preview-modal__body">
+      <div class="system-template-preview-modal__subject">
+        <span><%= t('system.settings.previewSubject') %></span>
+        <strong data-system-template-preview-subject></strong>
+      </div>
+      <iframe
+        class="system-template-preview-modal__frame"
+        title="<%= t('system.settings.previewFrameTitle') %>"
+        sandbox=""
+        data-system-template-preview-frame
+      ></iframe>
+    </div>
+  </div>
+</div>

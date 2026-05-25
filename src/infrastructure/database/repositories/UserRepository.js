@@ -119,6 +119,67 @@ class UserRepository {
     return rows[0] || null;
   }
 
+  async searchActiveForEventInvitation(query, { excludeEventId = null, limit = 8 } = {}) {
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+
+    if (normalizedQuery.length < 2) {
+      return [];
+    }
+
+    const searchTerm = `%${normalizedQuery}%`;
+    const eventExclusionJoin = excludeEventId
+      ? 'LEFT JOIN event_users eu ON eu.user_id = u.id AND eu.event_id = ?'
+      : '';
+    const eventExclusionCondition = excludeEventId
+      ? 'AND eu.user_id IS NULL'
+      : '';
+    const params = [];
+
+    if (excludeEventId) {
+      params.push(excludeEventId);
+    }
+
+    params.push(searchTerm, searchTerm, Number(limit || 8));
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          u.id,
+          u.full_name,
+          u.email,
+          u.phone
+        FROM users u
+        ${eventExclusionJoin}
+        WHERE u.is_active = 1
+          AND u.deleted_at IS NULL
+          ${eventExclusionCondition}
+          AND (
+            LOWER(u.full_name) LIKE ?
+            OR LOWER(u.email) LIKE ?
+          )
+        ORDER BY
+          CASE
+            WHEN LOWER(u.email) = ? THEN 0
+            WHEN LOWER(u.email) LIKE ? THEN 1
+            WHEN LOWER(u.full_name) LIKE ? THEN 2
+            ELSE 3
+          END,
+          u.full_name ASC,
+          u.email ASC
+        LIMIT ?
+      `,
+      [
+        ...params.slice(0, excludeEventId ? 3 : 2),
+        normalizedQuery,
+        `${normalizedQuery}%`,
+        `${normalizedQuery}%`,
+        ...params.slice(excludeEventId ? 3 : 2),
+      ],
+    );
+
+    return rows;
+  }
+
   async touchLastLogin(id) {
     await this.pool.execute(
       `

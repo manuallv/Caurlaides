@@ -26,12 +26,13 @@ function generateShortVehicleCheckToken(length = 4) {
 }
 
 class EventService {
-  constructor({ pool, eventRepository, userRepository, auditLogService, dashboardRepository }) {
+  constructor({ pool, eventRepository, userRepository, auditLogService, dashboardRepository, systemService = null }) {
     this.pool = pool;
     this.eventRepository = eventRepository;
     this.userRepository = userRepository;
     this.auditLogService = auditLogService;
     this.dashboardRepository = dashboardRepository;
+    this.systemService = systemService;
   }
 
   async listUserEvents(userId) {
@@ -509,6 +510,20 @@ class EventService {
     };
   }
 
+  async searchMemberCandidates(eventId, actorId, query, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.manageCollaborators'), 403);
+    }
+
+    return this.userRepository.searchActiveForEventInvitation(query, {
+      excludeEventId: event.id,
+      limit: 8,
+    });
+  }
+
   async addMember(eventId, actorId, { email, role }, t) {
     const tx = resolveTranslate(t);
     const event = await this.getEventAccessOrFail(eventId, actorId, tx);
@@ -557,7 +572,24 @@ class EventService {
       }),
     });
 
-    return user;
+    if (this.systemService) {
+      try {
+        const actor = await this.userRepository.findById(actorId);
+
+        await this.systemService.sendEventMemberNotification({
+          to: user.email,
+          recipientName: user.full_name,
+          eventName: event.name,
+          roleLabel: tx(`roles.${role}`),
+          invitedByName: actor?.full_name || tx('audit.actor.system'),
+          eventUrl: `${env.appUrl.replace(/\/$/, '')}/events/${event.id}`,
+        });
+      } catch (error) {
+        console.warn('Event member notification email failed:', error.message);
+      }
+    }
+
+    return { user };
   }
 
   async updateMemberRole(eventId, targetUserId, actorId, role, t) {

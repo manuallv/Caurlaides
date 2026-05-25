@@ -358,6 +358,30 @@ class SystemService {
     });
   }
 
+  async sendEventMemberNotification({
+    to,
+    recipientName,
+    eventName,
+    roleLabel,
+    invitedByName,
+    eventUrl,
+  }) {
+    if (!to) {
+      throw new Error('Recipient email is required.');
+    }
+
+    return this.emailService.sendTemplate('event_member_added', {
+      to,
+      variables: {
+        recipientName,
+        eventName,
+        roleLabel,
+        invitedByName,
+        eventUrl,
+      },
+    });
+  }
+
   async sendProfileApplicationNotification({
     to,
     recipientName,

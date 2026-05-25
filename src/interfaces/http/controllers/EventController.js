@@ -110,6 +110,24 @@ function buildEventController({ eventService, auditLogService }) {
       });
     },
 
+    async searchMemberCandidates(req, res) {
+      const users = await eventService.searchMemberCandidates(
+        req.params.eventId,
+        req.currentUser.id,
+        req.query.q || '',
+        req.t,
+      );
+
+      return res.json({
+        users: users.map((user) => ({
+          id: Number(user.id),
+          fullName: user.full_name || '',
+          email: user.email || '',
+          phone: user.phone || '',
+        })),
+      });
+    },
+
     async addMember(req, res) {
       await eventService.addMember(req.params.eventId, req.currentUser.id, {
         email: req.body.email,

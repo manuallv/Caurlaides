@@ -53,6 +53,7 @@ function buildEventRoutes({ eventController, accessController }) {
   router.delete('/events/:eventId', requireAuth, asyncHandler(eventController.destroy));
 
   router.get('/events/:eventId/members', requireAuth, asyncHandler(eventController.showMembers));
+  router.get('/events/:eventId/members/search', requireAuth, asyncHandler(eventController.searchMemberCandidates));
   router.post(
     '/events/:eventId/members',
     requireAuth,

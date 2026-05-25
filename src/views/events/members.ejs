@@ -5,11 +5,31 @@
         <h1 class="text-2xl font-bold text-slate-900"><%= t('members.addTitle') %></h1>
         <p class="mt-1 text-sm text-slate-500"><%= t('members.addDescription') %></p>
       </div>
-      <form action="/events/<%= activeEvent.id %>/members" method="POST" class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-[1fr_180px_auto]">
+      <form
+        action="/events/<%= activeEvent.id %>/members"
+        method="POST"
+        class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-[1fr_180px_auto]"
+        data-member-add-form
+        data-member-search-url="/events/<%= activeEvent.id %>/members/search"
+        data-member-search-empty="<%= t('members.searchEmpty') %>"
+        data-member-search-loading="<%= t('members.searchLoading') %>"
+      >
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <div>
+        <div class="member-user-picker">
           <label for="email" class="field-label"><%= t('members.userEmail') %></label>
-          <input id="email" name="email" type="email" class="field-input" required />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            class="field-input"
+            autocomplete="off"
+            required
+            data-member-email-search
+          />
+          <div class="member-user-picker__panel hidden" data-member-search-panel>
+            <div class="member-user-picker__status" data-member-search-status></div>
+            <div class="member-user-picker__results" data-member-search-results></div>
+          </div>
         </div>
         <div>
           <label for="role" class="field-label"><%= t('members.role') %></label>

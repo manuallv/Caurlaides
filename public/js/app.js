@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingLiveRefresh = false;
   let liveFilterTimer = null;
   let activeRefreshController = null;
+  let memberSearchTimer = null;
+  let memberSearchController = null;
   let suppressSocketRefreshUntil = 0;
   let portalTableSearchQuery = '';
   let portalTableSortField = 'created';
@@ -148,6 +150,136 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(() => {
       notice.remove();
     }, 4200);
+  };
+
+  const getMemberSearchElements = () => {
+    const form = document.querySelector('[data-member-add-form]');
+
+    return {
+      form,
+      input: form?.querySelector('[data-member-email-search]') || null,
+      panel: form?.querySelector('[data-member-search-panel]') || null,
+      status: form?.querySelector('[data-member-search-status]') || null,
+      results: form?.querySelector('[data-member-search-results]') || null,
+    };
+  };
+
+  const closeMemberSearchPanel = () => {
+    const { panel, status, results } = getMemberSearchElements();
+
+    panel?.classList.add('hidden');
+
+    if (status) {
+      status.textContent = '';
+    }
+
+    if (results) {
+      results.innerHTML = '';
+    }
+  };
+
+  const setMemberSearchStatus = (message = '') => {
+    const { panel, status, results } = getMemberSearchElements();
+
+    if (!panel || !status || !results) {
+      return;
+    }
+
+    panel.classList.remove('hidden');
+    status.textContent = message;
+    results.innerHTML = '';
+  };
+
+  const renderMemberSearchResults = (users = []) => {
+    const { panel, status, results } = getMemberSearchElements();
+
+    if (!panel || !status || !results) {
+      return;
+    }
+
+    panel.classList.remove('hidden');
+    status.textContent = '';
+    results.innerHTML = users.map((user) => `
+      <button
+        type="button"
+        class="member-user-picker__option"
+        data-member-search-option
+        data-member-email="${escapeHtml(user.email || '')}"
+      >
+        <strong>${escapeHtml(user.fullName || user.email || '')}</strong>
+        <span>${escapeHtml([user.email, user.phone].filter(Boolean).join(' · '))}</span>
+      </button>
+    `).join('');
+  };
+
+  const searchMembersForInvitation = async (query) => {
+    const { form } = getMemberSearchElements();
+    const searchUrl = form?.dataset.memberSearchUrl || '';
+
+    if (!form || !searchUrl) {
+      return;
+    }
+
+    const normalizedQuery = String(query || '').trim();
+
+    if (normalizedQuery.length < 2) {
+      closeMemberSearchPanel();
+      return;
+    }
+
+    window.clearTimeout(memberSearchTimer);
+    memberSearchTimer = window.setTimeout(async () => {
+      if (memberSearchController) {
+        memberSearchController.abort();
+      }
+
+      memberSearchController = new AbortController();
+      setMemberSearchStatus(form.dataset.memberSearchLoading || 'Searching users...');
+
+      try {
+        const url = new URL(searchUrl, window.location.origin);
+        url.searchParams.set('q', normalizedQuery);
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+          cache: 'no-store',
+          signal: memberSearchController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Member search failed.');
+        }
+
+        const payload = await response.json();
+        const users = Array.isArray(payload.users) ? payload.users : [];
+
+        if (!users.length) {
+          setMemberSearchStatus(form.dataset.memberSearchEmpty || 'No registered active users found.');
+          return;
+        }
+
+        renderMemberSearchResults(users);
+      } catch (error) {
+        if (!isAbortError(error)) {
+          closeMemberSearchPanel();
+        }
+      }
+    }, 220);
+  };
+
+  const selectMemberSearchOption = (option) => {
+    const { input } = getMemberSearchElements();
+
+    if (!option || !input) {
+      return;
+    }
+
+    input.value = option.dataset.memberEmail || '';
+    input.focus();
+    closeMemberSearchPanel();
   };
 
   const captureLiveScrollState = () => {
@@ -2612,6 +2744,111 @@ document.addEventListener('DOMContentLoaded', () => {
     tabs.forEach((tab) => {
       tab.addEventListener('click', () => activateTemplate(tab.dataset.systemTemplateTab));
     });
+  };
+
+  const systemTemplatePreviewSamples = {
+    appName: 'Caurlaides',
+    userName: 'Jānis Bērziņš',
+    resetUrl: 'https://caurlaides.pasakums.lv/reset-password/paraugs',
+    eventName: 'Rīgas maratons',
+    profileName: 'Baltic Pro Sound',
+    accessCode: 'A1B2C3D4',
+    inviteUrl: 'https://caurlaides.pasakums.lv/p/A1B2C3D4',
+    wristbandSummary: '50 aproces',
+    passSummary: '12 caurlaides',
+    recipientName: 'Sandija Martinsone',
+    roleLabel: 'Admins',
+    invitedByName: 'Artis Vilks',
+    eventUrl: 'https://caurlaides.pasakums.lv/events/5',
+    applicationId: '1042',
+    contactEmail: 'info@example.lv',
+    contactPhone: '+371 20000000',
+    notes: 'Nepieciešama piekļuve organizatoriem.',
+    submittedAt: '25.05.2026 14:30',
+    applicationsUrl: 'https://caurlaides.pasakums.lv/events/5/request-profiles/applications',
+    rejectionReason: 'Kvota šim profilam jau ir aizpildīta.',
+  };
+
+  const interpolateSystemTemplatePreview = (content = '') => String(content || '').replace(/\{\{(\w+)\}\}/g, (match, key) => (
+    Object.prototype.hasOwnProperty.call(systemTemplatePreviewSamples, key)
+      ? String(systemTemplatePreviewSamples[key])
+      : match
+  ));
+
+  const buildSystemTemplatePreviewDocument = (html = '') => `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base target="_blank" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f6f8fb;
+        color: #0f172a;
+        font-family: Arial, Helvetica, sans-serif;
+        line-height: 1.55;
+      }
+      .email-preview-shell {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 28px;
+        border: 1px solid #dfe7f2;
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      }
+      p { margin: 0 0 14px; }
+      a { color: #0074ff; font-weight: 700; }
+      strong { color: #0f172a; }
+    </style>
+  </head>
+  <body>
+    <div class="email-preview-shell">
+      ${html}
+    </div>
+  </body>
+</html>`;
+
+  const closeSystemTemplatePreview = () => {
+    const modal = document.querySelector('[data-system-template-preview-modal]');
+    const frame = document.querySelector('[data-system-template-preview-frame]');
+
+    modal?.classList.remove('is-open');
+    modal?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('portal-modal-open');
+
+    if (frame) {
+      frame.srcdoc = '';
+    }
+  };
+
+  const openSystemTemplatePreview = (trigger) => {
+    const form = trigger?.closest('form');
+    const panel = trigger?.closest('[data-system-template-panel]');
+    const modal = document.querySelector('[data-system-template-preview-modal]');
+    const title = document.querySelector('[data-system-template-preview-title]');
+    const subjectNode = document.querySelector('[data-system-template-preview-subject]');
+    const frame = document.querySelector('[data-system-template-preview-frame]');
+
+    if (!form || !modal || !subjectNode || !frame) {
+      return;
+    }
+
+    const subject = interpolateSystemTemplatePreview(form.querySelector('[name="subject"]')?.value || '');
+    const html = interpolateSystemTemplatePreview(form.querySelector('[name="htmlContent"]')?.value || '');
+    const panelTitle = panel?.querySelector('.system-template-panel__head h2')?.textContent?.trim();
+
+    if (title && panelTitle) {
+      title.textContent = panelTitle;
+    }
+
+    subjectNode.textContent = subject;
+    frame.srcdoc = buildSystemTemplatePreviewDocument(html);
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('portal-modal-open');
   };
 
   const filterPortalRows = () => {
@@ -5663,12 +5900,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('click', async (event) => {
     const closest = (selector) => findClosestTarget(event.target, selector);
+    const memberSearchOption = closest('[data-member-search-option]');
+    const memberSearchPanel = closest('[data-member-search-panel]');
+    const memberSearchInput = closest('[data-member-email-search]');
+    const systemTemplatePreviewTrigger = closest('[data-system-template-preview]');
+    const systemTemplatePreviewCloseTrigger = closest('[data-system-template-preview-close]');
     const accessActionMenuTrigger = closest('[data-access-actions-toggle]');
     const accessActionMenu = closest('[data-access-actions-menu]');
     const accessProfileFilter = closest('[data-access-profile-filter]');
     const accessProfileFilterTrigger = closest('[data-access-profile-filter-trigger]');
     const accessProfileFilterOption = closest('[data-access-profile-filter-option]');
     const dashboardEventSummary = closest('[data-dashboard-event-summary]');
+
+    if (systemTemplatePreviewTrigger) {
+      event.preventDefault();
+      openSystemTemplatePreview(systemTemplatePreviewTrigger);
+      return;
+    }
+
+    if (systemTemplatePreviewCloseTrigger) {
+      event.preventDefault();
+      closeSystemTemplatePreview();
+      return;
+    }
+
+    if (memberSearchOption) {
+      event.preventDefault();
+      selectMemberSearchOption(memberSearchOption);
+      return;
+    }
+
+    if (!memberSearchPanel && !memberSearchInput) {
+      closeMemberSearchPanel();
+    }
 
     if (dashboardEventSummary) {
       const dashboardEventCard = dashboardEventSummary.closest('[data-dashboard-event-card]');
@@ -6415,6 +6679,11 @@ document.addEventListener('DOMContentLoaded', () => {
       upsertSelectedPassPrintField({
         width: Math.min(Math.max(Number(event.target.value || 24) / 100, 0.08), 0.9),
       });
+      return;
+    }
+
+    if (event.target.matches('[data-member-email-search]')) {
+      searchMembersForInvitation(event.target.value);
       return;
     }
 
