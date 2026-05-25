@@ -1584,9 +1584,18 @@ body.is-access-fullscreen {
   position: relative;
 }
 
+.member-add-card {
+  overflow: visible;
+  z-index: 70;
+}
+
+.member-add-card .member-user-picker {
+  z-index: 80;
+}
+
 .member-user-picker__panel {
   position: absolute;
-  z-index: 30;
+  z-index: 999;
   top: calc(100% + 0.45rem);
   left: 0;
   right: 0;
