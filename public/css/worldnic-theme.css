@@ -4292,6 +4292,84 @@ body.portal-modal-open {
   line-height: 1.72;
 }
 
+.portal-application-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1rem;
+  border: 1px solid rgba(224, 69, 107, 0.28);
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, rgba(255, 235, 240, 0.98), rgba(255, 248, 250, 0.94));
+  box-shadow: 0 16px 36px rgba(224, 69, 107, 0.12);
+}
+
+.portal-application-notice__icon {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  background: var(--wn-danger);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 12px 28px rgba(224, 69, 107, 0.22);
+}
+
+.portal-application-notice__body {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.portal-application-notice__title {
+  margin: 0;
+  color: #ab2146;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.portal-application-notice__body p {
+  margin: 0;
+  color: #713146;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.portal-application-notice__steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: #713146;
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.portal-application-notice__steps li {
+  position: relative;
+  padding-left: 1.15rem;
+}
+
+.portal-application-notice__steps li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.58em;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--wn-danger);
+}
+
 .portal-application-form {
   display: grid;
   gap: 1rem;
@@ -6314,6 +6392,15 @@ body.portal-modal-open {
 
   .request-profile-form-section__head {
     grid-template-columns: 1fr;
+  }
+
+  .portal-application-notice {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-application-notice__icon {
+    width: 2.1rem;
+    height: 2.1rem;
   }
 
   .system-backup-details dl {

@@ -6,6 +6,19 @@
         <h1><%= t('requestProfileApplications.successTitle') %></h1>
         <p><%= t('requestProfileApplications.successDescription') %></p>
       </div>
+
+      <section class="portal-application-notice" aria-label="<%= t('requestProfileApplications.successNoticeTitle') %>">
+        <span class="portal-application-notice__icon" aria-hidden="true">!</span>
+        <div class="portal-application-notice__body">
+          <h2 class="portal-application-notice__title"><%= t('requestProfileApplications.successNoticeTitle') %></h2>
+          <p><%= t('requestProfileApplications.successNoticeIntro') %></p>
+          <ul class="portal-application-notice__steps">
+            <li><%= t('requestProfileApplications.successNoticeStepEmail') %></li>
+            <li><%= t('requestProfileApplications.successNoticeStepComplete') %></li>
+            <li><%= t('requestProfileApplications.successNoticeStepReceive') %></li>
+          </ul>
+        </div>
+      </section>
     <% } else { %>
       <div class="portal-application-intro">
         <p class="worldnic-eyebrow"><%= t('requestProfileApplications.publicEyebrow') %></p>
@@ -148,6 +161,19 @@
                 <p class="request-profile-quota-card__empty"><%= t('requestProfiles.noWristbandTypes') %></p>
               <% } %>
             </section>
+          </div>
+        </section>
+
+        <section class="portal-application-notice" aria-label="<%= t('requestProfileApplications.beforeSubmitNoticeTitle') %>">
+          <span class="portal-application-notice__icon" aria-hidden="true">!</span>
+          <div class="portal-application-notice__body">
+            <h2 class="portal-application-notice__title"><%= t('requestProfileApplications.beforeSubmitNoticeTitle') %></h2>
+            <p><%= t('requestProfileApplications.beforeSubmitNoticeIntro') %></p>
+            <ul class="portal-application-notice__steps">
+              <li><%= t('requestProfileApplications.beforeSubmitNoticeStepReview') %></li>
+              <li><%= t('requestProfileApplications.beforeSubmitNoticeStepEmail') %></li>
+              <li><%= t('requestProfileApplications.beforeSubmitNoticeStepComplete') %></li>
+            </ul>
           </div>
         </section>
 
