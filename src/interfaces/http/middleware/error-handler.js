@@ -1,4 +1,4 @@
-const { createTranslator } = require('../../../shared/i18n');
+const { SUPPORTED_LOCALES, createTranslator } = require('../../../shared/i18n');
 
 function getRequestTranslator(req) {
   return typeof req.t === 'function'
@@ -55,7 +55,7 @@ function errorHandler(error, req, res, next) {
     csrfToken: '',
     locale: req.locale || 'en',
     t,
-    supportedLocales: res.locals.supportedLocales || ['en', 'lv'],
+    supportedLocales: res.locals.supportedLocales || SUPPORTED_LOCALES,
     flash: {
       success: req.flash ? req.flash('success') : [],
       error: req.flash ? req.flash('error') : [],

@@ -59,7 +59,7 @@ function buildAuthController({ authService, systemService }) {
     },
 
     async forgotPassword(req, res) {
-      await systemService.sendForgotPassword(req.body.email, req.t);
+      await systemService.sendForgotPassword(req.body.email, req.t, req.locale);
       req.flash('success', req.t('flash.passwordResetSent'));
       return res.redirect('/forgot-password');
     },

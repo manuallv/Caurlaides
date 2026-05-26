@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { AppError } = require('../../shared/errors/AppError');
+const { DEFAULT_LOCALE, normalizeLocale } = require('../../shared/i18n');
 const { hashPassword } = require('../../infrastructure/security/password');
 const { env } = require('../../config/env');
 
@@ -170,10 +171,11 @@ class SystemService {
     await this.userRepository.softDelete(userId, actor.id);
   }
 
-  async getSystemSettings(actor, t) {
+  async getSystemSettings(actor, t, options = {}) {
     this.assertSuperAdmin(actor, t);
+    const templateLocale = normalizeLocale(options.templateLocale) || DEFAULT_LOCALE;
     const settings = await this.systemSettingsRepository.getSettings();
-    const templates = await this.systemSettingsRepository.listEmailTemplates();
+    const templates = await this.systemSettingsRepository.listEmailTemplates(templateLocale);
 
     return {
       settings,
@@ -227,25 +229,27 @@ class SystemService {
     }, actor.id);
   }
 
-  async saveEmailTemplates(payload, actor, t) {
+  async saveEmailTemplates(payload, actor, t, locale = DEFAULT_LOCALE) {
     this.assertSuperAdmin(actor, t);
+    const templateLocale = normalizeLocale(locale) || DEFAULT_LOCALE;
 
     await this.saveEmailTemplate('forgot_password', {
       subject: payload.forgotPasswordSubject,
       htmlContent: payload.forgotPasswordHtml,
       textContent: payload.forgotPasswordText,
-    }, actor, t);
+    }, actor, t, templateLocale);
 
     await this.saveEmailTemplate('portal_invite', {
       subject: payload.portalInviteSubject,
       htmlContent: payload.portalInviteHtml,
       textContent: payload.portalInviteText,
-    }, actor, t);
+    }, actor, t, templateLocale);
   }
 
-  async saveEmailTemplate(templateKey, payload, actor, t) {
+  async saveEmailTemplate(templateKey, payload, actor, t, locale = DEFAULT_LOCALE) {
     this.assertSuperAdmin(actor, t);
-    const templates = await this.systemSettingsRepository.listEmailTemplates();
+    const templateLocale = normalizeLocale(locale) || DEFAULT_LOCALE;
+    const templates = await this.systemSettingsRepository.listEmailTemplates(templateLocale);
 
     if (!templates[templateKey]) {
       throw new AppError(t('system.settings.error.templateNotFound'), 404);
@@ -255,14 +259,14 @@ class SystemService {
       throw new AppError(t('system.settings.error.templateRequired'), 422);
     }
 
-    await this.systemSettingsRepository.upsertTemplate(templateKey, {
+    await this.systemSettingsRepository.upsertTemplate(templateKey, templateLocale, {
       subject: String(payload.subject || '').trim(),
       html_content: payload.htmlContent,
       text_content: payload.textContent || null,
     }, actor.id);
   }
 
-  async sendTestEmail({ recipientEmail }, actor, t) {
+  async sendTestEmail({ recipientEmail, locale = DEFAULT_LOCALE }, actor, t) {
     this.assertSuperAdmin(actor, t);
 
     if (!recipientEmail) {
@@ -282,6 +286,7 @@ class SystemService {
     return this.emailService.sendTestMessage({
       to: recipientEmail,
       actorName: actor.full_name,
+      locale,
     });
   }
 
@@ -293,7 +298,7 @@ class SystemService {
     return crypto.createHash('sha256').update(String(token)).digest('hex');
   }
 
-  async sendForgotPassword(email, t) {
+  async sendForgotPassword(email, t, locale = DEFAULT_LOCALE) {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const user = await this.userRepository.findByEmail(normalizedEmail);
 
@@ -314,6 +319,7 @@ class SystemService {
 
     await this.emailService.sendTemplate('forgot_password', {
       to: user.email,
+      locale,
       variables: {
         appName: 'Caurlaides',
         userName: user.full_name,
@@ -339,13 +345,23 @@ class SystemService {
     await this.passwordResetTokenRepository.markUsed(resetToken.id);
   }
 
-  async sendProfileInvite({ to, eventName, profileName, accessCode, inviteUrl, wristbandSummary, passSummary }) {
+  async sendProfileInvite({
+    to,
+    eventName,
+    profileName,
+    accessCode,
+    inviteUrl,
+    wristbandSummary,
+    passSummary,
+    locale = DEFAULT_LOCALE,
+  }) {
     if (!to) {
       throw new Error('Recipient email is required.');
     }
 
     return this.emailService.sendTemplate('portal_invite', {
       to,
+      locale,
       requireDelivery: true,
       variables: {
         eventName,
@@ -365,6 +381,7 @@ class SystemService {
     roleLabel,
     invitedByName,
     eventUrl,
+    locale = DEFAULT_LOCALE,
   }) {
     if (!to) {
       throw new Error('Recipient email is required.');
@@ -372,6 +389,7 @@ class SystemService {
 
     return this.emailService.sendTemplate('event_member_added', {
       to,
+      locale,
       variables: {
         recipientName,
         eventName,
@@ -395,6 +413,7 @@ class SystemService {
     notes,
     submittedAt,
     applicationsUrl,
+    locale = DEFAULT_LOCALE,
   }) {
     if (!to) {
       throw new Error('Recipient email is required.');
@@ -402,6 +421,7 @@ class SystemService {
 
     return this.emailService.sendTemplate('profile_application_notification', {
       to,
+      locale,
       requireDelivery: true,
       variables: {
         recipientName,
@@ -426,6 +446,7 @@ class SystemService {
     contactEmail,
     contactPhone,
     rejectionReason,
+    locale = DEFAULT_LOCALE,
   }) {
     if (!to) {
       throw new Error('Recipient email is required.');
@@ -433,6 +454,7 @@ class SystemService {
 
     return this.emailService.sendTemplate('profile_application_rejected', {
       to,
+      locale,
       requireDelivery: true,
       variables: {
         eventName,

@@ -509,12 +509,13 @@ CREATE TABLE IF NOT EXISTS system_settings (
 
 CREATE TABLE IF NOT EXISTS email_templates (
   template_key VARCHAR(120) NOT NULL,
+  locale VARCHAR(8) NOT NULL DEFAULT 'en',
   subject VARCHAR(255) NOT NULL,
   html_content LONGTEXT NOT NULL,
   text_content LONGTEXT NULL,
   updated_by_user_id BIGINT UNSIGNED NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (template_key),
+  PRIMARY KEY (template_key, locale),
   CONSTRAINT fk_email_templates_updated_by
     FOREIGN KEY (updated_by_user_id) REFERENCES users (id)
     ON DELETE SET NULL

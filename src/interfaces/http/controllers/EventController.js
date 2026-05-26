@@ -132,7 +132,7 @@ function buildEventController({ eventService, auditLogService }) {
       await eventService.addMember(req.params.eventId, req.currentUser.id, {
         email: req.body.email,
         role: req.body.role,
-      }, req.t);
+      }, req.t, req.locale);
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
         eventId: req.params.eventId,

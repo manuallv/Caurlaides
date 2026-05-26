@@ -5,9 +5,30 @@ const {
   resolveLocale,
 } = require('../../../shared/i18n');
 
+const COUNTRY_HEADER_NAMES = [
+  'cf-ipcountry',
+  'cloudfront-viewer-country',
+  'x-country-code',
+  'x-vercel-ip-country',
+  'x-forwarded-country',
+];
+
+function getRequestCountryCode(req) {
+  for (const headerName of COUNTRY_HEADER_NAMES) {
+    const value = req.get(headerName);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
 function attachLocale(req, res, next) {
   const locale = resolveLocale({
-    sessionLocale: req.session && req.session.locale,
+    sessionLocale: req.session && req.session.localeManuallySelected ? req.session.locale : null,
+    countryCode: getRequestCountryCode(req),
     acceptLanguage: req.get('Accept-Language'),
   });
 
@@ -40,6 +61,7 @@ function setLocale(req, res) {
 
   if (locale && req.session) {
     req.session.locale = locale;
+    req.session.localeManuallySelected = true;
   }
 
   return res.redirect(redirectTo);

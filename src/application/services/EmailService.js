@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { env } = require('../../config/env');
+const { DEFAULT_LOCALE, normalizeLocale } = require('../../shared/i18n');
 
 function interpolateTemplate(content = '', variables = {}) {
   return String(content).replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -93,7 +94,12 @@ class EmailService {
     };
   }
 
-  async sendTemplate(templateKey, { to, variables, requireDelivery = false }) {
+  async sendTemplate(templateKey, {
+    to,
+    variables,
+    requireDelivery = false,
+    locale = DEFAULT_LOCALE,
+  }) {
     const skip = (reason) => {
       if (requireDelivery) {
         throw new Error(reason);
@@ -107,7 +113,10 @@ class EmailService {
     }
 
     const config = await this.getConfig();
-    const template = await this.systemSettingsRepository.getEmailTemplate(templateKey);
+    const template = await this.systemSettingsRepository.getEmailTemplate(
+      templateKey,
+      normalizeLocale(locale) || DEFAULT_LOCALE,
+    );
 
     if (!template) {
       return skip(`Email template "${templateKey}" is missing.`);
@@ -147,13 +156,16 @@ class EmailService {
     return { sent: true, provider: 'smtp' };
   }
 
-  async sendTestMessage({ to, actorName }) {
+  async sendTestMessage({ to, actorName, locale = DEFAULT_LOCALE }) {
     if (!to) {
       throw new Error('Recipient email is required.');
     }
 
     const config = await this.getConfig();
-    const template = await this.systemSettingsRepository.getEmailTemplate('test_email');
+    const template = await this.systemSettingsRepository.getEmailTemplate(
+      'test_email',
+      normalizeLocale(locale) || DEFAULT_LOCALE,
+    );
     const variables = {
       appName: 'Caurlaides',
       actorName: actorName || 'System admin',

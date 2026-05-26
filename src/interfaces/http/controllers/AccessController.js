@@ -813,6 +813,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.params.token,
           normalizeRequestProfileApplicationPayload(req.body),
           req.t,
+          req.locale,
         );
 
         return res.render('public-portal/profile-application', {
@@ -1067,6 +1068,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.currentUser.id,
           normalizeRequestProfilePayload(req.body),
           req.t,
+          req.locale,
         );
 
         emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
@@ -1093,6 +1095,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.currentUser.id,
           normalizeRequestProfileApplicationDecisionPayload(req.body),
           req.t,
+          req.locale,
         );
 
         emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
@@ -1120,6 +1123,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.currentUser.id,
           normalizeRequestProfileApplicationDecisionPayload(req.body),
           req.t,
+          req.locale,
         );
 
         emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
@@ -1146,6 +1150,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.currentUser.id,
           normalizeRequestProfilePayload(req.body),
           req.t,
+          req.locale,
         );
 
         emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
@@ -1171,6 +1176,7 @@ function buildAccessController({ categoryService, accessService }) {
           req.params.profileId,
           req.currentUser.id,
           req.t,
+          req.locale,
         );
 
         req.flash('success', req.t('flash.requestProfileInviteEmailSent', { email: result.email }));

@@ -524,7 +524,7 @@ class EventService {
     });
   }
 
-  async addMember(eventId, actorId, { email, role }, t) {
+  async addMember(eventId, actorId, { email, role }, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -583,6 +583,7 @@ class EventService {
           roleLabel: tx(`roles.${role}`),
           invitedByName: actor?.full_name || tx('audit.actor.system'),
           eventUrl: `${env.appUrl.replace(/\/$/, '')}/events/${event.id}`,
+          locale,
         });
       } catch (error) {
         console.warn('Event member notification email failed:', error.message);

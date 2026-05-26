@@ -1,3 +1,5 @@
+const { DEFAULT_LOCALE, SUPPORTED_LOCALES, normalizeLocale } = require('../../../shared/i18n');
+
 function normalizeSystemUserPayload(body) {
   return {
     fullName: body.fullName,
@@ -41,6 +43,14 @@ function normalizeEmailTemplatePayload(body) {
     htmlContent: body.htmlContent || '',
     textContent: body.textContent || '',
   };
+}
+
+function resolveTemplateLocale(req) {
+  return normalizeLocale(
+    (req.body && req.body.locale) ||
+    (req.query && req.query.locale) ||
+    req.locale,
+  ) || DEFAULT_LOCALE;
 }
 
 function buildSystemController({ systemService }) {
@@ -161,6 +171,7 @@ function buildSystemController({ systemService }) {
       try {
         const result = await systemService.sendTestEmail({
           recipientEmail: req.body.testRecipientEmail,
+          locale: req.locale,
         }, req.currentUser, req.t);
 
         req.flash('success', req.t('system.settings.testSent', {
@@ -176,29 +187,37 @@ function buildSystemController({ systemService }) {
     },
 
     async showEmailTemplates(req, res) {
-      const data = await systemService.getSystemSettings(req.currentUser, req.t);
+      const activeTemplateLocale = resolveTemplateLocale(req);
+      const data = await systemService.getSystemSettings(req.currentUser, req.t, {
+        templateLocale: activeTemplateLocale,
+      });
 
       return res.render('settings/system-email-templates', {
         pageTitle: req.t('system.settings.templatesTitle'),
         templates: data.templates,
         activeTemplateKey: req.query.template || '',
+        activeTemplateLocale,
+        templateLocales: SUPPORTED_LOCALES,
         activeEvent: null,
       });
     },
 
     async updateEmailTemplates(req, res) {
+      const activeTemplateLocale = resolveTemplateLocale(req);
       await systemService.saveEmailTemplates(
         normalizeEmailTemplatesPayload(req.body),
         req.currentUser,
         req.t,
+        activeTemplateLocale,
       );
 
       req.flash('success', req.t('system.settings.saved'));
-      return res.redirect('/system/settings/templates');
+      return res.redirect(`/system/settings/templates?locale=${encodeURIComponent(activeTemplateLocale)}`);
     },
 
     async updateEmailTemplate(req, res) {
       const templateKey = req.params.templateKey;
+      const activeTemplateLocale = resolveTemplateLocale(req);
 
       try {
         await systemService.saveEmailTemplate(
@@ -206,6 +225,7 @@ function buildSystemController({ systemService }) {
           normalizeEmailTemplatePayload(req.body),
           req.currentUser,
           req.t,
+          activeTemplateLocale,
         );
 
         req.flash('success', req.t('system.settings.templateSaved'));
@@ -213,7 +233,9 @@ function buildSystemController({ systemService }) {
         req.flash('error', error.message || req.t('errors.generic'));
       }
 
-      return res.redirect(`/system/settings/templates?template=${encodeURIComponent(templateKey)}`);
+      return res.redirect(
+        `/system/settings/templates?template=${encodeURIComponent(templateKey)}&locale=${encodeURIComponent(activeTemplateLocale)}`,
+      );
     },
   };
 }

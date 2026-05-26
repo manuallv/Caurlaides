@@ -1,7 +1,11 @@
 const { translations } = require('./translations');
 
 const DEFAULT_LOCALE = 'en';
-const SUPPORTED_LOCALES = ['en', 'lv'];
+const SUPPORTED_LOCALES = ['en', 'lv', 'lt'];
+const COUNTRY_LOCALE_MAP = {
+  LV: 'lv',
+  LT: 'lt',
+};
 
 function getNestedValue(source, key) {
   if (source && Object.prototype.hasOwnProperty.call(source, key)) {
@@ -46,10 +50,26 @@ function detectLocale(acceptLanguage = '') {
   return candidates[0] || DEFAULT_LOCALE;
 }
 
-function resolveLocale({ sessionLocale, requestedLocale, acceptLanguage } = {}) {
+function detectLocaleFromCountry(countryCode = '') {
+  const normalizedCountry = String(countryCode || '').trim().toUpperCase();
+
+  if (!normalizedCountry) {
+    return null;
+  }
+
+  return COUNTRY_LOCALE_MAP[normalizedCountry] || DEFAULT_LOCALE;
+}
+
+function resolveLocale({
+  sessionLocale,
+  requestedLocale,
+  countryCode,
+  acceptLanguage,
+} = {}) {
   return (
     normalizeLocale(requestedLocale) ||
     normalizeLocale(sessionLocale) ||
+    detectLocaleFromCountry(countryCode) ||
     detectLocale(acceptLanguage) ||
     DEFAULT_LOCALE
   );
@@ -93,6 +113,7 @@ module.exports = {
   SUPPORTED_LOCALES,
   buildAuditMetadata,
   createTranslator,
+  detectLocaleFromCountry,
   formatAuditMessage,
   normalizeLocale,
   resolveLocale,

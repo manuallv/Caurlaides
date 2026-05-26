@@ -2,6 +2,7 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 require('dayjs/locale/lv');
+require('dayjs/locale/lt');
 const { env } = require('../../config/env');
 
 dayjs.extend(utc);

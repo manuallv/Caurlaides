@@ -3,6 +3,18 @@
   const selectedTemplateKey = templateEntries.some((template) => template.template_key === activeTemplateKey)
     ? activeTemplateKey
     : templateEntries[0]?.template_key;
+  const activeLanguageCode = activeTemplateLocale || locale;
+  const languageEntries = (templateLocales || supportedLocales || []).filter(Boolean);
+  const templateLocaleHref = (languageCode) => {
+    const params = new URLSearchParams();
+    params.set('locale', languageCode);
+
+    if (selectedTemplateKey) {
+      params.set('template', selectedTemplateKey);
+    }
+
+    return `/system/settings/templates?${params.toString()}`;
+  };
 %>
 
 <section class="space-y-6">
@@ -12,6 +24,21 @@
         <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
         <h1 class="request-profile-editor__title"><%= t('system.settings.templatesTitle') %></h1>
         <p class="request-profile-editor__description"><%= t('system.settings.templatesDescription') %></p>
+      </div>
+
+      <div class="system-template-language" aria-label="<%= t('system.settings.templateLanguageTabsLabel') %>">
+        <span><%= t('system.settings.templateLocale') %></span>
+        <div class="system-template-language__tabs">
+          <% languageEntries.forEach((languageCode) => { %>
+            <a
+              href="<%= templateLocaleHref(languageCode) %>"
+              class="<%= activeLanguageCode === languageCode ? 'is-active' : '' %>"
+            >
+              <strong><%= languageCode.toUpperCase() %></strong>
+              <small><%= t(`language.${languageCode}`) %></small>
+            </a>
+          <% }) %>
+        </div>
       </div>
     </div>
 
@@ -38,11 +65,12 @@
             role="tabpanel"
           >
             <form
-              action="/system/settings/templates/<%= template.template_key %>"
+              action="/system/settings/templates/<%= template.template_key %>?locale=<%= activeLanguageCode %>"
               method="POST"
               class="request-profile-editor__form"
             >
               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <input type="hidden" name="locale" value="<%= activeLanguageCode %>" />
 
               <section class="request-profile-quota-card panel">
                 <div class="request-profile-quota-card__head system-template-panel__head">

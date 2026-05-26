@@ -1,3 +1,5 @@
+const { lt } = require('./lt-translations.generated');
+
 const translations = {
   en: {
     'app.name': 'Caurlaides',
@@ -6,6 +8,7 @@ const translations = {
     'language.label': 'Language',
     'language.lv': 'Latviski',
     'language.en': 'English',
+    'language.lt': 'Lithuanian',
 
     'nav.dashboard': 'Dashboard',
     'nav.create': 'Create',
@@ -1085,6 +1088,9 @@ const translations = {
     'system.settings.testDescription': 'Send a real test email using the currently saved provider settings.',
     'system.settings.templatesTitle': 'Email templates',
     'system.settings.templatesDescription': 'Edit the outgoing email subjects and content that the system sends automatically.',
+    'system.settings.templateLocale': 'Template language',
+    'system.settings.templateLocaleHelp': 'Choose which language version of this email template you want to edit.',
+    'system.settings.templateLanguageTabsLabel': 'Email template languages',
     'system.settings.templateTabsLabel': 'Email template tabs',
     'system.settings.templateHtml': 'HTML content',
     'system.settings.templateText': 'Plain text content',
@@ -1150,6 +1156,7 @@ const translations = {
     'language.label': 'Valoda',
     'language.lv': 'Latviski',
     'language.en': 'English',
+    'language.lt': 'Lietuviškai',
 
     'nav.dashboard': 'Panelis',
     'nav.create': 'Jauns',
@@ -2229,6 +2236,9 @@ const translations = {
     'system.settings.testDescription': 'Nosūti īstu testa e-pastu, izmantojot pašlaik saglabātos iestatījumus.',
     'system.settings.templatesTitle': 'E-pasta šabloni',
     'system.settings.templatesDescription': 'Labo automātisko e-pastu tematus un saturu, ko sistēma sūta lietotājiem.',
+    'system.settings.templateLocale': 'Šablona valoda',
+    'system.settings.templateLocaleHelp': 'Izvēlies, kuras valodas e-pasta šablonu vēlies labot.',
+    'system.settings.templateLanguageTabsLabel': 'E-pasta šablonu valodas',
     'system.settings.templateTabsLabel': 'E-pasta šablonu tabi',
     'system.settings.templateHtml': 'HTML saturs',
     'system.settings.templateText': 'Teksta saturs',
@@ -2288,5 +2298,7 @@ const translations = {
     'system.settings.saved': 'Sistēmas iestatījumi saglabāti.',
   },
 };
+
+translations.lt = lt;
 
 module.exports = { translations };

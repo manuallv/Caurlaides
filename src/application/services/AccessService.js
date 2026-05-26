@@ -1401,7 +1401,7 @@ class AccessService {
     }
   }
 
-  async deliverRequestProfileInvite(event, profile, tx) {
+  async deliverRequestProfileInvite(event, profile, tx, locale = DEFAULT_LOCALE) {
     if (!this.systemService) {
       throw new AppError(tx('service.requestProfile.inviteEmailUnavailable'), 422);
     }
@@ -1435,6 +1435,7 @@ class AccessService {
       passSummary: isUnlimitedQuota
         ? tx('requestProfiles.unlimited')
         : buildQuotaUsageSummary(passQuotaUsage),
+      locale,
     });
 
     return {
@@ -1444,7 +1445,7 @@ class AccessService {
     };
   }
 
-  async sendRequestProfileInvite(eventId, profileId, actorId, t) {
+  async sendRequestProfileInvite(eventId, profileId, actorId, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -1459,7 +1460,7 @@ class AccessService {
     }
 
     try {
-      return await this.deliverRequestProfileInvite(event, profile, tx);
+      return await this.deliverRequestProfileInvite(event, profile, tx, locale);
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -2410,7 +2411,7 @@ class AccessService {
     };
   }
 
-  async submitRequestProfileApplication(token, payload, t) {
+  async submitRequestProfileApplication(token, payload, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const form = await this.getRequestProfileApplicationForm(token, tx);
     const profileName = String(payload.profileName || '').trim();
@@ -2460,12 +2461,12 @@ class AccessService {
       wristbandQuotas,
       passCategories,
       wristbandCategories,
-    });
+    }, locale);
 
     return form;
   }
 
-  async notifyManagersAboutRequestProfileApplication(event, application) {
+  async notifyManagersAboutRequestProfileApplication(event, application, locale = DEFAULT_LOCALE) {
     if (!this.systemService) {
       return;
     }
@@ -2510,6 +2511,7 @@ class AccessService {
           notes,
           submittedAt,
           applicationsUrl,
+          locale,
         })),
       );
       const failedCount = results.filter((result) => result.status === 'rejected').length;
@@ -2522,7 +2524,7 @@ class AccessService {
     }
   }
 
-  async approveRequestProfileApplication(eventId, applicationId, actorId, payload, t) {
+  async approveRequestProfileApplication(eventId, applicationId, actorId, payload, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -2649,7 +2651,7 @@ class AccessService {
     if (contactEmail) {
       try {
         const profile = await this.requestProfileRepository.findById(profileId);
-        inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
+        inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx, locale);
       } catch (error) {
         console.warn('Profile invite email failed:', error.message);
         inviteEmail = {
@@ -2666,7 +2668,7 @@ class AccessService {
     };
   }
 
-  async rejectRequestProfileApplication(eventId, applicationId, actorId, payload, t) {
+  async rejectRequestProfileApplication(eventId, applicationId, actorId, payload, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -2696,6 +2698,7 @@ class AccessService {
     await this.notifyApplicantAboutRequestProfileRejection(event, application, {
       reason: String(payload.reason || '').trim() || null,
       t: tx,
+      locale,
     });
 
     await this.auditLogService.record({
@@ -2737,13 +2740,14 @@ class AccessService {
         contactEmail,
         contactPhone: String(application.contact_phone || '').trim() || '-',
         rejectionReason: payload.reason || payload.t('requestProfileApplications.rejectionReasonDefault'),
+        locale: payload.locale || DEFAULT_LOCALE,
       });
     } catch (error) {
       console.warn('Profile application rejection email failed:', error.message);
     }
   }
 
-  async createRequestProfile(eventId, actorId, payload, t) {
+  async createRequestProfile(eventId, actorId, payload, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -2855,7 +2859,7 @@ class AccessService {
       if (payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
         try {
           const profile = await this.requestProfileRepository.findById(profileId);
-          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
+          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx, locale);
         } catch (error) {
           // Do not roll back a successfully saved profile because email delivery failed.
           console.warn('Profile invite email failed:', error.message);
@@ -2879,7 +2883,7 @@ class AccessService {
     }
   }
 
-  async updateRequestProfile(eventId, profileId, actorId, payload, t) {
+  async updateRequestProfile(eventId, profileId, actorId, payload, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -2995,7 +2999,7 @@ class AccessService {
       if (payload.notifyContactOnCreate && normalizeEmail(payload.contactEmail)) {
         try {
           const profile = await this.requestProfileRepository.findById(profileId);
-          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx);
+          inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx, locale);
         } catch (error) {
           console.warn('Profile invite email failed:', error.message);
           inviteEmail = {
