@@ -1,9 +1,12 @@
 const {
+  DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   createTranslator,
   normalizeLocale,
   resolveLocale,
 } = require('../../../shared/i18n');
+
+const PUBLIC_PORTAL_SESSION_KEY = 'publicRequestProfileId';
 
 const COUNTRY_HEADER_NAMES = [
   'cf-ipcountry',
@@ -28,6 +31,7 @@ function getRequestCountryCode(req) {
 function attachLocale(req, res, next) {
   const locale = resolveLocale({
     sessionLocale: req.session && req.session.localeManuallySelected ? req.session.locale : null,
+    preferredLocale: req.session?.user?.preferred_locale,
     countryCode: getRequestCountryCode(req),
     acceptLanguage: req.get('Accept-Language'),
   });
@@ -55,19 +59,38 @@ function sanitizeRedirect(value) {
   return value;
 }
 
-function setLocale(req, res) {
-  const locale = normalizeLocale(req.params.locale);
-  const redirectTo = sanitizeRedirect(req.query.redirect || '/');
+function buildSetLocale({ userRepository, requestProfileRepository } = {}) {
+  return async function setLocale(req, res, next) {
+    const locale = normalizeLocale(req.params.locale);
+    const redirectTo = sanitizeRedirect(req.query.redirect || '/');
 
-  if (locale && req.session) {
-    req.session.locale = locale;
-    req.session.localeManuallySelected = true;
-  }
+    if (locale && req.session) {
+      req.session.locale = locale;
+      req.session.localeManuallySelected = true;
 
-  return res.redirect(redirectTo);
+      const userId = req.session.user?.id;
+      const publicProfileId = req.session[PUBLIC_PORTAL_SESSION_KEY];
+
+      try {
+        if (userId && userRepository?.updatePreferredLocale) {
+          await userRepository.updatePreferredLocale(userId, locale);
+          req.session.user.preferred_locale = locale;
+        }
+
+        if (publicProfileId && requestProfileRepository?.updatePreferredLocale) {
+          await requestProfileRepository.updatePreferredLocale(publicProfileId, locale);
+        }
+      } catch (error) {
+        return next(error);
+      }
+    }
+
+    return res.redirect(redirectTo);
+  };
 }
 
 module.exports = {
   attachLocale,
-  setLocale,
+  buildSetLocale,
+  setLocale: buildSetLocale(),
 };

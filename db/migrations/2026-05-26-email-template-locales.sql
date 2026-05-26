@@ -6,7 +6,7 @@ SET locale = 'lv'
 WHERE locale IS NULL OR locale = '';
 
 ALTER TABLE email_templates
-  MODIFY locale VARCHAR(8) NOT NULL DEFAULT 'en';
+  MODIFY locale VARCHAR(8) NOT NULL DEFAULT 'lv';
 
 ALTER TABLE email_templates
   DROP PRIMARY KEY,

@@ -1593,6 +1593,47 @@ body.is-access-fullscreen {
   z-index: 80;
 }
 
+.member-notify-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.72rem;
+  min-height: 4.15rem;
+  width: 100%;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid rgba(223, 229, 240, 0.95);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #42536a;
+  cursor: pointer;
+}
+
+.member-notify-toggle input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.2rem;
+  accent-color: #0074ff;
+}
+
+.member-notify-toggle span {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.member-notify-toggle strong {
+  color: var(--wn-text);
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.member-notify-toggle small {
+  color: var(--wn-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .member-user-picker__panel {
   position: absolute;
   z-index: 999;
@@ -4478,7 +4519,7 @@ body.portal-modal-open {
 
 .portal-table-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(20rem, 1fr) auto auto;
   align-items: end;
   gap: 1rem;
 }
@@ -4525,6 +4566,32 @@ body.portal-modal-open {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.portal-table-quick-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-width: max-content;
+}
+
+.portal-table-quick-action {
+  min-height: 3rem;
+  padding-inline: 1rem;
+  border-radius: 1rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 1279px) {
+  .portal-table-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .portal-table-controls {
+    grid-column: 1 / -1;
+  }
 }
 
 .portal-table-sort {
@@ -6326,6 +6393,15 @@ body.portal-modal-open {
     align-items: stretch;
   }
 
+  .portal-table-quick-actions {
+    justify-content: stretch;
+    min-width: 0;
+  }
+
+  .portal-table-quick-action {
+    flex: 1 1 12rem;
+  }
+
   .portal-table-controls {
     justify-content: stretch;
   }
@@ -6511,6 +6587,20 @@ body.portal-modal-open {
   .portal-table-search {
     order: 2;
     padding: 0 0.72rem;
+    border-radius: 0.95rem;
+  }
+
+  .portal-table-quick-actions {
+    order: 3;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .portal-table-quick-action {
+    width: 100%;
+    min-height: 2.6rem;
+    justify-content: center;
     border-radius: 0.95rem;
   }
 

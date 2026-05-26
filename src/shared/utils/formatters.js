@@ -24,7 +24,7 @@ function toLatviaDateTime(value) {
   return dayjs(value).tz(env.timeZone);
 }
 
-function formatDateTime(value, locale = 'en', emptyLabel = 'Not set') {
+function formatDateTime(value, locale = 'lv', emptyLabel = 'Nav norādīts') {
   if (!value) {
     return emptyLabel;
   }
@@ -32,7 +32,7 @@ function formatDateTime(value, locale = 'en', emptyLabel = 'Not set') {
   return toLatviaDateTime(value).locale(locale).format('DD MMM YYYY, HH:mm');
 }
 
-function formatDate(value, locale = 'en', emptyLabel = 'Not set') {
+function formatDate(value, locale = 'lv', emptyLabel = 'Nav norādīts') {
   if (!value) {
     return emptyLabel;
   }

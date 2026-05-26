@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { env } = require('../../config/env');
 const { AppError } = require('../../shared/errors/AppError');
 const { EVENT_ROLES, MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
-const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
+const { DEFAULT_LOCALE, buildAuditMetadata, normalizeLocale, translate } = require('../../shared/i18n');
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -524,7 +524,7 @@ class EventService {
     });
   }
 
-  async addMember(eventId, actorId, { email, role }, t, locale = DEFAULT_LOCALE) {
+  async addMember(eventId, actorId, { email, role, notifyUser = true }, t, locale = DEFAULT_LOCALE) {
     const tx = resolveTranslate(t);
     const event = await this.getEventAccessOrFail(eventId, actorId, tx);
 
@@ -572,18 +572,22 @@ class EventService {
       }),
     });
 
-    if (this.systemService) {
+    const shouldNotifyUser = !['0', 'false', 'off', 'no'].includes(String(notifyUser).toLowerCase());
+
+    if (shouldNotifyUser && this.systemService) {
       try {
         const actor = await this.userRepository.findById(actorId);
+
+        const recipientLocale = normalizeLocale(user.preferred_locale) || normalizeLocale(locale) || DEFAULT_LOCALE;
 
         await this.systemService.sendEventMemberNotification({
           to: user.email,
           recipientName: user.full_name,
           eventName: event.name,
-          roleLabel: tx(`roles.${role}`),
+          roleLabel: translate(recipientLocale, `roles.${role}`),
           invitedByName: actor?.full_name || tx('audit.actor.system'),
           eventUrl: `${env.appUrl.replace(/\/$/, '')}/events/${event.id}`,
-          locale,
+          locale: recipientLocale,
         });
       } catch (error) {
         console.warn('Event member notification email failed:', error.message);

@@ -1,3 +1,5 @@
+const { DEFAULT_LOCALE, normalizeLocale } = require('../../../shared/i18n');
+
 const QUOTA_CONFIG = {
   pass: {
     table: 'request_profile_pass_categories',
@@ -11,6 +13,10 @@ const QUOTA_CONFIG = {
   },
 };
 
+function normalizeStoredLocale(locale) {
+  return normalizeLocale(locale) || DEFAULT_LOCALE;
+}
+
 function buildRequestProfileBackupSnapshot() {
   return `
         JSON_OBJECT(
@@ -20,6 +26,7 @@ function buildRequestProfileBackupSnapshot() {
           'public_slug', profile.public_slug,
           'contact_email', profile.contact_email,
           'contact_phone', profile.contact_phone,
+          'preferred_locale', profile.preferred_locale,
           'access_code', profile.access_code,
           'access_code_hash', profile.access_code_hash,
           'max_people', profile.max_people,
@@ -128,6 +135,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -153,7 +161,8 @@ class RequestProfileRepository {
           rp.id,
           rp.name,
           rp.contact_email,
-          rp.contact_phone
+          rp.contact_phone,
+          rp.preferred_locale
         FROM request_profiles rp
         WHERE rp.event_id = ?
           AND rp.deleted_at IS NULL
@@ -180,6 +189,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -236,6 +246,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -273,6 +284,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -305,6 +317,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -343,6 +356,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -381,6 +395,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -415,6 +430,7 @@ class RequestProfileRepository {
       payload.allowDuplicateVehiclePlates ? 1 : 0,
       payload.contactEmail || null,
       payload.contactPhone || null,
+      normalizeStoredLocale(payload.preferredLocale),
       payload.notifyContactOnCreate ? 1 : 0,
       payload.notes,
       payload.isActive,
@@ -436,6 +452,7 @@ class RequestProfileRepository {
           allow_duplicate_vehicle_plates,
           contact_email,
           contact_phone,
+          preferred_locale,
           notify_contact_on_create,
           notes,
           is_active,
@@ -443,7 +460,7 @@ class RequestProfileRepository {
           created_by_user_id,
           updated_by_user_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       values,
     );
@@ -464,6 +481,7 @@ class RequestProfileRepository {
           allow_duplicate_vehicle_plates = ?,
           contact_email = ?,
           contact_phone = ?,
+          preferred_locale = ?,
           notify_contact_on_create = ?,
           notes = ?,
           is_active = ?,
@@ -478,6 +496,7 @@ class RequestProfileRepository {
         payload.allowDuplicateVehiclePlates ? 1 : 0,
         payload.contactEmail || null,
         payload.contactPhone || null,
+        normalizeStoredLocale(payload.preferredLocale),
         payload.notifyContactOnCreate ? 1 : 0,
         payload.notes,
         payload.isActive,
@@ -503,6 +522,18 @@ class RequestProfileRepository {
     );
   }
 
+  async updatePreferredLocale(profileId, preferredLocale) {
+    await this.pool.execute(
+      `
+        UPDATE request_profiles
+        SET preferred_locale = ?
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `,
+      [normalizeStoredLocale(preferredLocale), profileId],
+    );
+  }
+
   async findByAccessCode(accessCode) {
     const [rows] = await this.pool.execute(
       `
@@ -518,6 +549,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,
@@ -551,6 +583,7 @@ class RequestProfileRepository {
           rp.allow_duplicate_vehicle_plates,
           rp.contact_email,
           rp.contact_phone,
+          rp.preferred_locale,
           rp.notify_contact_on_create,
           rp.notes,
           rp.is_active,

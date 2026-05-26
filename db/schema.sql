@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL,
   phone VARCHAR(40) NULL,
+  preferred_locale VARCHAR(8) NOT NULL DEFAULT 'lv',
   password_hash VARCHAR(255) NOT NULL,
   last_login_at DATETIME NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -189,6 +190,7 @@ CREATE TABLE IF NOT EXISTS request_profiles (
   public_slug CHAR(36) NOT NULL,
   contact_email VARCHAR(190) NULL,
   contact_phone VARCHAR(40) NULL,
+  preferred_locale VARCHAR(8) NOT NULL DEFAULT 'lv',
   access_code VARCHAR(32) NULL,
   access_code_hash VARCHAR(255) NOT NULL,
   max_people INT UNSIGNED NOT NULL DEFAULT 1,
@@ -263,6 +265,7 @@ CREATE TABLE IF NOT EXISTS request_profile_applications (
   profile_name VARCHAR(160) NOT NULL,
   contact_email VARCHAR(190) NOT NULL,
   contact_phone VARCHAR(40) NOT NULL,
+  preferred_locale VARCHAR(8) NOT NULL DEFAULT 'lv',
   notes TEXT NULL,
   requested_pass_quota JSON NULL,
   requested_wristband_quota JSON NULL,
@@ -509,7 +512,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
 
 CREATE TABLE IF NOT EXISTS email_templates (
   template_key VARCHAR(120) NOT NULL,
-  locale VARCHAR(8) NOT NULL DEFAULT 'en',
+  locale VARCHAR(8) NOT NULL DEFAULT 'lv',
   subject VARCHAR(255) NOT NULL,
   html_content LONGTEXT NOT NULL,
   text_content LONGTEXT NULL,

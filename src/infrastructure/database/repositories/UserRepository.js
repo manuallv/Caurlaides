@@ -1,5 +1,11 @@
+const { DEFAULT_LOCALE, normalizeLocale } = require('../../../shared/i18n');
+
 function normalizeStoredEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function normalizeStoredLocale(locale) {
+  return normalizeLocale(locale) || DEFAULT_LOCALE;
 }
 
 function buildEmailLookupCandidates(email) {
@@ -28,13 +34,13 @@ class UserRepository {
     this.pool = pool;
   }
 
-  async create({ fullName, email, phone = null, passwordHash, isActive = 1 }) {
+  async create({ fullName, email, phone = null, passwordHash, isActive = 1, preferredLocale = DEFAULT_LOCALE }) {
     const [result] = await this.pool.execute(
       `
-        INSERT INTO users (full_name, email, phone, password_hash, is_active)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (full_name, email, phone, preferred_locale, password_hash, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
       `,
-      [fullName, normalizeStoredEmail(email), phone, passwordHash, isActive ? 1 : 0],
+      [fullName, normalizeStoredEmail(email), phone, normalizeStoredLocale(preferredLocale), passwordHash, isActive ? 1 : 0],
     );
 
     return this.findById(result.insertId);
@@ -55,6 +61,7 @@ class UserRepository {
           full_name,
           email,
           phone,
+          preferred_locale,
           password_hash,
           last_login_at,
           is_active,
@@ -80,6 +87,7 @@ class UserRepository {
           full_name,
           email,
           phone,
+          preferred_locale,
           last_login_at,
           is_active,
           deleted_at,
@@ -105,7 +113,7 @@ class UserRepository {
     const placeholders = candidates.map(() => '?').join(', ');
     const [rows] = await this.pool.execute(
       `
-        SELECT id, full_name, email, phone, is_active, deleted_at
+        SELECT id, full_name, email, phone, preferred_locale, is_active, deleted_at
         FROM users
         WHERE email IN (${placeholders})
           AND is_active = 1
@@ -199,6 +207,7 @@ class UserRepository {
           u.full_name,
           u.email,
           u.phone,
+          u.preferred_locale,
           u.last_login_at,
           u.is_active,
           u.deleted_at,
@@ -240,12 +249,33 @@ class UserRepository {
           full_name = ?,
           email = ?,
           phone = ?,
+          preferred_locale = COALESCE(preferred_locale, ?),
           is_active = ?,
           deleted_at = CASE WHEN ? = 1 THEN NULL ELSE deleted_at END,
           deleted_by_user_id = CASE WHEN ? = 1 THEN NULL ELSE deleted_by_user_id END
         WHERE id = ?
       `,
-      [fullName, normalizeStoredEmail(email), phone, isActive ? 1 : 0, isActive ? 1 : 0, isActive ? 1 : 0, userId],
+      [
+        fullName,
+        normalizeStoredEmail(email),
+        phone,
+        DEFAULT_LOCALE,
+        isActive ? 1 : 0,
+        isActive ? 1 : 0,
+        isActive ? 1 : 0,
+        userId,
+      ],
+    );
+  }
+
+  async updatePreferredLocale(userId, preferredLocale) {
+    await this.pool.execute(
+      `
+        UPDATE users
+        SET preferred_locale = ?
+        WHERE id = ?
+      `,
+      [normalizeStoredLocale(preferredLocale), userId],
     );
   }
 

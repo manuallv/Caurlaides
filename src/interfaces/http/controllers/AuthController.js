@@ -31,9 +31,12 @@ function buildAuthController({ authService, systemService }) {
           fullName: req.body.fullName,
           email: req.body.email,
           password: req.body.password,
+          preferredLocale: req.locale,
         }, req.t);
 
         req.session.user = user;
+        req.session.locale = user.preferred_locale || req.locale;
+        req.session.localeManuallySelected = true;
         req.flash('success', req.t('flash.accountCreated'));
         return res.redirect('/dashboard');
       } catch (error) {
@@ -47,9 +50,13 @@ function buildAuthController({ authService, systemService }) {
         const user = await authService.login({
           email: req.body.email,
           password: req.body.password,
+          preferredLocale: req.locale,
+          localeManuallySelected: Boolean(req.session.localeManuallySelected),
         }, req.t);
 
         req.session.user = user;
+        req.session.locale = user.preferred_locale || req.locale;
+        req.session.localeManuallySelected = true;
         req.flash('success', req.t('flash.welcomeBack', { name: user.full_name }));
         return res.redirect('/dashboard');
       } catch (error) {

@@ -301,6 +301,7 @@ class EventRepository {
           eu.created_at,
           u.full_name,
           u.email,
+          u.preferred_locale,
           inviter.full_name AS invited_by_name
         FROM event_users eu
         INNER JOIN users u ON u.id = eu.user_id
@@ -321,6 +322,7 @@ class EventRepository {
           u.id,
           u.full_name,
           u.email,
+          u.preferred_locale,
           eu.role
         FROM event_users eu
         INNER JOIN users u ON u.id = eu.user_id

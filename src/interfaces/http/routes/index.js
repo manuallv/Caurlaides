@@ -29,7 +29,7 @@ const { buildEventRoutes } = require('./event-routes');
 const { buildExternalApiRoutes } = require('./external-api-routes');
 const { buildPublicAccessRoutes } = require('./public-access-routes');
 const { buildSystemRoutes } = require('./system-routes');
-const { setLocale } = require('../middleware/locale');
+const { buildSetLocale } = require('../middleware/locale');
 
 function buildRouter() {
   const router = express.Router();
@@ -91,7 +91,7 @@ function buildRouter() {
   const accessController = buildAccessController({ categoryService, accessService });
   const systemController = buildSystemController({ systemService });
 
-  router.get('/language/:locale', setLocale);
+  router.get('/language/:locale', buildSetLocale({ userRepository, requestProfileRepository }));
   router.use(buildAuthRoutes({ authController }));
   router.use(buildDashboardRoutes({ dashboardController, accessController }));
   router.use(buildSystemRoutes({ systemController }));

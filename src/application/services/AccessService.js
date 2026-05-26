@@ -9,7 +9,13 @@ const { v4: uuidv4 } = require('uuid');
 const { env } = require('../../config/env');
 const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
-const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
+const {
+  DEFAULT_LOCALE,
+  buildAuditMetadata,
+  createTranslator,
+  normalizeLocale,
+  translate,
+} = require('../../shared/i18n');
 const { comparePassword, hashPassword } = require('../../infrastructure/security/password');
 const { RequestProfileApplicationRepository } = require('../../infrastructure/database/repositories/RequestProfileApplicationRepository');
 
@@ -1417,6 +1423,8 @@ class AccessService {
     }
 
     const refreshedProfile = await this.ensureRequestProfileAccessCode(profile);
+    const emailLocale = normalizeLocale(refreshedProfile.preferred_locale) || normalizeLocale(locale) || DEFAULT_LOCALE;
+    const emailTx = createTranslator(emailLocale);
     const isUnlimitedQuota = Number(refreshedProfile.is_unlimited_quota) === 1;
     const [passQuotaUsage, wristbandQuotaUsage] = await Promise.all([
       this.requestRepository.listQuotaUsage(refreshedProfile.id, 'pass').then(withRemainingQuota),
@@ -1430,12 +1438,12 @@ class AccessService {
       accessCode: refreshedProfile.access_code,
       inviteUrl: buildInviteUrl(refreshedProfile.access_code),
       wristbandSummary: isUnlimitedQuota
-        ? tx('requestProfiles.unlimited')
+        ? emailTx('requestProfiles.unlimited')
         : buildQuotaUsageSummary(wristbandQuotaUsage),
       passSummary: isUnlimitedQuota
-        ? tx('requestProfiles.unlimited')
+        ? emailTx('requestProfiles.unlimited')
         : buildQuotaUsageSummary(passQuotaUsage),
-      locale,
+      locale: emailLocale,
     });
 
     return {
@@ -2449,6 +2457,7 @@ class AccessService {
       notes: notes || null,
       passQuotas,
       wristbandQuotas,
+      preferredLocale: locale,
     });
 
     await this.notifyManagersAboutRequestProfileApplication(form.event, {
@@ -2498,21 +2507,25 @@ class AccessService {
       const notes = String(application.notes || '').trim() || '-';
       const submittedAt = dayjs().format('YYYY-MM-DD HH:mm');
       const results = await Promise.allSettled(
-        uniqueRecipients.map((recipient) => this.systemService.sendProfileApplicationNotification({
-          to: recipient.email,
-          recipientName: recipient.full_name || 'Admin',
-          eventName: event.name,
-          applicationId: application.applicationId,
-          profileName: application.profileName,
-          contactEmail: application.contactEmail,
-          contactPhone: application.contactPhone,
-          passSummary,
-          wristbandSummary,
-          notes,
-          submittedAt,
-          applicationsUrl,
-          locale,
-        })),
+        uniqueRecipients.map((recipient) => {
+          const recipientLocale = normalizeLocale(recipient.preferred_locale) || DEFAULT_LOCALE;
+
+          return this.systemService.sendProfileApplicationNotification({
+            to: recipient.email,
+            recipientName: recipient.full_name || 'Admin',
+            eventName: event.name,
+            applicationId: application.applicationId,
+            profileName: application.profileName,
+            contactEmail: application.contactEmail,
+            contactPhone: application.contactPhone,
+            passSummary,
+            wristbandSummary,
+            notes,
+            submittedAt,
+            applicationsUrl,
+            locale: recipientLocale,
+          });
+        }),
       );
       const failedCount = results.filter((result) => result.status === 'rejected').length;
 
@@ -2590,6 +2603,7 @@ class AccessService {
         contactPhone,
         notifyContactOnCreate: true,
         allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
+        preferredLocale: application.preferred_locale || locale,
         notes: notes || null,
         isActive: 1,
       });
@@ -2651,7 +2665,7 @@ class AccessService {
     if (contactEmail) {
       try {
         const profile = await this.requestProfileRepository.findById(profileId);
-        inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx, locale);
+        inviteEmail = await this.deliverRequestProfileInvite(event, profile, tx, application.preferred_locale || locale);
       } catch (error) {
         console.warn('Profile invite email failed:', error.message);
         inviteEmail = {
@@ -2740,7 +2754,7 @@ class AccessService {
         contactEmail,
         contactPhone: String(application.contact_phone || '').trim() || '-',
         rejectionReason: payload.reason || payload.t('requestProfileApplications.rejectionReasonDefault'),
-        locale: payload.locale || DEFAULT_LOCALE,
+        locale: application.preferred_locale || payload.locale || DEFAULT_LOCALE,
       });
     } catch (error) {
       console.warn('Profile application rejection email failed:', error.message);
@@ -2810,6 +2824,7 @@ class AccessService {
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
         allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
+        preferredLocale: locale,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
@@ -2947,6 +2962,7 @@ class AccessService {
         contactPhone: payload.contactPhone ? payload.contactPhone.trim() : null,
         notifyContactOnCreate: payload.notifyContactOnCreate,
         allowDuplicateVehiclePlates: payload.allowDuplicateVehiclePlates,
+        preferredLocale: payload.preferredLocale || existingProfile.preferred_locale || locale,
         notes: payload.notes || null,
         isActive: payload.isActive ? 1 : 0,
       });
@@ -3714,6 +3730,13 @@ class AccessService {
     }
 
     this.setPublicProfileSession(session, matchedProfile.id);
+    const profileLocale = normalizeLocale(matchedProfile.preferred_locale);
+
+    if (profileLocale) {
+      session.locale = profileLocale;
+      session.localeManuallySelected = true;
+    }
+
     delete session[PUBLIC_PORTAL_IMPORTS_KEY];
 
     return matchedProfile;

@@ -1,3 +1,9 @@
+const { DEFAULT_LOCALE, normalizeLocale } = require('../../../shared/i18n');
+
+function normalizeStoredLocale(locale) {
+  return normalizeLocale(locale) || DEFAULT_LOCALE;
+}
+
 function serializeQuotaEntries(entries = []) {
   return JSON.stringify(
     entries.map((entry) => ({
@@ -45,6 +51,7 @@ function buildApplicationBackupSnapshot() {
           'profile_name', application.profile_name,
           'contact_email', application.contact_email,
           'contact_phone', application.contact_phone,
+          'preferred_locale', application.preferred_locale,
           'notes', application.notes,
           'requested_pass_quota', application.requested_pass_quota,
           'requested_wristband_quota', application.requested_wristband_quota,
@@ -127,6 +134,7 @@ class RequestProfileApplicationRepository {
           profile_name,
           contact_email,
           contact_phone,
+          preferred_locale,
           notes,
           requested_pass_quota,
           requested_wristband_quota,
@@ -159,17 +167,19 @@ class RequestProfileApplicationRepository {
           profile_name,
           contact_email,
           contact_phone,
+          preferred_locale,
           notes,
           requested_pass_quota,
           requested_wristband_quota
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         payload.eventId,
         payload.profileName,
         payload.contactEmail,
         payload.contactPhone || null,
+        normalizeStoredLocale(payload.preferredLocale),
         payload.notes || null,
         serializeQuotaEntries(payload.passQuotas),
         serializeQuotaEntries(payload.wristbandQuotas),
@@ -191,6 +201,7 @@ class RequestProfileApplicationRepository {
           rpa.profile_name,
           rpa.contact_email,
           rpa.contact_phone,
+          rpa.preferred_locale,
           rpa.notes,
           rpa.requested_pass_quota,
           rpa.requested_wristband_quota,
@@ -242,6 +253,7 @@ class RequestProfileApplicationRepository {
           profile_name,
           contact_email,
           contact_phone,
+          preferred_locale,
           notes,
           requested_pass_quota,
           requested_wristband_quota,

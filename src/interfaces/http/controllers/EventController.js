@@ -22,6 +22,18 @@ function normalizeVehicleGateApiPayload(body) {
   };
 }
 
+function normalizeBooleanField(value, defaultValue = false) {
+  if (Array.isArray(value)) {
+    return value.some((item) => normalizeBooleanField(item, false));
+  }
+
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  return ['1', 'true', 'on', 'yes'].includes(String(value).toLowerCase());
+}
+
 function buildEventController({ eventService, auditLogService }) {
   return {
     showCreateForm(req, res) {
@@ -132,6 +144,7 @@ function buildEventController({ eventService, auditLogService }) {
       await eventService.addMember(req.params.eventId, req.currentUser.id, {
         email: req.body.email,
         role: req.body.role,
+        notifyUser: normalizeBooleanField(req.body.notifyUser, true),
       }, req.t, req.locale);
 
       emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {

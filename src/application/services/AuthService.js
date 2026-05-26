@@ -1,6 +1,6 @@
 const { AppError } = require('../../shared/errors/AppError');
 const { comparePassword, hashPassword } = require('../../infrastructure/security/password');
-const { DEFAULT_LOCALE, translate } = require('../../shared/i18n');
+const { DEFAULT_LOCALE, normalizeLocale, translate } = require('../../shared/i18n');
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -11,7 +11,7 @@ class AuthService {
     this.userRepository = userRepository;
   }
 
-  async register({ fullName, email, password }, t) {
+  async register({ fullName, email, password, preferredLocale = DEFAULT_LOCALE }, t) {
     const tx = resolveTranslate(t);
     const existingUser = await this.userRepository.findByEmail(email);
 
@@ -24,11 +24,12 @@ class AuthService {
     return this.userRepository.create({
       fullName,
       email,
+      preferredLocale: normalizeLocale(preferredLocale) || DEFAULT_LOCALE,
       passwordHash,
     });
   }
 
-  async login({ email, password }, t) {
+  async login({ email, password, preferredLocale = null, localeManuallySelected = false }, t) {
     const tx = resolveTranslate(t);
     const user = await this.userRepository.findByEmail(email);
 
@@ -47,6 +48,12 @@ class AuthService {
     }
 
     await this.userRepository.touchLastLogin(user.id);
+
+    const normalizedPreferredLocale = normalizeLocale(preferredLocale);
+
+    if (localeManuallySelected && normalizedPreferredLocale) {
+      await this.userRepository.updatePreferredLocale(user.id, normalizedPreferredLocale);
+    }
 
     return this.userRepository.findById(user.id);
   }

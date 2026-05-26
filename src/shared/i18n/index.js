@@ -1,7 +1,7 @@
 const { translations } = require('./translations');
 
-const DEFAULT_LOCALE = 'en';
-const SUPPORTED_LOCALES = ['en', 'lv', 'lt'];
+const DEFAULT_LOCALE = 'lv';
+const SUPPORTED_LOCALES = ['lv', 'en', 'lt'];
 const COUNTRY_LOCALE_MAP = {
   LV: 'lv',
   LT: 'lt',
@@ -63,14 +63,14 @@ function detectLocaleFromCountry(countryCode = '') {
 function resolveLocale({
   sessionLocale,
   requestedLocale,
+  preferredLocale,
   countryCode,
   acceptLanguage,
 } = {}) {
   return (
     normalizeLocale(requestedLocale) ||
     normalizeLocale(sessionLocale) ||
-    detectLocaleFromCountry(countryCode) ||
-    detectLocale(acceptLanguage) ||
+    normalizeLocale(preferredLocale) ||
     DEFAULT_LOCALE
   );
 }

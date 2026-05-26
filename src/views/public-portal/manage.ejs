@@ -86,7 +86,7 @@
       <article class="portal-access-card panel" data-portal-summary-card data-portal-summary-type="pass">
         <div class="portal-access-card__mobile-bar">
           <div class="portal-access-card__mobile-copy">
-            <h2><%= t('nav.passes') %></h2>
+            <h2><%= t('portal.tabs.passes') %></h2>
           </div>
           <div class="portal-access-card__mobile-actions">
             <button type="button" class="btn-primary portal-access-card__mobile-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
@@ -108,7 +108,7 @@
         <div class="portal-access-card__content" id="portal-summary-pass" data-portal-summary-content>
           <div class="portal-access-card__head">
             <div class="portal-access-card__copy">
-              <h2><%= t('nav.passes') %></h2>
+              <h2><%= t('portal.tabs.passes') %></h2>
               <p><%= t('portal.sectionDescriptionPasses') %></p>
             </div>
             <span class="portal-state-pill <%= passPortalOpen ? 'is-open' : 'is-closed' %>">
@@ -188,6 +188,16 @@
                 data-portal-table-search
               />
             </div>
+            <% if (hasPassAccess || hasWristbandAccess) { %>
+              <div class="portal-table-quick-actions" aria-label="<%= t('portal.quickActions') %>">
+                <% if (hasPassAccess) { %>
+                  <button type="button" class="btn-primary portal-table-quick-action" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
+                <% } %>
+                <% if (hasWristbandAccess) { %>
+                  <button type="button" class="btn-secondary portal-table-quick-action" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
+                <% } %>
+              </div>
+            <% } %>
             <div class="portal-table-controls">
               <div class="portal-table-sort-card">
                 <p class="portal-table-toolbar-label"><%= t('portal.sort.label') %></p>
@@ -267,7 +277,7 @@
                     >
                       <td data-cell-label="<%= t('portal.table.type') %>">
                         <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
-                          <%= t(request.request_type === 'pass' ? 'nav.passes' : 'nav.wristbands') %>
+                          <%= t(request.request_type === 'pass' ? 'portal.type.pass' : 'portal.type.wristband') %>
                         </span>
                       </td>
                       <td data-cell-label="<%= t('portal.table.name') %>">

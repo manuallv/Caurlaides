@@ -317,9 +317,11 @@ class SystemService {
       expiresAt,
     });
 
+    const templateLocale = normalizeLocale(user.preferred_locale) || normalizeLocale(locale) || DEFAULT_LOCALE;
+
     await this.emailService.sendTemplate('forgot_password', {
       to: user.email,
-      locale,
+      locale: templateLocale,
       variables: {
         appName: 'Caurlaides',
         userName: user.full_name,

@@ -1,9 +1,9 @@
-const { SUPPORTED_LOCALES, createTranslator } = require('../../../shared/i18n');
+const { DEFAULT_LOCALE, SUPPORTED_LOCALES, createTranslator } = require('../../../shared/i18n');
 
 function getRequestTranslator(req) {
   return typeof req.t === 'function'
     ? req.t
-    : createTranslator(req.locale || 'en');
+    : createTranslator(req.locale || DEFAULT_LOCALE);
 }
 
 function wantsJson(req) {
@@ -53,7 +53,7 @@ function errorHandler(error, req, res, next) {
     isPublicPortal: false,
     currentPath: req.originalUrl || '',
     csrfToken: '',
-    locale: req.locale || 'en',
+    locale: req.locale || DEFAULT_LOCALE,
     t,
     supportedLocales: res.locals.supportedLocales || SUPPORTED_LOCALES,
     flash: {

@@ -8,7 +8,7 @@
       <form
         action="/events/<%= activeEvent.id %>/members"
         method="POST"
-        class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-[1fr_180px_auto]"
+        class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-[minmax(0,1fr)_180px_minmax(220px,300px)_auto]"
         data-member-add-form
         data-member-search-url="/events/<%= activeEvent.id %>/members/search"
         data-member-search-empty="<%= t('members.searchEmpty') %>"
@@ -38,6 +38,14 @@
             <option value="staff"><%= t('roles.staff') %></option>
           </select>
         </div>
+        <input type="hidden" name="notifyUser" value="off" />
+        <label class="member-notify-toggle self-end">
+          <input type="checkbox" name="notifyUser" value="on" checked />
+          <span>
+            <strong><%= t('members.notifyUser') %></strong>
+            <small><%= t('members.notifyUserHelp') %></small>
+          </span>
+        </label>
         <div class="self-end">
           <button type="submit" class="btn-primary w-full"><%= t('members.addUser') %></button>
         </div>
