@@ -553,6 +553,7 @@ class EventService {
       userId: user.id,
       role,
       invitedByUserId: actorId,
+      notifyProfileApplications: true,
     });
 
     await this.auditLogService.record({
@@ -565,7 +566,12 @@ class EventService {
         name: user.full_name,
         role: translate(DEFAULT_LOCALE, `roles.${role}`),
       }),
-      afterState: { userId: user.id, email: user.email, role },
+      afterState: {
+        userId: user.id,
+        email: user.email,
+        role,
+        notifyProfileApplications: true,
+      },
       metadata: buildAuditMetadata('audit.message.memberAdded', {
         name: user.full_name,
         role: tx(`roles.${role}`),
@@ -631,6 +637,42 @@ class EventService {
       metadata: buildAuditMetadata('audit.message.memberRoleUpdated', {
         role: tx(`roles.${role}`),
       }),
+    });
+  }
+
+  async updateMemberProfileNotifications(eventId, targetUserId, actorId, notifyProfileApplications, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.manageCollaborators'), 403);
+    }
+
+    const existingMember = await this.eventRepository.findMember(eventId, targetUserId);
+
+    if (!existingMember) {
+      throw new AppError(tx('service.event.memberNotFound'), 404);
+    }
+
+    await this.eventRepository.updateMemberProfileNotifications(
+      eventId,
+      targetUserId,
+      notifyProfileApplications,
+    );
+
+    await this.auditLogService.record({
+      eventId,
+      userId: actorId,
+      entityType: 'event_user',
+      entityId: targetUserId,
+      action: 'notifications_updated',
+      message: translate(DEFAULT_LOCALE, 'audit.message.memberNotificationsUpdated'),
+      beforeState: existingMember,
+      afterState: {
+        ...existingMember,
+        notify_profile_applications: notifyProfileApplications ? 1 : 0,
+      },
+      metadata: buildAuditMetadata('audit.message.memberNotificationsUpdated'),
     });
   }
 

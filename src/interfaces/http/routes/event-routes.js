@@ -68,6 +68,11 @@ function buildEventRoutes({ eventController, accessController }) {
     validateRequest,
     asyncHandler(eventController.updateMemberRole),
   );
+  router.put(
+    '/events/:eventId/members/:userId/notifications',
+    requireAuth,
+    asyncHandler(eventController.updateMemberNotifications),
+  );
   router.delete('/events/:eventId/members/:userId', requireAuth, asyncHandler(eventController.removeMember));
 
   router.get('/events/:eventId/passes', requireAuth, asyncHandler(accessController.showTypePage));

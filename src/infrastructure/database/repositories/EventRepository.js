@@ -95,16 +95,29 @@ class EventRepository {
     return result.insertId;
   }
 
-  async addMember(connection, { eventId, userId, role, invitedByUserId = null }) {
+  async addMember(connection, {
+    eventId,
+    userId,
+    role,
+    invitedByUserId = null,
+    notifyProfileApplications = true,
+  }) {
     await connection.execute(
       `
-        INSERT INTO event_users (event_id, user_id, role, invited_by_user_id)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO event_users (
+          event_id,
+          user_id,
+          role,
+          notify_profile_applications,
+          invited_by_user_id
+        )
+        VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           role = VALUES(role),
+          notify_profile_applications = VALUES(notify_profile_applications),
           invited_by_user_id = VALUES(invited_by_user_id)
       `,
-      [eventId, userId, role, invitedByUserId],
+      [eventId, userId, role, notifyProfileApplications ? 1 : 0, invitedByUserId],
     );
   }
 
@@ -298,6 +311,7 @@ class EventRepository {
         SELECT
           eu.user_id,
           eu.role,
+          eu.notify_profile_applications,
           eu.created_at,
           u.full_name,
           u.email,
@@ -323,11 +337,13 @@ class EventRepository {
           u.full_name,
           u.email,
           u.preferred_locale,
+          eu.notify_profile_applications,
           eu.role
         FROM event_users eu
         INNER JOIN users u ON u.id = eu.user_id
         WHERE eu.event_id = ?
           AND eu.role IN ('owner', 'admin')
+          AND eu.notify_profile_applications = 1
           AND u.is_active = 1
           AND u.deleted_at IS NULL
         ORDER BY FIELD(eu.role, 'owner', 'admin'), u.full_name ASC
@@ -341,7 +357,7 @@ class EventRepository {
   async findMember(eventId, userId) {
     const [rows] = await this.pool.execute(
       `
-        SELECT event_id, user_id, role
+        SELECT event_id, user_id, role, notify_profile_applications
         FROM event_users
         WHERE event_id = ? AND user_id = ?
         LIMIT 1
@@ -360,6 +376,17 @@ class EventRepository {
         WHERE event_id = ? AND user_id = ?
       `,
       [role, eventId, userId],
+    );
+  }
+
+  async updateMemberProfileNotifications(eventId, userId, notifyProfileApplications) {
+    await this.pool.execute(
+      `
+        UPDATE event_users
+        SET notify_profile_applications = ?
+        WHERE event_id = ? AND user_id = ?
+      `,
+      [notifyProfileApplications ? 1 : 0, eventId, userId],
     );
   }
 

@@ -119,6 +119,7 @@ function buildEventController({ eventService, auditLogService }) {
         canManageMembers: MANAGEMENT_ROLES.includes(data.event.role),
         canChangeRoles: data.event.role === EVENT_ROLES.OWNER,
         canRemoveMembers: MANAGEMENT_ROLES.includes(data.event.role),
+        canManageNotifications: MANAGEMENT_ROLES.includes(data.event.role),
       });
     },
 
@@ -167,6 +168,19 @@ function buildEventController({ eventService, auditLogService }) {
         eventId: req.params.eventId,
       });
       req.flash('success', req.t('flash.collaboratorRoleUpdated'));
+      return res.redirect(`/events/${req.params.eventId}/members`);
+    },
+
+    async updateMemberNotifications(req, res) {
+      await eventService.updateMemberProfileNotifications(
+        req.params.eventId,
+        req.params.userId,
+        req.currentUser.id,
+        normalizeBooleanField(req.body.notifyProfileApplications, true),
+        req.t,
+      );
+
+      req.flash('success', req.t('flash.collaboratorNotificationsUpdated'));
       return res.redirect(`/events/${req.params.eventId}/members`);
     },
 

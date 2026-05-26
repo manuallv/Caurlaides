@@ -1634,6 +1634,33 @@ body.is-access-fullscreen {
   line-height: 1.4;
 }
 
+.member-row-notification-form {
+  display: flex;
+  align-items: center;
+}
+
+.member-row-notify-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3.15rem;
+  padding: 0.68rem 0.9rem;
+  border: 1px solid rgba(223, 229, 240, 0.95);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #42536a;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.member-row-notify-toggle input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #0074ff;
+}
+
 .member-user-picker__panel {
   position: absolute;
   z-index: 999;

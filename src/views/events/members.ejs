@@ -74,8 +74,33 @@
               </p>
             </div>
 
-            <% if ((canChangeRoles && member.role !== 'owner') || (canRemoveMembers && member.role !== 'owner' && Number(member.user_id) !== Number(currentUser.id))) { %>
-              <div class="flex flex-col gap-3 sm:flex-row">
+            <% if (
+              (canManageNotifications && ['owner', 'admin'].includes(member.role))
+              || (canChangeRoles && member.role !== 'owner')
+              || (canRemoveMembers && member.role !== 'owner' && Number(member.user_id) !== Number(currentUser.id))
+            ) { %>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <% if (canManageNotifications && ['owner', 'admin'].includes(member.role)) { %>
+                  <form
+                    action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>/notifications?_method=PUT"
+                    method="POST"
+                    class="member-row-notification-form"
+                  >
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <input type="hidden" name="notifyProfileApplications" value="off" />
+                    <label class="member-row-notify-toggle">
+                      <input
+                        type="checkbox"
+                        name="notifyProfileApplications"
+                        value="on"
+                        data-member-notification-toggle
+                        <%= Number(member.notify_profile_applications) === 0 ? '' : 'checked' %>
+                      />
+                      <span><%= t('members.notifyProfileApplications') %></span>
+                    </label>
+                  </form>
+                <% } %>
+
                 <% if (canChangeRoles && member.role !== 'owner') { %>
                   <form action="/events/<%= activeEvent.id %>/members/<%= member.user_id %>?_method=PUT" method="POST" class="flex gap-2">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />

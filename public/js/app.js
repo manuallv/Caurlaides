@@ -6549,6 +6549,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('change', (event) => {
+    if (event.target.matches('[data-member-notification-toggle]')) {
+      event.target.closest('form')?.requestSubmit();
+      return;
+    }
+
     if (event.target.matches('[data-pass-print-field-type]')) {
       upsertSelectedPassPrintField({
         type: event.target.value || 'vehiclePlate',
