@@ -2181,6 +2181,69 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }).join('');
 
+  const renderCheckResultMessage = (container, result = {}) => {
+    if (!container) {
+      return;
+    }
+
+    const details = result.messageDetails && typeof result.messageDetails === 'object'
+      ? result.messageDetails
+      : null;
+    const groups = Array.isArray(details?.groups)
+      ? details.groups
+        .map((group) => ({
+          label: String(group?.label || '').trim(),
+          values: Array.isArray(group?.values)
+            ? group.values.map((value) => String(value || '').trim()).filter(Boolean)
+            : [],
+        }))
+        .filter((group) => group.label && group.values.length)
+      : [];
+    const title = String(details?.title || '').trim();
+
+    container.textContent = '';
+    container.classList.remove('check-result-message--structured');
+
+    if (groups.length) {
+      container.classList.add('check-result-message--structured');
+
+      if (title) {
+        const titleNode = document.createElement('p');
+        titleNode.className = 'check-result-message__title';
+        titleNode.textContent = title;
+        container.appendChild(titleNode);
+      }
+
+      const listNode = document.createElement('div');
+      listNode.className = 'check-result-message__list';
+
+      groups.forEach((group) => {
+        const itemNode = document.createElement('div');
+        itemNode.className = 'check-result-message__item';
+
+        const labelNode = document.createElement('span');
+        labelNode.textContent = group.label;
+        itemNode.appendChild(labelNode);
+
+        const valuesNode = document.createElement('ul');
+        group.values.forEach((value) => {
+          const valueNode = document.createElement('li');
+          valueNode.textContent = value;
+          valuesNode.appendChild(valueNode);
+        });
+        itemNode.appendChild(valuesNode);
+        listNode.appendChild(itemNode);
+      });
+
+      container.appendChild(listNode);
+      container.classList.remove('hidden');
+      return;
+    }
+
+    container.textContent = result.message || '';
+    container.classList.toggle('hidden', !result.message);
+  };
+
   const renderCheckResult = (result) => {
     const {
       resultCard,
@@ -2244,10 +2307,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resultPlate.textContent = result.request?.vehiclePlate || result.checkedPlate || '';
     }
 
-    if (resultMessage) {
-      resultMessage.textContent = result.message || '';
-      resultMessage.classList.toggle('hidden', !result.message);
-    }
+    renderCheckResultMessage(resultMessage, result);
 
     if (resultPerson) {
       resultPerson.textContent = result.request?.fullName || ui.notSet;

@@ -250,6 +250,31 @@ function formatVehicleCategoryList(categories = [], fallback = '-') {
   return names.length ? names.join(', ') : fallback;
 }
 
+function buildVehicleCheckMessageDetails(title, groups = []) {
+  const cleanGroups = groups
+    .map((group) => {
+      const values = Array.isArray(group.values)
+        ? group.values
+        : [group.value];
+      const cleanValues = uniqueTextList(values);
+
+      return {
+        label: String(group.label || '').trim(),
+        values: cleanValues,
+      };
+    })
+    .filter((group) => group.label && group.values.length);
+
+  if (!title && !cleanGroups.length) {
+    return null;
+  }
+
+  return {
+    title: String(title || '').trim(),
+    groups: cleanGroups,
+  };
+}
+
 function formatVehicleEntryWindowRange(entryWindow) {
   const startLabel = formatDateTime(entryWindow.start_at, DEFAULT_LOCALE, '');
   const endLabel = formatDateTime(entryWindow.end_at, DEFAULT_LOCALE, '');
@@ -4517,7 +4542,7 @@ class AccessService {
     };
   }
 
-  async buildVehicleNotAllowedAtGateMessage(matches = [], linkContext = {}, direction = 'check', t) {
+  async buildVehicleNotAllowedAtGateNotice(matches = [], linkContext = {}, direction = 'check', t) {
     const tx = resolveTranslate(t);
     const categoryIds = uniqueTextList(matches.map((request) => Number(request.category_id || 0)))
       .map((categoryId) => Number(categoryId))
@@ -4531,6 +4556,11 @@ class AccessService {
       getVehicleCheckLinkAllowedCategories(linkContext, direction),
       tx('common.notSet'),
     );
+    const matchedCategoryNames = uniqueTextList(matches.map((request) => request.category_name));
+    const allowedCategoryNames = uniqueTextList(
+      getVehicleCheckLinkAllowedCategories(linkContext, direction)
+        .map((category) => category.category_name || category.name),
+    );
     const gateName = getVehicleCheckLinkName(linkContext) || tx('common.notSet');
     const matchedWindowDescriptions = uniqueTextList(matches.map((request) => {
       const categoryName = String(request.category_name || '').trim() || tx('common.notSet');
@@ -4543,12 +4573,41 @@ class AccessService {
       return `${categoryName}: ${windows.map(formatVehicleEntryWindowRange).filter(Boolean).join('; ')}`;
     })).join(' · ');
 
-    return tx('service.vehicleEntry.notAllowedAtGateDetailed', {
+    const detailedMessage = tx('service.vehicleEntry.notAllowedAtGateDetailed', {
       categories: matchedCategories,
       gate: gateName,
       allowedCategories,
       windows: matchedWindowDescriptions || tx('common.notSet'),
     });
+
+    return {
+      message: tx('service.vehicleEntry.notAllowedAtGateSummary'),
+      detailedMessage,
+      details: buildVehicleCheckMessageDetails(tx('service.vehicleEntry.notAllowedAtGateSummary'), [
+        {
+          label: tx('check.notice.foundTypes'),
+          values: matchedCategoryNames.length ? matchedCategoryNames : [tx('common.notSet')],
+        },
+        {
+          label: tx('check.notice.gate'),
+          value: gateName,
+        },
+        {
+          label: tx('check.notice.allowedTypes'),
+          values: allowedCategoryNames.length ? allowedCategoryNames : [tx('common.notSet')],
+        },
+        {
+          label: tx('check.notice.entryWindows'),
+          values: matchedWindowDescriptions ? matchedWindowDescriptions.split(' · ') : [tx('common.notSet')],
+        },
+      ]),
+    };
+  }
+
+  async buildVehicleNotAllowedAtGateMessage(matches = [], linkContext = {}, direction = 'check', t) {
+    const notice = await this.buildVehicleNotAllowedAtGateNotice(matches, linkContext, direction, t);
+
+    return notice.message;
   }
 
   async registerVehicleEntry(payload, t, options = {}) {
@@ -4584,12 +4643,14 @@ class AccessService {
     ).allowed);
 
     if (!allowedMatches.length) {
-      throw new AppError(await this.buildVehicleNotAllowedAtGateMessage(
+      const gateNotice = await this.buildVehicleNotAllowedAtGateNotice(
         matches,
         options.vehicleCheckLink,
         direction,
         tx,
-      ), 403);
+      );
+
+      throw new AppError(gateNotice.message, 403);
     }
 
     if (allowedMatches.length > 1 && !options.allowMultipleVehicleMatches) {
@@ -4774,6 +4835,12 @@ class AccessService {
 
     if (!allowedMatches.length) {
       const request = matches[0] || null;
+      const gateNotice = await this.buildVehicleNotAllowedAtGateNotice(
+        matches,
+        options.vehicleCheckLink,
+        direction,
+        tx,
+      );
 
       return {
         eventId,
@@ -4781,12 +4848,9 @@ class AccessService {
         decision: 'denied',
         reason: 'not_allowed_at_gate',
         checkedPlate: request?.vehicle_plate || vehiclePlate,
-        message: await this.buildVehicleNotAllowedAtGateMessage(
-          matches,
-          options.vehicleCheckLink,
-          direction,
-          tx,
-        ),
+        message: gateNotice.message,
+        detailedMessage: gateNotice.detailedMessage,
+        messageDetails: gateNotice.details,
         request,
         currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
       };
@@ -4811,6 +4875,7 @@ class AccessService {
           reason: 'outside_entry_window',
           checkedPlate: request?.vehicle_plate || vehiclePlate,
           message: entryWindowDecision.message,
+          messageDetails: entryWindowDecision.messageDetails || null,
           request,
           currentPresence: resolveVehiclePresenceStatus(request),
         };
@@ -4974,6 +5039,7 @@ class AccessService {
         reason: 'outside_entry_window',
         checkedPlate: request?.vehicle_plate || vehiclePlate,
         message: entryWindowDecision.message,
+        messageDetails: entryWindowDecision.messageDetails || null,
         request,
         currentPresence: initialPresence,
         movement: {
@@ -5206,6 +5272,12 @@ class AccessService {
 
     if (!statusChangeMatches.length) {
       const request = matches[0] || null;
+      const gateNotice = await this.buildVehicleNotAllowedAtGateNotice(
+        matches,
+        linkContext,
+        'entry',
+        tx,
+      );
 
       return recordActivity(
         {
@@ -5214,12 +5286,9 @@ class AccessService {
           decision: 'denied',
           reason: 'not_allowed_at_gate',
           checkedPlate: vehiclePlate,
-          message: await this.buildVehicleNotAllowedAtGateMessage(
-            matches,
-            linkContext,
-            'entry',
-            tx,
-          ),
+          message: gateNotice.message,
+          detailedMessage: gateNotice.detailedMessage,
+          messageDetails: gateNotice.details,
           request,
           currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
         },
@@ -5383,13 +5452,27 @@ class AccessService {
       };
     }
 
+    const categoryName = String(context.categoryName || '').trim() || tx('common.notSet');
+    const windowLabels = entryWindows.map(formatVehicleEntryWindowRange).filter(Boolean);
+
     return {
       allowed: false,
       windows: entryWindows,
-      message: tx('service.vehicleEntry.outsideEntryWindowDetailed', {
-        category: String(context.categoryName || '').trim() || tx('common.notSet'),
-        windows: entryWindows.map(formatVehicleEntryWindowRange).filter(Boolean).join('; ') || tx('common.notSet'),
+      message: tx('service.vehicleEntry.outsideEntryWindowSummary'),
+      detailedMessage: tx('service.vehicleEntry.outsideEntryWindowDetailed', {
+        category: categoryName,
+        windows: windowLabels.join('; ') || tx('common.notSet'),
       }),
+      messageDetails: buildVehicleCheckMessageDetails(tx('service.vehicleEntry.outsideEntryWindowSummary'), [
+        {
+          label: tx('check.notice.passType'),
+          value: categoryName,
+        },
+        {
+          label: tx('check.notice.allowedEntryWindow'),
+          values: windowLabels.length ? windowLabels : [tx('common.notSet')],
+        },
+      ]),
     };
   }
 

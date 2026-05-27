@@ -10,6 +10,12 @@
     : '';
   const resultPlate = hasCheckResult ? (checkResult.request?.vehiclePlate || checkResult.checkedPlate || '') : '';
   const resultMessage = hasCheckResult ? (checkResult.message || '') : '';
+  const resultMessageDetails = hasCheckResult
+    && checkResult.messageDetails
+    && Array.isArray(checkResult.messageDetails.groups)
+    && checkResult.messageDetails.groups.length
+      ? checkResult.messageDetails
+      : null;
   const actionPermissions = typeof checkActionPermissions === 'object' && checkActionPermissions
     ? checkActionPermissions
     : { canCheck: true, canChangeStatus: true };
@@ -160,9 +166,27 @@
               <p data-check-result-title><%= hasCheckResult ? (checkResult.directionTitle || '') : '' %></p>
             </div>
 
-            <p class="check-result-message<%= resultMessage ? '' : ' hidden' %>" data-check-result-message>
-              <%= resultMessage %>
-            </p>
+            <div class="check-result-message<%= resultMessageDetails ? ' check-result-message--structured' : '' %><%= (resultMessage || resultMessageDetails) ? '' : ' hidden' %>" data-check-result-message>
+              <% if (resultMessageDetails) { %>
+                <% if (resultMessageDetails.title) { %>
+                  <p class="check-result-message__title"><%= resultMessageDetails.title %></p>
+                <% } %>
+                <div class="check-result-message__list">
+                  <% resultMessageDetails.groups.forEach((group) => { %>
+                    <div class="check-result-message__item">
+                      <span><%= group.label %></span>
+                      <ul>
+                        <% group.values.forEach((value) => { %>
+                          <li><%= value %></li>
+                        <% }) %>
+                      </ul>
+                    </div>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <%= resultMessage %>
+              <% } %>
+            </div>
 
             <div class="check-result-detail-grid">
               <div class="check-result-detail">

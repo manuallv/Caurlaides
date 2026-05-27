@@ -525,6 +525,40 @@ function buildVehicleCheckMovementPayload(req, res, movement) {
   };
 }
 
+function normalizeVehicleCheckMessageDetails(details) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return null;
+  }
+
+  const groups = Array.isArray(details.groups)
+    ? details.groups
+      .map((group) => {
+        const values = Array.isArray(group.values)
+          ? group.values
+          : [group.value];
+        const cleanValues = values
+          .map((value) => String(value || '').trim())
+          .filter(Boolean);
+
+        return {
+          label: String(group.label || '').trim(),
+          values: cleanValues,
+        };
+      })
+      .filter((group) => group.label && group.values.length)
+    : [];
+  const title = String(details.title || '').trim();
+
+  if (!title && !groups.length) {
+    return null;
+  }
+
+  return {
+    title,
+    groups,
+  };
+}
+
 function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
   const request = result.request || {};
   const direction = result.direction === 'exit'
@@ -561,6 +595,7 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
             : 'check.resultAllowedStatus',
     ),
     message: result.message || '',
+    messageDetails: normalizeVehicleCheckMessageDetails(result.messageDetails),
     alreadyEntered: Boolean(result.alreadyEntered),
     alreadyEnteredMessage: result.alreadyEntered && direction === 'entry' ? req.t('check.resultAlreadyEntered') : '',
     currentPresence,
@@ -682,6 +717,7 @@ function buildVehicleAccessCheckPayload(req, res, result) {
     allowed: Boolean(result.allowed),
     reason: result.reason || null,
     message: result.message,
+    messageDetails: normalizeVehicleCheckMessageDetails(result.messageDetails),
     checkedPlate: result.checkedPlate || '',
     currentPresence: result.currentPresence || 'unknown',
     request: request

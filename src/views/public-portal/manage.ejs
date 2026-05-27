@@ -31,7 +31,6 @@
             <h2><%= t('nav.wristbands') %></h2>
           </div>
           <div class="portal-access-card__mobile-actions">
-            <button type="button" class="btn-primary portal-access-card__mobile-primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
             <button
               type="button"
               class="portal-access-card__mobile-toggle"
@@ -73,11 +72,6 @@
             <% }) %>
           </div>
 
-          <div class="portal-card-actions">
-            <button type="button" class="btn-primary portal-card-actions__primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
-            <button type="button" class="btn-secondary" data-portal-set-tab data-tab="wristband"><%= t('portal.manageWristbandButton') %></button>
-            <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
-          </div>
         </div>
       </article>
       <% } %>
@@ -89,7 +83,6 @@
             <h2><%= t('portal.tabs.passes') %></h2>
           </div>
           <div class="portal-access-card__mobile-actions">
-            <button type="button" class="btn-primary portal-access-card__mobile-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
             <button
               type="button"
               class="portal-access-card__mobile-toggle"
@@ -131,13 +124,30 @@
             <% }) %>
           </div>
 
-          <div class="portal-card-actions">
-            <button type="button" class="btn-primary portal-card-actions__primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
-            <button type="button" class="btn-secondary" data-portal-set-tab data-tab="pass"><%= t('portal.managePassButton') %></button>
-            <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
-          </div>
         </div>
       </article>
+      <% } %>
+    </section>
+
+    <section class="shell-card portal-action-hub" aria-label="<%= t('portal.quickActions') %>">
+      <button type="button" class="btn-secondary portal-action-hub__table" data-portal-set-tab data-tab="all">
+        <%= t('portal.tableTitle') %>
+      </button>
+
+      <% if (hasWristbandAccess) { %>
+        <div class="portal-action-hub__group">
+          <span class="portal-action-hub__label"><%= t('portal.tabs.wristbands') %></span>
+          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
+          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="wristband"><%= t('portal.importWristbandButton') %></button>
+        </div>
+      <% } %>
+
+      <% if (hasPassAccess) { %>
+        <div class="portal-action-hub__group">
+          <span class="portal-action-hub__label"><%= t('portal.tabs.passes') %></span>
+          <button type="button" class="btn-primary" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
+          <button type="button" class="btn-secondary" data-portal-open-import-panel data-request-type="pass"><%= t('portal.importPassButton') %></button>
+        </div>
       <% } %>
     </section>
 
@@ -188,16 +198,6 @@
                 data-portal-table-search
               />
             </div>
-            <% if (hasPassAccess || hasWristbandAccess) { %>
-              <div class="portal-table-quick-actions" aria-label="<%= t('portal.quickActions') %>">
-                <% if (hasPassAccess) { %>
-                  <button type="button" class="btn-primary portal-table-quick-action" data-portal-open-request-panel data-request-type="pass"><%= t('portal.addPassButton') %></button>
-                <% } %>
-                <% if (hasWristbandAccess) { %>
-                  <button type="button" class="btn-secondary portal-table-quick-action" data-portal-open-request-panel data-request-type="wristband"><%= t('portal.addWristbandButton') %></button>
-                <% } %>
-              </div>
-            <% } %>
             <div class="portal-table-controls">
               <div class="portal-table-sort-card">
                 <p class="portal-table-toolbar-label"><%= t('portal.sort.label') %></p>
