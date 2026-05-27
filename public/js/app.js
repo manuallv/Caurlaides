@@ -1360,6 +1360,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const clampCheckScannerValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
+  const getCheckScannerSourceCropFromViewportRect = (viewportCrop, padXRatio = 0, padYRatio = 0) => {
+    const { scannerVideo } = getCheckElements();
+    const viewport = scannerVideo?.parentElement;
+
+    if (!scannerVideo?.videoWidth || !scannerVideo?.videoHeight || !viewport) {
+      return null;
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const videoWidth = scannerVideo.videoWidth;
+    const videoHeight = scannerVideo.videoHeight;
+    const scale = Math.max(
+      viewportRect.width / videoWidth,
+      viewportRect.height / videoHeight,
+    );
+    const displayWidth = videoWidth * scale;
+    const displayHeight = videoHeight * scale;
+    const offsetX = (viewportRect.width - displayWidth) / 2;
+    const offsetY = (viewportRect.height - displayHeight) / 2;
+    const sourceLeft = (viewportCrop.left - offsetX) / scale;
+    const sourceTop = (viewportCrop.top - offsetY) / scale;
+    const sourceWidth = viewportCrop.width / scale;
+    const sourceHeight = viewportCrop.height / scale;
+    const padX = sourceWidth * padXRatio;
+    const padY = sourceHeight * padYRatio;
+    const x1 = Math.round(clampCheckScannerValue(sourceLeft - padX, 0, videoWidth - 2));
+    const y1 = Math.round(clampCheckScannerValue(sourceTop - padY, 0, videoHeight - 2));
+    const x2 = Math.round(clampCheckScannerValue(sourceLeft + sourceWidth + padX, x1 + 2, videoWidth));
+    const y2 = Math.round(clampCheckScannerValue(sourceTop + sourceHeight + padY, y1 + 2, videoHeight));
+
+    if (x2 - x1 < 16 || y2 - y1 < 8) {
+      return null;
+    }
+
+    return { x1, y1, x2, y2 };
+  };
+
   const applyCheckScannerPreprocessing = (sourceCanvas, mode = 'contrast') => {
     const canvas = createCheckScannerCanvas(sourceCanvas.width, sourceCanvas.height);
     const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -1401,10 +1438,38 @@ document.addEventListener('DOMContentLoaded', () => {
     return canvas;
   };
 
-  const buildCheckScannerFramesFromBox = (box, weight = 8) => {
-    const { scannerVideo, scannerCanvas } = getCheckElements();
+  const buildCheckScannerFramesFromSourceCrop = (
+    sourceCrop,
+    weight = 6,
+    targetWidth = 1120,
+    modes = ['contrast', 'binary-light', 'binary-dark'],
+  ) => {
+    const { scannerVideo } = getCheckElements();
 
-    if (!scannerVideo || !scannerCanvas || !scannerVideo.videoWidth || !scannerVideo.videoHeight) {
+    if (!scannerVideo || !sourceCrop) {
+      return [];
+    }
+
+    const sourceX = sourceCrop.x1;
+    const sourceY = sourceCrop.y1;
+    const cropWidth = sourceCrop.x2 - sourceCrop.x1;
+    const cropHeight = sourceCrop.y2 - sourceCrop.y1;
+    const targetHeight = Math.max(180, Math.round((targetWidth * cropHeight) / cropWidth));
+    const baseCanvas = createCheckScannerCanvas(targetWidth, targetHeight);
+    const baseContext = baseCanvas.getContext('2d', { willReadFrequently: true });
+
+    baseContext.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+
+    return modes.map((mode, index) => ({
+      canvas: applyCheckScannerPreprocessing(baseCanvas, mode),
+      weight: weight - (index * 0.5),
+    }));
+  };
+
+  const buildCheckScannerFramesFromBox = (box, weight = 8) => {
+    const { scannerVideo } = getCheckElements();
+
+    if (!scannerVideo || !scannerVideo.videoWidth || !scannerVideo.videoHeight) {
       return [];
     }
 
@@ -1414,33 +1479,102 @@ document.addEventListener('DOMContentLoaded', () => {
     const boxHeight = Math.max(1, box.y2 - box.y1);
     const padX = boxWidth * 0.24;
     const padY = boxHeight * 0.52;
-    const sourceX = Math.round(clampCheckScannerValue(box.x1 - padX, 0, videoWidth - 2));
-    const sourceY = Math.round(clampCheckScannerValue(box.y1 - padY, 0, videoHeight - 2));
-    const sourceX2 = Math.round(clampCheckScannerValue(box.x2 + padX, sourceX + 2, videoWidth));
-    const sourceY2 = Math.round(clampCheckScannerValue(box.y2 + padY, sourceY + 2, videoHeight));
-    const cropWidth = sourceX2 - sourceX;
-    const cropHeight = sourceY2 - sourceY;
-    const targetWidth = 1180;
-    const targetHeight = Math.max(180, Math.round((targetWidth * cropHeight) / cropWidth));
-    const baseCanvas = createCheckScannerCanvas(targetWidth, targetHeight);
-    const baseContext = baseCanvas.getContext('2d', { willReadFrequently: true });
+    const sourceCrop = {
+      x1: Math.round(clampCheckScannerValue(box.x1 - padX, 0, videoWidth - 2)),
+      y1: Math.round(clampCheckScannerValue(box.y1 - padY, 0, videoHeight - 2)),
+      x2: Math.round(clampCheckScannerValue(box.x2 + padX, 0, videoWidth)),
+      y2: Math.round(clampCheckScannerValue(box.y2 + padY, 0, videoHeight)),
+    };
 
-    baseContext.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+    sourceCrop.x2 = Math.max(sourceCrop.x1 + 2, sourceCrop.x2);
+    sourceCrop.y2 = Math.max(sourceCrop.y1 + 2, sourceCrop.y2);
 
-    return [
+    return buildCheckScannerFramesFromSourceCrop(sourceCrop, weight + 2, 1180);
+  };
+
+  const buildCheckScannerFramesFromViewportCrop = (
+    viewportCrop,
+    weight = 6,
+    options = {},
+  ) => {
+    const sourceCrop = getCheckScannerSourceCropFromViewportRect(
+      viewportCrop,
+      options.padXRatio || 0,
+      options.padYRatio || 0,
+    );
+
+    return buildCheckScannerFramesFromSourceCrop(
+      sourceCrop,
+      weight,
+      options.targetWidth || 1120,
+      options.modes || ['contrast', 'binary-light'],
+    );
+  };
+
+  const buildCheckScannerFramesFromVisibleTarget = () => {
+    const { scannerFrame, scannerVideo } = getCheckElements();
+    const viewport = scannerVideo?.parentElement;
+
+    if (!scannerFrame || !viewport) {
+      return [];
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const frameRect = scannerFrame.getBoundingClientRect();
+    const base = {
+      left: frameRect.left - viewportRect.left,
+      top: frameRect.top - viewportRect.top,
+      width: frameRect.width,
+      height: frameRect.height,
+    };
+    const variants = [
       {
-        canvas: applyCheckScannerPreprocessing(baseCanvas, 'contrast'),
-        weight: weight + 2,
+        crop: base,
+        weight: 8.5,
+        options: {
+          padXRatio: 0.04,
+          padYRatio: 0.14,
+          targetWidth: 1200,
+          modes: ['contrast', 'binary-light', 'binary-dark'],
+        },
       },
       {
-        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-light'),
-        weight,
+        crop: {
+          left: base.left + (base.width * 0.08),
+          top: base.top + (base.height * 0.05),
+          width: base.width * 0.84,
+          height: base.height * 0.72,
+        },
+        weight: 7,
+        options: {
+          padXRatio: 0.06,
+          padYRatio: 0.12,
+          targetWidth: 1080,
+          modes: ['contrast', 'binary-light'],
+        },
       },
       {
-        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-dark'),
-        weight: weight - 0.5,
+        crop: {
+          left: base.left + (base.width * 0.1),
+          top: base.top + (base.height * 0.48),
+          width: base.width * 0.8,
+          height: base.height * 0.78,
+        },
+        weight: 5.5,
+        options: {
+          padXRatio: 0.08,
+          padYRatio: 0.12,
+          targetWidth: 980,
+          modes: ['contrast'],
+        },
       },
     ];
+
+    return variants.flatMap((variant) => buildCheckScannerFramesFromViewportCrop(
+      variant.crop,
+      variant.weight,
+      variant.options,
+    ));
   };
 
   const captureCheckScannerFrames = async () => {
@@ -1450,8 +1584,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return [];
     }
 
-    const videoWidth = scannerVideo.videoWidth;
-    const videoHeight = scannerVideo.videoHeight;
     const frames = [];
 
     queueCheckScannerPlateDetection();
@@ -1468,33 +1600,35 @@ document.addEventListener('DOMContentLoaded', () => {
       setCheckScannerDetectedBox(null);
     }
 
+    frames.push(...buildCheckScannerFramesFromVisibleTarget());
+
+    const viewport = scannerVideo.parentElement;
+    const viewportRect = viewport?.getBoundingClientRect();
+
+    if (!viewportRect) {
+      return frames;
+    }
+
     checkScannerCropProfiles.forEach((profile, profileIndex) => {
-      const cropWidth = Math.round(videoWidth * profile.width);
-      const cropHeight = Math.round(videoHeight * profile.height);
-      const sourceX = Math.round((videoWidth - cropWidth) / 2);
-      const sourceY = Math.round(clampCheckScannerValue(videoHeight * profile.top, 0, videoHeight - cropHeight));
-      const targetWidth = profileIndex === 0 ? 1120 : 960;
-      const targetHeight = Math.max(180, Math.round((targetWidth * cropHeight) / cropWidth));
-      const baseCanvas = createCheckScannerCanvas(targetWidth, targetHeight);
-      const baseContext = baseCanvas.getContext('2d', { willReadFrequently: true });
+      const cropWidth = viewportRect.width * profile.width;
+      const cropHeight = viewportRect.height * profile.height;
+      const viewportCrop = {
+        left: (viewportRect.width - cropWidth) / 2,
+        top: clampCheckScannerValue(viewportRect.height * profile.top, 0, viewportRect.height - cropHeight),
+        width: cropWidth,
+        height: cropHeight,
+      };
 
-      baseContext.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
-
-      frames.push({
-        canvas: applyCheckScannerPreprocessing(baseCanvas, 'contrast'),
-        weight: profile.weight + 1,
-      });
-      frames.push({
-        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-light'),
-        weight: profile.weight,
-      });
-
-      if (profileIndex === 0) {
-        frames.push({
-          canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-dark'),
-          weight: profile.weight - 0.5,
-        });
-      }
+      frames.push(...buildCheckScannerFramesFromViewportCrop(
+        viewportCrop,
+        profile.weight + 1,
+        {
+          padXRatio: 0.04,
+          padYRatio: profileIndex === 0 ? 0.18 : 0.12,
+          targetWidth: profileIndex === 0 ? 1100 : 980,
+          modes: profileIndex === 0 ? ['contrast', 'binary-light'] : ['contrast'],
+        },
+      ));
     });
 
     return frames;
