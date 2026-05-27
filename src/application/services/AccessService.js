@@ -16,6 +16,7 @@ const {
   normalizeLocale,
   translate,
 } = require('../../shared/i18n');
+const { formatDateTime } = require('../../shared/utils/formatters');
 const { comparePassword, hashPassword } = require('../../infrastructure/security/password');
 const { RequestProfileApplicationRepository } = require('../../infrastructure/database/repositories/RequestProfileApplicationRepository');
 
@@ -235,6 +236,63 @@ function resolveVehicleCheckLinkAccessDecision(linkContext, categoryId, directio
   return {
     allowed: permission.allowed && permission.canCheck,
   };
+}
+
+function uniqueTextList(values = []) {
+  return [...new Set(values
+    .map((value) => String(value || '').trim())
+    .filter(Boolean))];
+}
+
+function formatVehicleCategoryList(categories = [], fallback = '-') {
+  const names = uniqueTextList(categories.map((category) => category.category_name || category.name));
+
+  return names.length ? names.join(', ') : fallback;
+}
+
+function formatVehicleEntryWindowRange(entryWindow) {
+  const startLabel = formatDateTime(entryWindow.start_at, DEFAULT_LOCALE, '');
+  const endLabel = formatDateTime(entryWindow.end_at, DEFAULT_LOCALE, '');
+
+  return [startLabel, endLabel].filter(Boolean).join(' - ');
+}
+
+function groupVehicleEntryWindowsByCategory(entryWindows = []) {
+  return entryWindows.reduce((grouped, entryWindow) => {
+    const categoryId = Number(entryWindow.pass_category_id || 0);
+
+    if (!categoryId) {
+      return grouped;
+    }
+
+    if (!grouped[categoryId]) {
+      grouped[categoryId] = [];
+    }
+
+    grouped[categoryId].push(entryWindow);
+    return grouped;
+  }, {});
+}
+
+function getVehicleCheckLinkName(linkContext = {}) {
+  return String(
+    linkContext?.vehicle_check_link_name
+    || linkContext?.vehicle_gate_api_link_name
+    || linkContext?.name
+    || '',
+  ).trim();
+}
+
+function getVehicleCheckLinkAllowedCategories(linkContext = {}, direction = 'check') {
+  const permissions = Array.isArray(linkContext.vehicle_check_link_categories)
+    ? linkContext.vehicle_check_link_categories
+    : [];
+
+  return permissions.filter((permission) => resolveVehicleCheckLinkAccessDecision(
+    linkContext,
+    permission.pass_category_id,
+    direction,
+  ).allowed);
 }
 
 function resolveRequestDisplayState(type, request = {}) {
@@ -3475,6 +3533,7 @@ class AccessService {
       existingRequest.category_id,
       normalizedDirection,
       tx,
+      { categoryName: existingRequest.category_name },
     );
 
     if (!entryWindowDecision.allowed) {
@@ -4458,6 +4517,40 @@ class AccessService {
     };
   }
 
+  async buildVehicleNotAllowedAtGateMessage(matches = [], linkContext = {}, direction = 'check', t) {
+    const tx = resolveTranslate(t);
+    const categoryIds = uniqueTextList(matches.map((request) => Number(request.category_id || 0)))
+      .map((categoryId) => Number(categoryId))
+      .filter(Boolean);
+    const entryWindows = categoryIds.length
+      ? await this.categoryRepository.listPassEntryWindowsByCategoryIds(categoryIds)
+      : [];
+    const windowsByCategoryId = groupVehicleEntryWindowsByCategory(entryWindows);
+    const matchedCategories = formatVehicleCategoryList(matches, tx('common.notSet'));
+    const allowedCategories = formatVehicleCategoryList(
+      getVehicleCheckLinkAllowedCategories(linkContext, direction),
+      tx('common.notSet'),
+    );
+    const gateName = getVehicleCheckLinkName(linkContext) || tx('common.notSet');
+    const matchedWindowDescriptions = uniqueTextList(matches.map((request) => {
+      const categoryName = String(request.category_name || '').trim() || tx('common.notSet');
+      const windows = windowsByCategoryId[Number(request.category_id || 0)] || [];
+
+      if (!windows.length) {
+        return `${categoryName}: ${tx('access.entryWindows.unrestricted')}`;
+      }
+
+      return `${categoryName}: ${windows.map(formatVehicleEntryWindowRange).filter(Boolean).join('; ')}`;
+    })).join(' · ');
+
+    return tx('service.vehicleEntry.notAllowedAtGateDetailed', {
+      categories: matchedCategories,
+      gate: gateName,
+      allowedCategories,
+      windows: matchedWindowDescriptions || tx('common.notSet'),
+    });
+  }
+
   async registerVehicleEntry(payload, t, options = {}) {
     const tx = resolveTranslate(t);
     const eventId = Number(payload.eventId);
@@ -4491,7 +4584,12 @@ class AccessService {
     ).allowed);
 
     if (!allowedMatches.length) {
-      throw new AppError(tx('service.vehicleEntry.notAllowedAtGate'), 403);
+      throw new AppError(await this.buildVehicleNotAllowedAtGateMessage(
+        matches,
+        options.vehicleCheckLink,
+        direction,
+        tx,
+      ), 403);
     }
 
     if (allowedMatches.length > 1 && !options.allowMultipleVehicleMatches) {
@@ -4505,6 +4603,7 @@ class AccessService {
         request.category_id,
         direction,
         tx,
+        { categoryName: request.category_name },
       );
 
       if (!entryWindowDecision.allowed) {
@@ -4674,15 +4773,22 @@ class AccessService {
     }
 
     if (!allowedMatches.length) {
+      const request = matches[0] || null;
+
       return {
         eventId,
         allowed: false,
         decision: 'denied',
         reason: 'not_allowed_at_gate',
-        checkedPlate: vehiclePlate,
-        message: tx('service.vehicleEntry.notAllowedAtGate'),
-        request: null,
-        currentPresence: 'unknown',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: await this.buildVehicleNotAllowedAtGateMessage(
+          matches,
+          options.vehicleCheckLink,
+          direction,
+          tx,
+        ),
+        request,
+        currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
       };
     }
 
@@ -4694,6 +4800,7 @@ class AccessService {
         targetMatch.category_id,
         direction,
         tx,
+        { categoryName: targetMatch.category_name },
       );
 
       if (!entryWindowDecision.allowed) {
@@ -4856,6 +4963,7 @@ class AccessService {
       request?.category_id,
       resolvedDirection,
       tx,
+      { categoryName: request?.category_name },
     );
 
     if (!entryWindowDecision.allowed) {
@@ -4990,6 +5098,7 @@ class AccessService {
     const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
     const linkContext = {
       vehicle_check_link_id: linkId,
+      vehicle_check_link_name: linkName,
       vehicle_check_link_categories: Array.isArray(event.vehicle_gate_api_link_categories)
         ? event.vehicle_gate_api_link_categories
         : [],
@@ -5096,6 +5205,8 @@ class AccessService {
     ).allowed);
 
     if (!statusChangeMatches.length) {
+      const request = matches[0] || null;
+
       return recordActivity(
         {
           eventId,
@@ -5103,9 +5214,14 @@ class AccessService {
           decision: 'denied',
           reason: 'not_allowed_at_gate',
           checkedPlate: vehiclePlate,
-          message: tx('service.vehicleEntry.notAllowedAtGate'),
-          request: null,
-          currentPresence: 'unknown',
+          message: await this.buildVehicleNotAllowedAtGateMessage(
+            matches,
+            linkContext,
+            'entry',
+            tx,
+          ),
+          request,
+          currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
         },
         buildMovement({ direction: resolveVehicleGateApiLinkDirection(configuredMode, 'unknown') }),
       );
@@ -5230,7 +5346,7 @@ class AccessService {
     );
   }
 
-  async getPassCategoryEntryWindowDecision(categoryId, direction, t) {
+  async getPassCategoryEntryWindowDecision(categoryId, direction, t, context = {}) {
     const tx = resolveTranslate(t);
 
     if (!categoryId || !shouldEnforceEntryWindow(direction)) {
@@ -5270,7 +5386,10 @@ class AccessService {
     return {
       allowed: false,
       windows: entryWindows,
-      message: tx('service.vehicleEntry.outsideEntryWindow'),
+      message: tx('service.vehicleEntry.outsideEntryWindowDetailed', {
+        category: String(context.categoryName || '').trim() || tx('common.notSet'),
+        windows: entryWindows.map(formatVehicleEntryWindowRange).filter(Boolean).join('; ') || tx('common.notSet'),
+      }),
     };
   }
 
