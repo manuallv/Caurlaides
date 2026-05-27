@@ -379,6 +379,18 @@ function resolveVehicleGateScanDirection(configuredMode, currentPresence) {
   return configuredMode;
 }
 
+function resolveVehicleGateApiLinkDirection(mode, currentPresence) {
+  if (mode === 'entry' || mode === 'exit') {
+    return mode;
+  }
+
+  if (mode === 'toggle') {
+    return currentPresence === 'inside' ? 'exit' : 'entry';
+  }
+
+  return 'check';
+}
+
 function shouldEnforceEntryWindow(direction) {
   return direction !== 'exit';
 }
@@ -4940,6 +4952,202 @@ class AccessService {
         explicitDirection: Boolean(explicitDirection),
       },
     };
+  }
+
+  async processVehicleGateApiLink(apiToken, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.eventService.getVehicleGateApiLinkOrFail(apiToken, tx);
+    const eventId = Number(event.id);
+    const linkId = Number(event.vehicle_gate_api_link_id);
+    const linkName = String(event.vehicle_gate_api_link_name || '').trim();
+    const configuredMode = ['toggle', 'entry', 'exit'].includes(event.vehicle_gate_api_link_mode)
+      ? event.vehicle_gate_api_link_mode
+      : 'check';
+    const debounceSeconds = Math.max(
+      0,
+      Math.min(3600, Number(event.vehicle_gate_api_link_debounce_seconds || 300)),
+    );
+    const vehiclePlate = formatVehiclePlate(payload.vehiclePlate);
+    const vehiclePlateNormalized = normalizeVehiclePlate(payload.vehiclePlate);
+    const linkContext = {
+      vehicle_check_link_id: linkId,
+      vehicle_check_link_categories: Array.isArray(event.vehicle_gate_api_link_categories)
+        ? event.vehicle_gate_api_link_categories
+        : [],
+    };
+
+    if (!vehiclePlateNormalized) {
+      throw new AppError(tx('validation.portal.vehiclePlateLength', { min: 2, max: 20 }), 422);
+    }
+
+    const buildMovement = ({
+      direction = null,
+      recorded = false,
+      deduplicated = false,
+      performedAt = null,
+    } = {}) => ({
+      mode: configuredMode,
+      configuredMode,
+      direction,
+      recorded,
+      deduplicated,
+      performedAt,
+      autoSwitched: configuredMode === 'toggle' && direction !== 'check',
+      explicitDirection: false,
+    });
+
+    const recordActivity = async (result, movement) => {
+      await this.eventRepository.createVehicleGateApiLinkActivity(null, {
+        linkId,
+        eventId,
+        passRequestId: result.request?.id || null,
+        vehiclePlate: result.checkedPlate || vehiclePlate,
+        vehiclePlateNormalized,
+        allowed: Boolean(result.allowed),
+        reason: result.reason || null,
+        mode: configuredMode,
+        direction: movement.direction || 'check',
+        deduplicated: Boolean(movement.deduplicated),
+        movementRecorded: Boolean(movement.recorded),
+        message: result.message ? String(result.message).slice(0, 255) : null,
+        metadata: {
+          apiLinkName: linkName,
+          currentPresence: result.currentPresence || 'unknown',
+          performedAt: movement.performedAt || null,
+          debounceSeconds,
+        },
+      });
+
+      return {
+        ...result,
+        eventId,
+        apiLink: {
+          id: linkId,
+          name: linkName,
+          token: event.vehicle_gate_api_link_token,
+          mode: configuredMode,
+        },
+        movement,
+      };
+    };
+
+    if (configuredMode === 'check') {
+      const decisionResult = await this.checkVehicleAccess(
+        {
+          eventId,
+          vehiclePlate,
+          direction: 'check',
+        },
+        tx,
+        { vehicleCheckLink: linkContext },
+      );
+
+      return recordActivity(decisionResult, buildMovement({ direction: 'check' }));
+    }
+
+    const matches = await this.requestRepository.listPassesByVehiclePlate(eventId, vehiclePlateNormalized);
+
+    if (!matches.length) {
+      return recordActivity(
+        {
+          eventId,
+          allowed: false,
+          decision: 'denied',
+          reason: 'not_found',
+          checkedPlate: vehiclePlate,
+          message: tx('service.vehicleEntry.notFound'),
+          request: null,
+          currentPresence: 'unknown',
+        },
+        buildMovement({ direction: resolveVehicleGateApiLinkDirection(configuredMode, 'unknown') }),
+      );
+    }
+
+    if (matches.length > 1) {
+      return recordActivity(
+        {
+          eventId,
+          allowed: false,
+          decision: 'denied',
+          reason: 'multiple_matches',
+          checkedPlate: vehiclePlate,
+          message: tx('service.vehicleEntry.multipleMatches'),
+          request: null,
+          currentPresence: 'unknown',
+        },
+        buildMovement({ direction: resolveVehicleGateApiLinkDirection(configuredMode, 'unknown') }),
+      );
+    }
+
+    const request = await this.requestRepository.findById('pass', matches[0].id);
+    const initialPresence = resolveVehiclePresenceStatus(request);
+    const direction = resolveVehicleGateApiLinkDirection(configuredMode, initialPresence);
+    const decisionResult = await this.checkVehicleAccess(
+      {
+        eventId,
+        vehiclePlate,
+        direction,
+      },
+      tx,
+      { vehicleCheckLink: linkContext },
+    );
+
+    if (!decisionResult.allowed) {
+      return recordActivity(decisionResult, buildMovement({ direction }));
+    }
+
+    const recentMovement = await this.eventRepository.findRecentVehicleGateApiLinkMovement(
+      linkId,
+      vehiclePlateNormalized,
+      debounceSeconds,
+    );
+
+    if (recentMovement) {
+      return recordActivity(
+        decisionResult,
+        buildMovement({
+          direction,
+          recorded: false,
+          deduplicated: true,
+          performedAt: recentMovement.created_at || null,
+        }),
+      );
+    }
+
+    const entryResult = await this.registerVehicleEntry(
+      {
+        eventId,
+        vehiclePlate: decisionResult.checkedPlate || vehiclePlate,
+        direction,
+        gateName: linkName,
+        source: 'vehicle-gate-api-link',
+        metadata: {
+          ...(payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
+            ? payload.metadata
+            : {}),
+          historyOrigin: 'vehicle-gate-api-link',
+          apiLinkId: linkId,
+          apiLinkName: linkName,
+          apiLinkMode: configuredMode,
+        },
+      },
+      tx,
+      { vehicleCheckLink: linkContext },
+    );
+
+    return recordActivity(
+      {
+        ...decisionResult,
+        request: entryResult.request,
+        currentPresence: entryResult.currentPresence,
+      },
+      buildMovement({
+        direction,
+        recorded: true,
+        deduplicated: false,
+        performedAt: entryResult.performedAt || null,
+      }),
+    );
   }
 
   async registerPublicVehicleCheck(publicToken, payload, t) {

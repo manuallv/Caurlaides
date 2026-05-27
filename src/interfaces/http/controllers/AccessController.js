@@ -359,6 +359,8 @@ function formatHistorySourceLabel(req, source) {
   switch (source) {
     case 'external-gate-api':
       return req.t('access.history.sourceExternalApi');
+    case 'vehicle-gate-api-link':
+      return req.t('access.history.sourceApiLink');
     case 'public-check-link':
       return req.t('access.history.sourcePublicPhone');
     case 'check-page':
@@ -1900,6 +1902,26 @@ function buildAccessController({ categoryService, accessService }) {
       }
 
       return res.json(buildVehicleGateDecisionPayload(req, res, result));
+    },
+
+    async processVehicleGateApiLink(req, res) {
+      const payload = normalizeVehicleEntryPayload(req.body);
+      const result = await accessService.processVehicleGateApiLink(req.params.token, payload, req.t);
+
+      if (result.movement?.recorded && result.request) {
+        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+          req,
+          res,
+          'pass',
+          result.request,
+          null,
+        ));
+        emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
+      }
+
+      return res.json({
+        allowed: Boolean(result.allowed),
+      });
     },
 
     redirectLegacyPortal(req, res) {

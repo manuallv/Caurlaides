@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'link';
     }
 
-    if (hash === '#api') {
+    if (hash === '#api' || hash === '#vehicle-check-api') {
       return 'api';
     }
 
@@ -317,6 +317,156 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const markLiveFormDirty = (target) => {
+    const form = findClosestTarget(target, 'form');
+
+    if (!form || !form.closest('[data-live-section]')) {
+      return;
+    }
+
+    form.dataset.liveDirty = 'true';
+  };
+
+  const getLiveFormStateKey = (form) => {
+    const section = form.closest('[data-live-section]');
+    const sectionName = section?.dataset.liveSection || '';
+    const sectionForms = section ? [...section.querySelectorAll('form')] : [];
+    const formIndex = sectionForms.indexOf(form);
+    const explicitKey = form.dataset.liveFormKey || form.dataset.livePreserveForm || '';
+    const method = (form.getAttribute('method') || form.method || 'GET').toUpperCase();
+    const action = form.getAttribute('action') || form.action || '';
+    const identity = explicitKey || `${method}|${action || `form-${formIndex}`}`;
+
+    return `${sectionName}|${identity}`;
+  };
+
+  const shouldPreserveLiveFormControl = (control) => {
+    if (!control.name || control.disabled) {
+      return false;
+    }
+
+    const type = String(control.type || '').toLowerCase();
+
+    return !['button', 'file', 'hidden', 'image', 'reset', 'submit'].includes(type);
+  };
+
+  const getLiveFormControlBaseKey = (control) => {
+    const tagName = control.tagName.toLowerCase();
+    const type = String(control.type || tagName).toLowerCase();
+    const valueKey = ['checkbox', 'radio'].includes(type) ? String(control.value || '') : '';
+
+    return `${tagName}|${type}|${control.name}|${valueKey}`;
+  };
+
+  const getLiveFormControlKey = (control, occurrenceIndexes) => {
+    const baseKey = getLiveFormControlBaseKey(control);
+    const occurrence = occurrenceIndexes.get(baseKey) || 0;
+
+    occurrenceIndexes.set(baseKey, occurrence + 1);
+
+    return `${baseKey}|${occurrence}`;
+  };
+
+  const getLiveFormControlState = (control) => {
+    const type = String(control.type || '').toLowerCase();
+    const tagName = control.tagName.toLowerCase();
+
+    if (type === 'checkbox' || type === 'radio') {
+      return {
+        kind: 'checked',
+        value: control.checked,
+      };
+    }
+
+    if (tagName === 'select' && control.multiple) {
+      return {
+        kind: 'selectedValues',
+        value: [...control.selectedOptions].map((option) => option.value),
+      };
+    }
+
+    return {
+      kind: 'value',
+      value: control.value,
+    };
+  };
+
+  const applyLiveFormControlState = (control, state) => {
+    if (!state) {
+      return;
+    }
+
+    if (state.kind === 'checked') {
+      control.checked = Boolean(state.value);
+      return;
+    }
+
+    if (state.kind === 'selectedValues') {
+      const selectedValues = new Set(Array.isArray(state.value) ? state.value : []);
+
+      [...control.options].forEach((option) => {
+        option.selected = selectedValues.has(option.value);
+      });
+      return;
+    }
+
+    if ('value' in control) {
+      control.value = state.value ?? '';
+    }
+  };
+
+  const captureLiveFormStates = (sections) => {
+    const formStates = new Map();
+
+    sections.forEach((section) => {
+      section.querySelectorAll('form[data-live-dirty="true"]').forEach((form) => {
+        const controls = [...form.querySelectorAll('input, select, textarea')]
+          .filter(shouldPreserveLiveFormControl);
+
+        if (!controls.length) {
+          return;
+        }
+
+        const occurrenceIndexes = new Map();
+        const controlStates = new Map();
+
+        controls.forEach((control) => {
+          controlStates.set(getLiveFormControlKey(control, occurrenceIndexes), getLiveFormControlState(control));
+        });
+
+        formStates.set(getLiveFormStateKey(form), controlStates);
+      });
+    });
+
+    return formStates;
+  };
+
+  const restoreLiveFormStates = (formStates) => {
+    if (!formStates?.size) {
+      return;
+    }
+
+    document.querySelectorAll('[data-live-section]').forEach((section) => {
+      section.querySelectorAll('form').forEach((form) => {
+        const controlStates = formStates.get(getLiveFormStateKey(form));
+
+        if (!controlStates) {
+          return;
+        }
+
+        const occurrenceIndexes = new Map();
+
+        [...form.querySelectorAll('input, select, textarea')]
+          .filter(shouldPreserveLiveFormControl)
+          .forEach((control) => {
+            applyLiveFormControlState(control, controlStates.get(getLiveFormControlKey(control, occurrenceIndexes)));
+          });
+
+        form.dataset.liveDirty = 'true';
+      });
+    });
+  };
+
   const refreshLiveSections = async (targetUrl = window.location.href, options = {}) => {
     const { abortPrevious = false } = options;
     const currentSections = [...document.querySelectorAll('[data-live-section]')];
@@ -334,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeRefreshController = controller;
     const activeElement = document.activeElement;
     const scrollState = captureLiveScrollState();
+    const formStates = captureLiveFormStates(currentSections);
     const focusedState = activeElement && activeElement.name
       ? {
           name: activeElement.name,
@@ -390,6 +541,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = targetUrl;
         return;
       }
+
+      restoreLiveFormStates(formStates);
 
       if (restoreFocusedState) {
         const replacementInput = document.querySelector(`[name="${escapeSelector(restoreFocusedState.name)}"]`);
@@ -499,6 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (payload?.message) {
         showLiveNotice(payload.message, 'success');
       }
+
+      form.removeAttribute('data-live-dirty');
 
       if (
         payload?.liveRequestUpsert
@@ -7870,6 +8025,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('change', (event) => {
+    markLiveFormDirty(event.target);
+
     if (event.target.matches('[data-member-notification-toggle]')) {
       event.target.closest('form')?.requestSubmit();
       return;
@@ -7961,6 +8118,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('input', (event) => {
+    markLiveFormDirty(event.target);
+
     if (event.target.matches('[data-pass-print-template-text-color]')) {
       passPrintEditorState.textColor = normalizePassPrintColor(event.target.value);
       passPrintEditorState.fields = passPrintEditorState.fields.map((field) => ({

@@ -32,6 +32,20 @@ function normalizeVehicleCheckLinkName(value) {
     .slice(0, 120);
 }
 
+function normalizeVehicleGateApiLinkMode(value) {
+  return ['toggle', 'entry', 'exit'].includes(value) ? value : 'check';
+}
+
+function normalizeVehicleGateApiLinkDebounceSeconds(value) {
+  const number = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(number)) {
+    return 300;
+  }
+
+  return Math.max(0, Math.min(3600, number));
+}
+
 function normalizePositiveIdSet(values = []) {
   const list = Array.isArray(values) ? values : [values];
 
@@ -81,6 +95,14 @@ class EventService {
     return `${env.appUrl.replace(/\/$/, '')}/api/external/events/${encodeURIComponent(token)}/vehicle-decisions`;
   }
 
+  buildVehicleGateApiLinkUrl(token) {
+    if (!token) {
+      return '';
+    }
+
+    return `${env.appUrl.replace(/\/$/, '')}/api/v/${encodeURIComponent(token)}`;
+  }
+
   async generateUniqueVehicleCheckToken() {
     for (let index = 0; index < 80; index += 1) {
       const token = generateShortVehicleCheckToken();
@@ -105,6 +127,22 @@ class EventService {
     }
 
     throw new Error('Unable to generate a unique vehicle gate API token');
+  }
+
+  async generateUniqueVehicleGateApiLinkToken() {
+    for (let index = 0; index < 80; index += 1) {
+      const token = generateShortVehicleCheckToken(6);
+      const [existingLink, existingEvent] = await Promise.all([
+        this.eventRepository.findVehicleGateApiLinkByToken(token),
+        this.eventRepository.findByVehicleGateApiToken(token),
+      ]);
+
+      if (!existingLink && !existingEvent) {
+        return token;
+      }
+    }
+
+    throw new Error('Unable to generate a unique vehicle gate API link token');
   }
 
   generateVehicleGateApiKey() {
@@ -175,12 +213,14 @@ class EventService {
       recentActivity,
       vehicleCheckPassCategories,
       vehicleCheckLinks,
+      vehicleGateApiLinks,
     ] = await Promise.all([
       this.dashboardRepository.getEventSummary(eventId),
       this.eventRepository.listMembers(eventId),
       this.auditLogService.listByEvent(eventId),
       this.categoryRepository ? this.categoryRepository.listByEvent(eventId, 'pass') : [],
       this.eventRepository.listVehicleCheckLinks(eventId),
+      this.eventRepository.listVehicleGateApiLinks(eventId),
     ]);
 
     return {
@@ -192,6 +232,10 @@ class EventService {
       vehicleCheckLinks: vehicleCheckLinks.map((link) => ({
         ...link,
         url: this.buildVehicleCheckUrl(link.token),
+      })),
+      vehicleGateApiLinks: vehicleGateApiLinks.map((link) => ({
+        ...link,
+        url: this.buildVehicleGateApiLinkUrl(link.token),
       })),
     };
   }
@@ -519,6 +563,249 @@ class EventService {
     }
   }
 
+  buildVehicleGateApiLinkPayload(payload, categories, t) {
+    return {
+      name: normalizeVehicleCheckLinkName(payload.name),
+      mode: normalizeVehicleGateApiLinkMode(payload.mode),
+      debounceSeconds: normalizeVehicleGateApiLinkDebounceSeconds(payload.debounceSeconds),
+      categories: this.buildVehicleCheckLinkCategoryEntries(payload, categories, t),
+    };
+  }
+
+  async createVehicleGateApiLink(eventId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const categories = this.categoryRepository ? await this.categoryRepository.listByEvent(event.id, 'pass') : [];
+    const normalizedPayload = this.buildVehicleGateApiLinkPayload(payload, categories, tx);
+
+    if (!normalizedPayload.name) {
+      throw new AppError(tx('validation.vehicleCheckLink.nameRequired'), 422);
+    }
+
+    const token = await this.generateUniqueVehicleGateApiLinkToken();
+    const connection = await this.pool.getConnection();
+    let linkId = null;
+
+    try {
+      await connection.beginTransaction();
+      linkId = await this.eventRepository.createVehicleGateApiLink(connection, {
+        eventId: event.id,
+        name: normalizedPayload.name,
+        token,
+        mode: normalizedPayload.mode,
+        debounceSeconds: normalizedPayload.debounceSeconds,
+        isActive: true,
+        userId: actorId,
+      });
+      await this.eventRepository.replaceVehicleGateApiLinkCategories(
+        connection,
+        linkId,
+        normalizedPayload.categories,
+      );
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_gate_api_link',
+          entityId: linkId,
+          action: 'created',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiLinkCreated', {
+            name: normalizedPayload.name,
+            eventName: event.name,
+          }),
+          afterState: {
+            name: normalizedPayload.name,
+            token,
+            mode: normalizedPayload.mode,
+            debounceSeconds: normalizedPayload.debounceSeconds,
+            categories: normalizedPayload.categories,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiLinkCreated', {
+            name: normalizedPayload.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+  }
+
+  async updateVehicleGateApiLink(eventId, linkId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    const categories = this.categoryRepository ? await this.categoryRepository.listByEvent(event.id, 'pass') : [];
+    const normalizedPayload = this.buildVehicleGateApiLinkPayload(payload, categories, tx);
+
+    if (!normalizedPayload.name) {
+      throw new AppError(tx('validation.vehicleCheckLink.nameRequired'), 422);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleGateApiLink(connection, event.id, linkId, {
+        name: normalizedPayload.name,
+        mode: normalizedPayload.mode,
+        debounceSeconds: normalizedPayload.debounceSeconds,
+        isActive: true,
+        userId: actorId,
+      });
+      await this.eventRepository.replaceVehicleGateApiLinkCategories(
+        connection,
+        linkId,
+        normalizedPayload.categories,
+      );
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_gate_api_link',
+          entityId: linkId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiLinkUpdated', {
+            name: normalizedPayload.name,
+            eventName: event.name,
+          }),
+          beforeState: existingLink,
+          afterState: {
+            name: normalizedPayload.name,
+            mode: normalizedPayload.mode,
+            debounceSeconds: normalizedPayload.debounceSeconds,
+            categories: normalizedPayload.categories,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiLinkUpdated', {
+            name: normalizedPayload.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+  }
+
+  async regenerateVehicleGateApiLink(eventId, linkId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    const token = await this.generateUniqueVehicleGateApiLinkToken();
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleGateApiLinkToken(connection, event.id, linkId, token, actorId);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_gate_api_link',
+          entityId: linkId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiLinkRegenerated', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+          beforeState: {
+            token: existingLink.token,
+          },
+          afterState: {
+            token,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiLinkRegenerated', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+  }
+
+  async deleteVehicleGateApiLink(eventId, linkId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleGateApiLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.deleteVehicleGateApiLink(connection, event.id, linkId);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_gate_api_link',
+          entityId: linkId,
+          action: 'deleted',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleGateApiLinkDeleted', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+          beforeState: existingLink,
+          metadata: buildAuditMetadata('audit.message.vehicleGateApiLinkDeleted', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
   async getPublicVehicleCheckEventOrFail(token, t) {
     const tx = resolveTranslate(t);
     const normalizedToken = String(token || '').trim().toLowerCase();
@@ -545,6 +832,23 @@ class EventService {
     }
 
     const event = await this.eventRepository.findByVehicleGateApiToken(normalizedToken);
+
+    if (!event) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    return event;
+  }
+
+  async getVehicleGateApiLinkOrFail(token, t) {
+    const tx = resolveTranslate(t);
+    const normalizedToken = String(token || '').trim().toLowerCase();
+
+    if (!normalizedToken) {
+      throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);
+    }
+
+    const event = await this.eventRepository.findVehicleGateApiLinkByToken(normalizedToken);
 
     if (!event) {
       throw new AppError(tx('service.vehicleEntry.gateApiInvalid'), 404);

@@ -53,6 +53,18 @@ function buildEventRoutes({ eventController, accessController }) {
     asyncHandler(eventController.updateVehicleGateApi),
   );
   router.post('/events/:eventId/vehicle-gate-api/regenerate', requireAuth, asyncHandler(eventController.regenerateVehicleGateApi));
+  router.post('/events/:eventId/vehicle-gate-api-links', requireAuth, asyncHandler(eventController.createVehicleGateApiLink));
+  router.put('/events/:eventId/vehicle-gate-api-links/:linkId', requireAuth, asyncHandler(eventController.updateVehicleGateApiLink));
+  router.post(
+    '/events/:eventId/vehicle-gate-api-links/:linkId/regenerate',
+    requireAuth,
+    asyncHandler(eventController.regenerateVehicleGateApiLink),
+  );
+  router.delete(
+    '/events/:eventId/vehicle-gate-api-links/:linkId',
+    requireAuth,
+    asyncHandler(eventController.deleteVehicleGateApiLink),
+  );
   router.get('/events/:eventId/categories', requireAuth, (req, res) =>
     res.redirect(`/events/${req.params.eventId}/wristbands`),
   );

@@ -27,6 +27,12 @@ function buildExternalApiRoutes({ accessController }) {
     validateRequest,
     asyncHandler(accessController.processVehicleGateDecision),
   );
+  router.post(
+    '/api/v/:token',
+    externalVehicleDecisionValidator,
+    validateRequest,
+    asyncHandler(accessController.processVehicleGateApiLink),
+  );
 
   return router;
 }

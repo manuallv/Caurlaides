@@ -1,3 +1,13 @@
+function normalizePositiveInteger(value, fallback = 50, max = 200) {
+  const number = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    return fallback;
+  }
+
+  return Math.min(number, max);
+}
+
 class EventRepository {
   constructor(pool) {
     this.pool = pool;
@@ -740,6 +750,416 @@ class EventRepository {
         ],
       );
     }
+  }
+
+  async findVehicleGateApiLinkByToken(token) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          e.id,
+          e.name,
+          e.deleted_at,
+          l.id AS vehicle_gate_api_link_id,
+          l.name AS vehicle_gate_api_link_name,
+          l.token AS vehicle_gate_api_link_token,
+          l.mode AS vehicle_gate_api_link_mode,
+          l.debounce_seconds AS vehicle_gate_api_link_debounce_seconds,
+          l.is_active AS vehicle_gate_api_link_is_active,
+          l.created_at AS vehicle_gate_api_link_created_at,
+          l.updated_at AS vehicle_gate_api_link_updated_at
+        FROM event_vehicle_gate_api_links l
+        INNER JOIN events e ON e.id = l.event_id
+        WHERE l.token = ?
+          AND l.is_active = 1
+          AND e.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [token],
+    );
+
+    const linkEvent = rows[0] || null;
+
+    if (!linkEvent) {
+      return null;
+    }
+
+    const permissions = await this.listVehicleGateApiLinkCategoryPermissions([
+      linkEvent.vehicle_gate_api_link_id,
+    ]);
+
+    return {
+      ...linkEvent,
+      vehicle_gate_api_link_categories: permissions,
+    };
+  }
+
+  async listVehicleGateApiLinks(eventId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          event_id,
+          name,
+          token,
+          mode,
+          debounce_seconds,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id,
+          created_at,
+          updated_at
+        FROM event_vehicle_gate_api_links
+        WHERE event_id = ?
+        ORDER BY created_at DESC, id DESC
+      `,
+      [eventId],
+    );
+
+    if (!rows.length) {
+      return [];
+    }
+
+    const linkIds = rows.map((row) => row.id);
+    const [permissions, activities] = await Promise.all([
+      this.listVehicleGateApiLinkCategoryPermissions(linkIds),
+      this.listVehicleGateApiLinkActivities(eventId, 80),
+    ]);
+    const permissionsByLinkId = permissions.reduce((map, permission) => {
+      const linkId = Number(permission.link_id);
+
+      if (!map[linkId]) {
+        map[linkId] = [];
+      }
+
+      map[linkId].push(permission);
+      return map;
+    }, {});
+    const activitiesByLinkId = activities.reduce((map, activity) => {
+      const linkId = Number(activity.link_id);
+
+      if (!map[linkId]) {
+        map[linkId] = [];
+      }
+
+      if (map[linkId].length < 8) {
+        map[linkId].push(activity);
+      }
+
+      return map;
+    }, {});
+
+    return rows.map((row) => ({
+      ...row,
+      categories: permissionsByLinkId[Number(row.id)] || [],
+      activities: activitiesByLinkId[Number(row.id)] || [],
+    }));
+  }
+
+  async listVehicleGateApiLinkCategoryPermissions(linkIds = []) {
+    const normalizedLinkIds = linkIds
+      .map((linkId) => Number(linkId))
+      .filter((linkId) => Number.isInteger(linkId) && linkId > 0);
+
+    if (!normalizedLinkIds.length) {
+      return [];
+    }
+
+    const [rows] = await this.pool.query(
+      `
+        SELECT
+          lc.link_id,
+          lc.pass_category_id,
+          lc.can_check,
+          lc.can_enter,
+          pc.name AS category_name,
+          pc.sort_order AS category_sort_order,
+          pc.is_active AS category_is_active
+        FROM event_vehicle_gate_api_link_categories lc
+        INNER JOIN pass_categories pc ON pc.id = lc.pass_category_id
+        WHERE lc.link_id IN (?)
+          AND pc.deleted_at IS NULL
+        ORDER BY pc.sort_order ASC, pc.name ASC
+      `,
+      [normalizedLinkIds],
+    );
+
+    return rows;
+  }
+
+  async findVehicleGateApiLinkById(eventId, linkId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          event_id,
+          name,
+          token,
+          mode,
+          debounce_seconds,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id,
+          created_at,
+          updated_at
+        FROM event_vehicle_gate_api_links
+        WHERE event_id = ?
+          AND id = ?
+        LIMIT 1
+      `,
+      [eventId, linkId],
+    );
+
+    const link = rows[0] || null;
+
+    if (!link) {
+      return null;
+    }
+
+    const [permissions, activities] = await Promise.all([
+      this.listVehicleGateApiLinkCategoryPermissions([link.id]),
+      this.listVehicleGateApiLinkActivities(eventId, 80),
+    ]);
+
+    return {
+      ...link,
+      categories: permissions,
+      activities: activities.filter((activity) => Number(activity.link_id) === Number(link.id)).slice(0, 8),
+    };
+  }
+
+  async createVehicleGateApiLink(connection, payload) {
+    const [result] = await connection.execute(
+      `
+        INSERT INTO event_vehicle_gate_api_links (
+          event_id,
+          name,
+          token,
+          mode,
+          debounce_seconds,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        payload.eventId,
+        payload.name,
+        payload.token,
+        payload.mode,
+        payload.debounceSeconds,
+        payload.isActive ? 1 : 0,
+        payload.userId,
+        payload.userId,
+      ],
+    );
+
+    return result.insertId;
+  }
+
+  async updateVehicleGateApiLink(connection, eventId, linkId, payload) {
+    await connection.execute(
+      `
+        UPDATE event_vehicle_gate_api_links
+        SET
+          name = ?,
+          mode = ?,
+          debounce_seconds = ?,
+          is_active = ?,
+          updated_by_user_id = ?
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [
+        payload.name,
+        payload.mode,
+        payload.debounceSeconds,
+        payload.isActive ? 1 : 0,
+        payload.userId,
+        eventId,
+        linkId,
+      ],
+    );
+  }
+
+  async updateVehicleGateApiLinkToken(connection, eventId, linkId, token, userId) {
+    await connection.execute(
+      `
+        UPDATE event_vehicle_gate_api_links
+        SET
+          token = ?,
+          updated_by_user_id = ?
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [token, userId, eventId, linkId],
+    );
+  }
+
+  async deleteVehicleGateApiLink(connection, eventId, linkId) {
+    await connection.execute(
+      `
+        DELETE FROM event_vehicle_gate_api_links
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [eventId, linkId],
+    );
+  }
+
+  async replaceVehicleGateApiLinkCategories(connection, linkId, entries = []) {
+    await connection.execute(
+      `
+        DELETE FROM event_vehicle_gate_api_link_categories
+        WHERE link_id = ?
+      `,
+      [linkId],
+    );
+
+    for (const entry of entries) {
+      await connection.execute(
+        `
+          INSERT INTO event_vehicle_gate_api_link_categories (
+            link_id,
+            pass_category_id,
+            can_check,
+            can_enter
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+        [
+          linkId,
+          entry.categoryId,
+          entry.canCheck ? 1 : 0,
+          entry.canEnter ? 1 : 0,
+        ],
+      );
+    }
+  }
+
+  async listVehicleGateApiLinkActivities(eventId, limit = 80) {
+    const safeLimit = normalizePositiveInteger(limit, 80, 200);
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          log.id,
+          log.link_id,
+          log.event_id,
+          log.pass_request_id,
+          log.vehicle_plate,
+          log.vehicle_plate_normalized,
+          log.allowed,
+          log.reason,
+          log.mode,
+          log.direction,
+          log.deduplicated,
+          log.movement_recorded,
+          log.message,
+          log.metadata,
+          log.created_at,
+          link.name AS link_name,
+          request.full_name,
+          request.company_name,
+          request.status,
+          request.entered_at,
+          request.last_entry_at,
+          request.last_exit_at,
+          category.name AS category_name,
+          profile.name AS profile_name
+        FROM event_vehicle_gate_api_link_logs log
+        INNER JOIN event_vehicle_gate_api_links link ON link.id = log.link_id
+        LEFT JOIN pass_requests request ON request.id = log.pass_request_id
+        LEFT JOIN pass_categories category ON category.id = request.pass_category_id
+        LEFT JOIN request_profiles profile ON profile.id = request.request_profile_id AND profile.deleted_at IS NULL
+        WHERE log.event_id = ?
+        ORDER BY log.created_at DESC, log.id DESC
+        LIMIT ${safeLimit}
+      `,
+      [eventId],
+    );
+
+    return rows;
+  }
+
+  async findRecentVehicleGateApiLinkMovement(linkId, vehiclePlateNormalized, debounceSeconds) {
+    const safeSeconds = Math.floor(Math.max(0, Math.min(86400, Number(debounceSeconds || 0))));
+
+    if (!safeSeconds || !vehiclePlateNormalized) {
+      return null;
+    }
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          link_id,
+          event_id,
+          pass_request_id,
+          vehicle_plate,
+          vehicle_plate_normalized,
+          allowed,
+          reason,
+          mode,
+          direction,
+          deduplicated,
+          movement_recorded,
+          message,
+          metadata,
+          created_at
+        FROM event_vehicle_gate_api_link_logs
+        WHERE link_id = ?
+          AND vehicle_plate_normalized = ?
+          AND movement_recorded = 1
+          AND created_at >= DATE_SUB(NOW(), INTERVAL ${safeSeconds} SECOND)
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      `,
+      [linkId, vehiclePlateNormalized],
+    );
+
+    return rows[0] || null;
+  }
+
+  async createVehicleGateApiLinkActivity(connection, payload) {
+    const metadata = payload.metadata ? JSON.stringify(payload.metadata) : null;
+    const executor = connection || this.pool;
+    const [result] = await executor.execute(
+      `
+        INSERT INTO event_vehicle_gate_api_link_logs (
+          link_id,
+          event_id,
+          pass_request_id,
+          vehicle_plate,
+          vehicle_plate_normalized,
+          allowed,
+          reason,
+          mode,
+          direction,
+          deduplicated,
+          movement_recorded,
+          message,
+          metadata
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        payload.linkId,
+        payload.eventId,
+        payload.passRequestId || null,
+        payload.vehiclePlate || null,
+        payload.vehiclePlateNormalized || null,
+        payload.allowed ? 1 : 0,
+        payload.reason || null,
+        payload.mode || 'check',
+        payload.direction || null,
+        payload.deduplicated ? 1 : 0,
+        payload.movementRecorded ? 1 : 0,
+        payload.message || null,
+        metadata,
+      ],
+    );
+
+    return result.insertId;
   }
 
   async findByRequestProfileApplicationToken(token) {
