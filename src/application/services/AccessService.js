@@ -95,19 +95,31 @@ function isFlagEnabled(value) {
   return value === true || value === '1' || Number(value) === 1;
 }
 
-function resolveVehiclePlateDuplicatePolicy(profile = {}) {
+function resolveVehiclePlateDuplicatePolicy(profile = {}, event = {}) {
   const requestProfileId = Number(profile?.id || profile?.requestProfileId || profile?.request_profile_id || 0);
+  const eventAllowsDuplicateVehiclePlates = isFlagEnabled(
+    event?.allow_duplicate_vehicle_plates
+      ?? event?.allowDuplicateVehiclePlates
+      ?? profile?.event_allow_duplicate_vehicle_plates
+      ?? profile?.eventAllowDuplicateVehiclePlates,
+  );
+  const profileAllowsDuplicateVehiclePlates = requestProfileId > 0 && isFlagEnabled(
+    profile?.allow_duplicate_vehicle_plates ?? profile?.allowDuplicateVehiclePlates,
+  );
 
   return {
     requestProfileId,
-    allowDuplicateVehiclePlates: requestProfileId > 0 && isFlagEnabled(
-      profile?.allow_duplicate_vehicle_plates ?? profile?.allowDuplicateVehiclePlates,
-    ),
+    allowDuplicateVehiclePlates: eventAllowsDuplicateVehiclePlates || profileAllowsDuplicateVehiclePlates,
+    allowEventDuplicateVehiclePlates: eventAllowsDuplicateVehiclePlates,
   };
 }
 
 function isVehiclePlateConflict(request, excludeRequestId, policy = {}) {
   if (Number(request.id) === Number(excludeRequestId || 0)) {
+    return false;
+  }
+
+  if (policy.allowEventDuplicateVehiclePlates) {
     return false;
   }
 
@@ -3506,7 +3518,7 @@ class AccessService {
       normalizedPayload.vehiclePlateNormalized,
       null,
       tx,
-      resolveVehiclePlateDuplicatePolicy(profile),
+      resolveVehiclePlateDuplicatePolicy(profile, event),
     );
 
     let requestId = null;
@@ -3613,7 +3625,7 @@ class AccessService {
       normalizedPayload.vehiclePlateNormalized,
       requestId,
       tx,
-      resolveVehiclePlateDuplicatePolicy(profile),
+      resolveVehiclePlateDuplicatePolicy(profile, event),
     );
 
     const connection = await this.pool.getConnection();

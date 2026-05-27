@@ -53,6 +53,8 @@ function createApp() {
   app.use(attachCurrentUser);
   app.use(attachViewLocals);
 
+  app.use('/public/vendor/tesseract', express.static(path.join(process.cwd(), 'node_modules', 'tesseract.js', 'dist')));
+  app.use('/public/vendor/tesseract-core', express.static(path.join(process.cwd(), 'node_modules', 'tesseract.js-core')));
   app.use('/public', express.static(path.join(process.cwd(), 'public')));
   app.use('/uploads', express.static(env.uploadsDir));
   app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));

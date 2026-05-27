@@ -17,6 +17,14 @@
   data-check-result-hint="<%= t('check.resultHint') %>"
   data-check-recent-empty-label="<%= t('check.recentEmpty') %>"
   data-check-not-set="<%= t('common.notSet') %>"
+  data-check-scanner-open-label="<%= t('check.scanner.open') %>"
+  data-check-scanner-loading-label="<%= t('check.scanner.loading') %>"
+  data-check-scanner-aim-label="<%= t('check.scanner.aim') %>"
+  data-check-scanner-scanning-label="<%= t('check.scanner.scanning') %>"
+  data-check-scanner-found-label="<%= t('check.scanner.found') %>"
+  data-check-scanner-not-found-label="<%= t('check.scanner.notFound') %>"
+  data-check-scanner-error-label="<%= t('check.scanner.error') %>"
+  data-check-scanner-unsupported-label="<%= t('check.scanner.unsupported') %>"
 >
   <% if (selectedEvent) { %>
     <header class="check-page-head">
@@ -39,23 +47,37 @@
 
           <div class="check-plate-control">
             <label class="field-label" for="check-vehicle-plate"><%= t('check.vehiclePlate') %></label>
-            <input
-              id="check-vehicle-plate"
-              name="vehiclePlate"
-              type="text"
-              class="field-input check-vehicle-input"
-              placeholder="<%= t('check.vehiclePlatePlaceholder') %>"
-              value="<%= checkFormValues?.vehiclePlate || '' %>"
-              autocomplete="off"
-              autocapitalize="characters"
-              autocorrect="off"
-              spellcheck="false"
-              enterkeyhint="go"
-              maxlength="20"
-              autofocus
-              required
-              data-check-vehicle-plate
-            />
+            <div class="check-plate-input-group">
+              <input
+                id="check-vehicle-plate"
+                name="vehiclePlate"
+                type="text"
+                class="field-input check-vehicle-input"
+                placeholder="<%= t('check.vehiclePlatePlaceholder') %>"
+                value="<%= checkFormValues?.vehiclePlate || '' %>"
+                autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                enterkeyhint="go"
+                maxlength="20"
+                autofocus
+                required
+                data-check-vehicle-plate
+              />
+              <button
+                type="button"
+                class="check-camera-trigger"
+                aria-label="<%= t('check.scanner.open') %>"
+                title="<%= t('check.scanner.open') %>"
+                data-check-scanner-open
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M9 4.5 7.7 7H5.4A2.4 2.4 0 0 0 3 9.4v7.2A2.4 2.4 0 0 0 5.4 19h13.2a2.4 2.4 0 0 0 2.4-2.4V9.4A2.4 2.4 0 0 0 18.6 7h-2.3L15 4.5H9Z" />
+                  <circle cx="12" cy="13" r="3.4" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div class="check-action-grid">
@@ -194,6 +216,29 @@
             <% }) %>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="check-scanner-modal hidden" data-check-scanner-modal aria-hidden="true" role="dialog" aria-modal="true" aria-label="<%= t('check.scanner.title') %>">
+      <div class="check-scanner-backdrop" data-check-scanner-close></div>
+      <div class="check-scanner-panel">
+        <div class="check-scanner-head">
+          <div>
+            <p class="worldnic-eyebrow"><%= t('check.scanner.eyebrow') %></p>
+            <h2><%= t('check.scanner.title') %></h2>
+          </div>
+          <button type="button" class="check-scanner-close" aria-label="<%= t('check.scanner.close') %>" title="<%= t('check.scanner.close') %>" data-check-scanner-close>×</button>
+        </div>
+
+        <div class="check-scanner-viewport" data-check-scanner-viewport>
+          <video autoplay muted playsinline data-check-scanner-video></video>
+          <canvas data-check-scanner-canvas hidden></canvas>
+          <div class="check-scanner-target" data-check-scanner-frame>
+            <span data-check-scanner-candidate></span>
+          </div>
+        </div>
+
+        <p class="check-scanner-status" data-check-scanner-status><%= t('check.scanner.aim') %></p>
       </div>
     </div>
   <% } %>

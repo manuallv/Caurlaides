@@ -16,6 +16,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
@@ -75,9 +76,10 @@ class EventRepository {
           location,
           status,
           pass_request_deadline,
-          wristband_request_deadline
+          wristband_request_deadline,
+          allow_duplicate_vehicle_plates
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         payload.ownerId,
@@ -89,6 +91,7 @@ class EventRepository {
         payload.status,
         payload.passRequestDeadline,
         payload.wristbandRequestDeadline,
+        payload.allowDuplicateVehiclePlates ? 1 : 0,
       ],
     );
 
@@ -133,7 +136,8 @@ class EventRepository {
           location = ?,
           status = ?,
           pass_request_deadline = ?,
-          wristband_request_deadline = ?
+          wristband_request_deadline = ?,
+          allow_duplicate_vehicle_plates = ?
         WHERE id = ?
       `,
       [
@@ -145,6 +149,7 @@ class EventRepository {
         payload.status,
         payload.passRequestDeadline,
         payload.wristbandRequestDeadline,
+        payload.allowDuplicateVehiclePlates ? 1 : 0,
         eventId,
       ],
     );
@@ -190,6 +195,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
@@ -233,6 +239,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
@@ -277,6 +284,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
@@ -414,6 +422,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,
@@ -470,6 +479,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.deleted_at,
           e.created_at,
@@ -510,6 +520,7 @@ class EventRepository {
           e.status,
           e.pass_request_deadline,
           e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
           e.request_profile_application_token,
           e.vehicle_check_token,
           e.vehicle_check_token_created_at,

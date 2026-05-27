@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS events (
   status ENUM('draft', 'active', 'completed', 'archived') NOT NULL DEFAULT 'draft',
   pass_request_deadline DATETIME NULL,
   wristband_request_deadline DATETIME NULL,
+  allow_duplicate_vehicle_plates TINYINT(1) NOT NULL DEFAULT 0,
   request_profile_application_token CHAR(36) NULL,
   vehicle_check_token CHAR(40) NULL,
   vehicle_check_token_created_at DATETIME NULL,

@@ -11,6 +11,7 @@ function normalizeEventPayload(body) {
     status: body.status,
     passRequestDeadline: body.passRequestDeadline || null,
     wristbandRequestDeadline: body.wristbandRequestDeadline || null,
+    allowDuplicateVehiclePlates: normalizeBooleanField(body.allowDuplicateVehiclePlates, false),
   };
 }
 

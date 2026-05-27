@@ -328,7 +328,8 @@ class RequestProfileRepository {
           e.name AS event_name,
           e.status AS event_status,
           e.pass_request_deadline,
-          e.wristband_request_deadline
+          e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates AS event_allow_duplicate_vehicle_plates
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.public_slug = ?
@@ -367,7 +368,8 @@ class RequestProfileRepository {
           e.name AS event_name,
           e.status AS event_status,
           e.pass_request_deadline,
-          e.wristband_request_deadline
+          e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates AS event_allow_duplicate_vehicle_plates
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.id = ?
@@ -406,7 +408,8 @@ class RequestProfileRepository {
           e.name AS event_name,
           e.status AS event_status,
           e.pass_request_deadline,
-          e.wristband_request_deadline
+          e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates AS event_allow_duplicate_vehicle_plates
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.is_active = 1
@@ -594,7 +597,8 @@ class RequestProfileRepository {
           e.name AS event_name,
           e.status AS event_status,
           e.pass_request_deadline,
-          e.wristband_request_deadline
+          e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates AS event_allow_duplicate_vehicle_plates
         FROM request_profiles rp
         INNER JOIN events e ON e.id = rp.event_id
         WHERE rp.access_code = ?

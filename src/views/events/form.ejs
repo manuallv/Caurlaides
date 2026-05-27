@@ -55,6 +55,18 @@
         <input id="wristbandRequestDeadline" name="wristbandRequestDeadline" type="datetime-local" class="field-input" value="<%= helpers.formatDateTimeLocalInput(event.wristband_request_deadline) %>" />
       </div>
 
+      <label class="request-profile-toggle request-profile-toggle--wide">
+        <input
+          type="checkbox"
+          name="allowDuplicateVehiclePlates"
+          <%= event.allow_duplicate_vehicle_plates ? 'checked' : '' %>
+        />
+        <span>
+          <strong><%= t('event.form.allowDuplicateVehiclePlates') %></strong>
+          <small><%= t('event.form.allowDuplicateVehiclePlatesHelp') %></small>
+        </span>
+      </label>
+
       <div class="panel bg-slate-50">
         <p class="text-sm font-semibold text-slate-900"><%= t('event.form.initialScope') %></p>
         <p class="mt-2 text-sm leading-6 text-slate-600">

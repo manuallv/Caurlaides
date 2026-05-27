@@ -798,6 +798,13 @@ document.addEventListener('DOMContentLoaded', () => {
     vehiclePlateInput: document.querySelector('[data-check-vehicle-plate]'),
     gateNameInput: document.querySelector('[data-check-gate-name]'),
     submitButtons: [...document.querySelectorAll('[data-check-submit-button]')],
+    scannerOpenButton: document.querySelector('[data-check-scanner-open]'),
+    scannerModal: document.querySelector('[data-check-scanner-modal]'),
+    scannerVideo: document.querySelector('[data-check-scanner-video]'),
+    scannerCanvas: document.querySelector('[data-check-scanner-canvas]'),
+    scannerFrame: document.querySelector('[data-check-scanner-frame]'),
+    scannerCandidate: document.querySelector('[data-check-scanner-candidate]'),
+    scannerStatus: document.querySelector('[data-check-scanner-status]'),
     resultCard: document.querySelector('[data-check-result-card]'),
     resultEmpty: document.querySelector('[data-check-result-empty]'),
     resultContent: document.querySelector('[data-check-result-content]'),
@@ -826,12 +833,27 @@ document.addEventListener('DOMContentLoaded', () => {
       resultHint: app.dataset.checkResultHint || 'Enter a number plate and choose whether the vehicle is entering or exiting.',
       recentEmptyLabel: app.dataset.checkRecentEmptyLabel || 'No vehicle movements registered yet for this event.',
       notSet: app.dataset.checkNotSet || '-',
+      scannerLoadingLabel: app.dataset.checkScannerLoadingLabel || 'Preparing camera and OCR...',
+      scannerAimLabel: app.dataset.checkScannerAimLabel || 'Aim the plate inside the frame.',
+      scannerScanningLabel: app.dataset.checkScannerScanningLabel || 'Reading the plate...',
+      scannerFoundLabel: app.dataset.checkScannerFoundLabel || 'Number found: {plate}',
+      scannerNotFoundLabel: app.dataset.checkScannerNotFoundLabel || 'No clear number yet.',
+      scannerErrorLabel: app.dataset.checkScannerErrorLabel || 'Could not start the camera scanner.',
+      scannerUnsupportedLabel: app.dataset.checkScannerUnsupportedLabel || 'Camera access is not available in this browser.',
     };
   };
 
   let checkFeedbackTimer = null;
   let checkInputToneTimer = null;
   let checkFormCardToneTimer = null;
+  let checkScannerScriptPromise = null;
+  let checkScannerWorkerPromise = null;
+  let checkScannerStream = null;
+  let checkScannerTimer = null;
+  let checkScannerActive = false;
+  let checkScannerRecognizing = false;
+  let checkScannerLastCandidate = '';
+  let checkScannerStableCount = 0;
 
   const setCheckFormLoading = (isLoading) => {
     const { submitButtons } = getCheckElements();
@@ -867,6 +889,289 @@ document.addEventListener('DOMContentLoaded', () => {
       feedback.textContent = '';
       feedback.classList.remove('is-success', 'is-error');
     }, 2600);
+  };
+
+  const formatCheckScannerLabel = (template, params = {}) => String(template || '').replace(/\{(\w+)\}/g, (match, key) => (
+    params[key] === undefined || params[key] === null ? match : String(params[key])
+  ));
+
+  const setCheckScannerStatus = (message = '') => {
+    const { scannerStatus } = getCheckElements();
+
+    if (scannerStatus) {
+      scannerStatus.textContent = message;
+    }
+  };
+
+  const setCheckScannerCandidate = (plate = '', isFound = false) => {
+    const { scannerFrame, scannerCandidate } = getCheckElements();
+
+    if (scannerCandidate) {
+      scannerCandidate.textContent = plate;
+    }
+
+    if (scannerFrame) {
+      scannerFrame.classList.toggle('is-found', Boolean(isFound));
+    }
+  };
+
+  const loadCheckScannerLibrary = () => {
+    if (window.Tesseract?.createWorker) {
+      return Promise.resolve();
+    }
+
+    if (!checkScannerScriptPromise) {
+      checkScannerScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/public/vendor/tesseract/tesseract.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(getCheckUi().scannerErrorLabel));
+        document.head.appendChild(script);
+      });
+    }
+
+    return checkScannerScriptPromise;
+  };
+
+  const getCheckScannerWorker = async () => {
+    await loadCheckScannerLibrary();
+
+    if (!checkScannerWorkerPromise) {
+      checkScannerWorkerPromise = window.Tesseract.createWorker('eng', 1, {
+        workerPath: '/public/vendor/tesseract/worker.min.js',
+        corePath: '/public/vendor/tesseract-core',
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+        logger: (progress) => {
+          if (!checkScannerActive || !progress?.status) {
+            return;
+          }
+
+          const percent = Number(progress.progress || 0);
+
+          if (percent > 0 && percent < 1) {
+            setCheckScannerStatus(`${getCheckUi().scannerLoadingLabel} ${Math.round(percent * 100)}%`);
+          }
+        },
+      }).then(async (worker) => {
+        await worker.setParameters({
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
+          tessedit_pageseg_mode: window.Tesseract?.PSM?.SINGLE_LINE || '7',
+          preserve_interword_spaces: '0',
+        });
+
+        return worker;
+      });
+    }
+
+    return checkScannerWorkerPromise;
+  };
+
+  const normalizeScannedPlateCandidate = (value = '') => {
+    const compact = String(value || '')
+      .toUpperCase()
+      .replace(/[|]/g, 'I')
+      .replace(/[^A-Z0-9]/g, '');
+    const matches = compact.match(/[A-Z]{1,3}\d{1,5}/g) || [];
+    const candidate = matches.find((item) => item.length >= 4 && item.length <= 8 && /\d{2,}/.test(item));
+
+    if (!candidate) {
+      return '';
+    }
+
+    return candidate.replace(/^([A-Z]{1,3})(\d+)$/, '$1-$2');
+  };
+
+  const extractScannedPlate = (text = '') => normalizeScannedPlateCandidate(text);
+
+  const captureCheckScannerFrame = () => {
+    const { scannerVideo, scannerCanvas } = getCheckElements();
+
+    if (!scannerVideo || !scannerCanvas || !scannerVideo.videoWidth || !scannerVideo.videoHeight) {
+      return null;
+    }
+
+    const videoWidth = scannerVideo.videoWidth;
+    const videoHeight = scannerVideo.videoHeight;
+    const cropWidth = Math.round(videoWidth * 0.84);
+    const cropHeight = Math.round(videoHeight * 0.24);
+    const sourceX = Math.round((videoWidth - cropWidth) / 2);
+    const sourceY = Math.round(videoHeight * 0.38);
+    const targetWidth = 920;
+    const targetHeight = Math.max(190, Math.round((targetWidth * cropHeight) / cropWidth));
+    const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
+
+    scannerCanvas.width = targetWidth;
+    scannerCanvas.height = targetHeight;
+    context.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+
+    const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
+    const { data } = imageData;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const grayscale = (data[index] * 0.299) + (data[index + 1] * 0.587) + (data[index + 2] * 0.114);
+      const contrasted = Math.max(0, Math.min(255, ((grayscale - 128) * 1.75) + 128));
+
+      data[index] = contrasted;
+      data[index + 1] = contrasted;
+      data[index + 2] = contrasted;
+    }
+
+    context.putImageData(imageData, 0, 0);
+    return scannerCanvas;
+  };
+
+  const closeCheckScanner = () => {
+    const { scannerModal, scannerVideo } = getCheckElements();
+
+    checkScannerActive = false;
+    checkScannerRecognizing = false;
+    window.clearTimeout(checkScannerTimer);
+    checkScannerTimer = null;
+
+    if (checkScannerStream) {
+      checkScannerStream.getTracks().forEach((track) => track.stop());
+      checkScannerStream = null;
+    }
+
+    if (scannerVideo) {
+      scannerVideo.pause();
+      scannerVideo.srcObject = null;
+    }
+
+    if (scannerModal) {
+      scannerModal.classList.add('hidden');
+      scannerModal.setAttribute('aria-hidden', 'true');
+    }
+
+    document.body.classList.remove('is-check-scanner-open');
+    setCheckScannerCandidate('', false);
+  };
+
+  const completeCheckScanner = (plate) => {
+    const { vehiclePlateInput } = getCheckElements();
+    const ui = getCheckUi();
+
+    checkScannerActive = false;
+    window.clearTimeout(checkScannerTimer);
+    setCheckScannerCandidate(plate, true);
+    setCheckScannerStatus(formatCheckScannerLabel(ui.scannerFoundLabel, { plate }));
+
+    if (vehiclePlateInput) {
+      vehiclePlateInput.value = plate;
+      vehiclePlateInput.dispatchEvent(new Event('input', { bubbles: true }));
+      vehiclePlateInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    window.setTimeout(() => {
+      closeCheckScanner();
+      vehiclePlateInput?.focus?.();
+      vehiclePlateInput?.select?.();
+      pulseCheckVehicleInput('success');
+    }, 620);
+  };
+
+  const scheduleCheckScannerScan = (delay = 620) => {
+    window.clearTimeout(checkScannerTimer);
+
+    if (checkScannerActive) {
+      checkScannerTimer = window.setTimeout(runCheckScannerScan, delay);
+    }
+  };
+
+  async function runCheckScannerScan() {
+    if (!checkScannerActive || checkScannerRecognizing) {
+      return;
+    }
+
+    const ui = getCheckUi();
+    const frameCanvas = captureCheckScannerFrame();
+
+    if (!frameCanvas) {
+      scheduleCheckScannerScan(320);
+      return;
+    }
+
+    checkScannerRecognizing = true;
+    setCheckScannerStatus(ui.scannerScanningLabel);
+
+    try {
+      const worker = await getCheckScannerWorker();
+      const result = await worker.recognize(frameCanvas);
+      const candidate = extractScannedPlate(result?.data?.text || '');
+
+      if (candidate) {
+        checkScannerStableCount = candidate === checkScannerLastCandidate ? checkScannerStableCount + 1 : 1;
+        checkScannerLastCandidate = candidate;
+        setCheckScannerCandidate(candidate, true);
+        setCheckScannerStatus(formatCheckScannerLabel(ui.scannerFoundLabel, { plate: candidate }));
+
+        if (checkScannerStableCount >= 2 || Number(result?.data?.confidence || 0) >= 78) {
+          completeCheckScanner(candidate);
+          return;
+        }
+      } else {
+        checkScannerStableCount = 0;
+        checkScannerLastCandidate = '';
+        setCheckScannerCandidate('', false);
+        setCheckScannerStatus(ui.scannerNotFoundLabel);
+      }
+    } catch (error) {
+      checkScannerStableCount = 0;
+      setCheckScannerCandidate('', false);
+      setCheckScannerStatus(error?.message || ui.scannerErrorLabel);
+    } finally {
+      checkScannerRecognizing = false;
+      scheduleCheckScannerScan(720);
+    }
+  }
+
+  const openCheckScanner = async () => {
+    const {
+      scannerModal,
+      scannerVideo,
+      scannerOpenButton,
+    } = getCheckElements();
+    const ui = getCheckUi();
+
+    if (!scannerModal || !scannerVideo) {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCheckFeedback(ui.scannerUnsupportedLabel, 'error');
+      scannerOpenButton?.setAttribute('disabled', 'disabled');
+      return;
+    }
+
+    closeCheckScanner();
+    checkScannerActive = true;
+    checkScannerStableCount = 0;
+    checkScannerLastCandidate = '';
+    setCheckScannerCandidate('', false);
+    setCheckScannerStatus(ui.scannerLoadingLabel);
+    scannerModal.classList.remove('hidden');
+    scannerModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('is-check-scanner-open');
+
+    try {
+      checkScannerStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      scannerVideo.srcObject = checkScannerStream;
+      await scannerVideo.play();
+      await getCheckScannerWorker();
+      setCheckScannerStatus(ui.scannerAimLabel);
+      scheduleCheckScannerScan(420);
+    } catch (error) {
+      closeCheckScanner();
+      setCheckFeedback(error?.message || ui.scannerErrorLabel, 'error');
+    }
   };
 
   const pulseCheckVehicleInput = (tone = 'success') => {
@@ -1102,7 +1407,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const initializeCheckUI = () => {
-    const { app, resultContent, resultEmpty, recentList, recentEmpty } = getCheckElements();
+    const {
+      app,
+      resultContent,
+      resultEmpty,
+      recentList,
+      recentEmpty,
+      scannerOpenButton,
+    } = getCheckElements();
     const ui = getCheckUi();
 
     if (!app) {
@@ -1117,6 +1429,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (recentEmpty && recentList) {
       recentEmpty.classList.toggle('hidden', !recentList.classList.contains('hidden') && recentList.children.length > 0);
+    }
+
+    if (scannerOpenButton && !navigator.mediaDevices?.getUserMedia) {
+      scannerOpenButton.disabled = true;
+      scannerOpenButton.title = ui.scannerUnsupportedLabel;
+      scannerOpenButton.setAttribute('aria-label', ui.scannerUnsupportedLabel);
     }
   };
 
@@ -5827,6 +6145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (event.key === 'Escape') {
       hideTooltip();
+      closeCheckScanner();
       closeAccessActionMenus();
       closeAccessProfileFilter();
       closeSidebar();
@@ -5911,6 +6230,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessProfileFilterTrigger = closest('[data-access-profile-filter-trigger]');
     const accessProfileFilterOption = closest('[data-access-profile-filter-option]');
     const dashboardEventSummary = closest('[data-dashboard-event-summary]');
+    const checkScannerOpenTrigger = closest('[data-check-scanner-open]');
+    const checkScannerCloseTrigger = closest('[data-check-scanner-close]');
+
+    if (checkScannerOpenTrigger) {
+      event.preventDefault();
+      await openCheckScanner();
+      return;
+    }
+
+    if (checkScannerCloseTrigger) {
+      event.preventDefault();
+      closeCheckScanner();
+      return;
+    }
 
     if (systemTemplatePreviewTrigger) {
       event.preventDefault();
