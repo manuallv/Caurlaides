@@ -44,7 +44,7 @@ function createApp() {
   app.use(attachLocale);
   app.use(flash());
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api/external/')) {
+    if (req.path.startsWith('/api/external/') || req.path.startsWith('/api/v/')) {
       return next();
     }
 
