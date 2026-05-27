@@ -849,7 +849,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let checkScannerScriptPromise = null;
   let checkScannerTfScriptPromise = null;
   let checkScannerDetectorModelPromise = null;
+  let checkScannerDetectorModel = null;
   let checkScannerDetectorAvailable = null;
+  let checkScannerDetectorInFlight = false;
+  let checkScannerDetectorLastRunAt = 0;
+  let checkScannerLastDetectedBox = null;
+  let checkScannerLastDetectedBoxAt = 0;
   let checkScannerWorkerPromise = null;
   let checkScannerStream = null;
   let checkScannerTimer = null;
@@ -1019,9 +1024,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return checkScannerTfScriptPromise;
   };
 
-  const getCheckScannerDetectorModel = async () => {
+  const loadCheckScannerDetectorModel = () => {
     if (checkScannerDetectorAvailable === false) {
-      return null;
+      return Promise.resolve(null);
+    }
+
+    if (checkScannerDetectorModel) {
+      return Promise.resolve(checkScannerDetectorModel);
     }
 
     if (!checkScannerDetectorModelPromise) {
@@ -1041,15 +1050,26 @@ document.addEventListener('DOMContentLoaded', () => {
         await response.text();
         await loadCheckScannerDetectorLibrary();
         const model = await window.tf.loadGraphModel(modelUrl);
+        checkScannerDetectorModel = model;
         checkScannerDetectorAvailable = true;
         return model;
       })().catch(() => {
         checkScannerDetectorAvailable = false;
+        checkScannerDetectorModel = null;
         return null;
       });
     }
 
     return checkScannerDetectorModelPromise;
+  };
+
+  const warmCheckScannerDetectorModel = () => {
+    loadCheckScannerDetectorModel();
+  };
+
+  const getReadyCheckScannerDetectorModel = () => {
+    warmCheckScannerDetectorModel();
+    return checkScannerDetectorModel;
   };
 
   const calculateCheckScannerIou = (left, right) => {
@@ -1132,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return null;
     }
 
-    const model = await getCheckScannerDetectorModel();
+    const model = getReadyCheckScannerDetectorModel();
 
     if (!model || !window.tf) {
       return null;
@@ -1201,6 +1221,39 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       output?.dispose?.();
     }
+  };
+
+  const queueCheckScannerPlateDetection = () => {
+    const now = Date.now();
+
+    warmCheckScannerDetectorModel();
+
+    if (
+      checkScannerDetectorInFlight
+      || !checkScannerDetectorModel
+      || now - checkScannerDetectorLastRunAt < 1400
+    ) {
+      return;
+    }
+
+    checkScannerDetectorInFlight = true;
+    checkScannerDetectorLastRunAt = now;
+
+    window.setTimeout(async () => {
+      try {
+        const detectedBox = await detectCheckScannerPlateBox();
+
+        if (detectedBox && checkScannerActive) {
+          checkScannerLastDetectedBox = detectedBox;
+          checkScannerLastDetectedBoxAt = Date.now();
+        }
+      } catch (error) {
+        checkScannerLastDetectedBox = null;
+        checkScannerLastDetectedBoxAt = 0;
+      } finally {
+        checkScannerDetectorInFlight = false;
+      }
+    }, 0);
   };
 
   const normalizeScannedPlateCandidate = (value = '') => String(value || '')
@@ -1401,7 +1454,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoHeight = scannerVideo.videoHeight;
     const frames = [];
 
-    const detectedBox = await detectCheckScannerPlateBox();
+    queueCheckScannerPlateDetection();
+
+    const detectedBox = checkScannerLastDetectedBox
+      && Date.now() - checkScannerLastDetectedBoxAt < 3500
+      ? checkScannerLastDetectedBox
+      : null;
 
     if (detectedBox) {
       setCheckScannerDetectedBox(detectedBox);
@@ -1452,6 +1510,9 @@ document.addEventListener('DOMContentLoaded', () => {
     checkScannerCandidateScores = new Map();
     checkScannerLastCandidate = '';
     checkScannerStableCount = 0;
+    checkScannerDetectorInFlight = false;
+    checkScannerLastDetectedBox = null;
+    checkScannerLastDetectedBoxAt = 0;
 
     if (checkScannerStream) {
       checkScannerStream.getTracks().forEach((track) => track.stop());
@@ -1654,6 +1715,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await getCheckScannerWorker();
       setCheckScannerStatus(ui.scannerAimLabel);
       scheduleCheckScannerScan(420);
+      window.setTimeout(warmCheckScannerDetectorModel, 1200);
     } catch (error) {
       closeCheckScanner();
       setCheckFeedback(error?.message || ui.scannerErrorLabel, 'error');
