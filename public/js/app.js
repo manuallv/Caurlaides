@@ -805,6 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scannerFrame: document.querySelector('[data-check-scanner-frame]'),
     scannerCandidate: document.querySelector('[data-check-scanner-candidate]'),
     scannerStatus: document.querySelector('[data-check-scanner-status]'),
+    scannerAcceptButton: document.querySelector('[data-check-scanner-accept]'),
     resultCard: document.querySelector('[data-check-result-card]'),
     resultEmpty: document.querySelector('[data-check-result-empty]'),
     resultContent: document.querySelector('[data-check-result-content]'),
@@ -861,6 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let checkScannerActive = false;
   let checkScannerRecognizing = false;
   let checkScannerLastCandidate = '';
+  let checkScannerSuggestedPlate = '';
   let checkScannerStableCount = 0;
   let checkScannerCandidateScores = new Map();
   const checkScannerLetterCorrections = {
@@ -941,14 +943,22 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setCheckScannerCandidate = (plate = '', isFound = false) => {
-    const { scannerFrame, scannerCandidate } = getCheckElements();
+    const { scannerFrame, scannerCandidate, scannerAcceptButton } = getCheckElements();
+    const shouldOfferCandidate = Boolean(isFound && plate);
+
+    checkScannerSuggestedPlate = shouldOfferCandidate ? plate : '';
 
     if (scannerCandidate) {
       scannerCandidate.textContent = plate;
     }
 
     if (scannerFrame) {
-      scannerFrame.classList.toggle('is-found', Boolean(isFound));
+      scannerFrame.classList.toggle('is-found', shouldOfferCandidate);
+    }
+
+    if (scannerAcceptButton) {
+      scannerAcceptButton.classList.toggle('hidden', !shouldOfferCandidate);
+      scannerAcceptButton.disabled = !shouldOfferCandidate;
     }
   };
 
@@ -1203,12 +1213,20 @@ document.addEventListener('DOMContentLoaded', () => {
           const cy = Number(row[1]);
           const width = Number(row[2]);
           const height = Number(row[3]);
+          const usesNormalizedCoordinates = [cx, cy, width, height]
+            .every((value) => Math.abs(value) <= 2);
+          const scaleX = usesNormalizedCoordinates
+            ? scannerVideo.videoWidth
+            : scannerVideo.videoWidth / inputSize;
+          const scaleY = usesNormalizedCoordinates
+            ? scannerVideo.videoHeight
+            : scannerVideo.videoHeight / inputSize;
 
           return {
-            x1: clampCheckScannerValue((cx - (width / 2)) * scannerVideo.videoWidth / inputSize, 0, scannerVideo.videoWidth),
-            y1: clampCheckScannerValue((cy - (height / 2)) * scannerVideo.videoHeight / inputSize, 0, scannerVideo.videoHeight),
-            x2: clampCheckScannerValue((cx + (width / 2)) * scannerVideo.videoWidth / inputSize, 0, scannerVideo.videoWidth),
-            y2: clampCheckScannerValue((cy + (height / 2)) * scannerVideo.videoHeight / inputSize, 0, scannerVideo.videoHeight),
+            x1: clampCheckScannerValue((cx - (width / 2)) * scaleX, 0, scannerVideo.videoWidth),
+            y1: clampCheckScannerValue((cy - (height / 2)) * scaleY, 0, scannerVideo.videoHeight),
+            x2: clampCheckScannerValue((cx + (width / 2)) * scaleX, 0, scannerVideo.videoWidth),
+            y2: clampCheckScannerValue((cy + (height / 2)) * scaleY, 0, scannerVideo.videoHeight),
             score,
           };
         })
@@ -1334,7 +1352,6 @@ document.addEventListener('DOMContentLoaded', () => {
     tokens.forEach((token) => {
       if (token.length <= 8) {
         tokenWindows.push(token);
-        return;
       }
 
       for (let start = 0; start <= token.length - 4; start += 1) {
@@ -1359,6 +1376,47 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const clampCheckScannerValue = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const calculateCheckScannerOtsuThreshold = (values) => {
+    const histogram = Array(256).fill(0);
+
+    values.forEach((value) => {
+      histogram[Math.round(clampCheckScannerValue(value, 0, 255))] += 1;
+    });
+
+    const total = values.length || 1;
+    const sum = histogram.reduce((accumulator, count, index) => accumulator + (index * count), 0);
+    let sumBackground = 0;
+    let weightBackground = 0;
+    let maxVariance = 0;
+    let threshold = 128;
+
+    for (let index = 0; index < histogram.length; index += 1) {
+      weightBackground += histogram[index];
+
+      if (!weightBackground) {
+        continue;
+      }
+
+      const weightForeground = total - weightBackground;
+
+      if (!weightForeground) {
+        break;
+      }
+
+      sumBackground += index * histogram[index];
+      const meanBackground = sumBackground / weightBackground;
+      const meanForeground = (sum - sumBackground) / weightForeground;
+      const variance = weightBackground * weightForeground * ((meanBackground - meanForeground) ** 2);
+
+      if (variance > maxVariance) {
+        maxVariance = variance;
+        threshold = index;
+      }
+    }
+
+    return threshold;
+  };
 
   const getCheckScannerSourceCropFromViewportRect = (viewportCrop, padXRatio = 0, padYRatio = 0) => {
     const { scannerVideo } = getCheckElements();
@@ -1403,6 +1461,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     context.drawImage(sourceCanvas, 0, 0);
 
+    if (mode === 'original') {
+      return canvas;
+    }
+
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
     const { data } = imageData;
     const grayscaleValues = [];
@@ -1413,18 +1475,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const average = grayscaleValues.reduce((sum, value) => sum + value, 0) / Math.max(grayscaleValues.length, 1);
+    const otsuThreshold = calculateCheckScannerOtsuThreshold(grayscaleValues);
     const threshold = mode === 'binary-light'
-      ? average + 12
+      ? Math.min(232, Math.max(118, otsuThreshold + 10))
       : mode === 'binary-dark'
-        ? average - 18
-        : average;
+        ? Math.min(220, Math.max(92, otsuThreshold - 18))
+        : mode === 'binary-otsu' || mode === 'plate-text'
+          ? otsuThreshold
+          : average;
 
     for (let pixelIndex = 0, grayIndex = 0; pixelIndex < data.length; pixelIndex += 4, grayIndex += 1) {
       const grayscale = grayscaleValues[grayIndex] || 0;
+      const red = data[pixelIndex];
+      const green = data[pixelIndex + 1];
+      const blue = data[pixelIndex + 2];
+      const maxChannel = Math.max(red, green, blue);
+      const minChannel = Math.min(red, green, blue);
+      const isBluePlateText = blue > red + 12 && blue >= green && grayscale < 220;
+      const isDarkCharacter = grayscale < threshold - 4 && maxChannel - minChannel > 12;
       let value = grayscale;
 
-      if (mode === 'binary-light' || mode === 'binary-dark') {
+      if (mode === 'plate-text') {
+        value = isBluePlateText || isDarkCharacter ? 0 : 255;
+      } else if (mode === 'binary-light' || mode === 'binary-dark' || mode === 'binary-otsu') {
         value = grayscale > threshold ? 255 : 0;
+      } else if (mode === 'contrast-strong') {
+        value = clampCheckScannerValue(((grayscale - average) * 3.05) + 158, 0, 255);
       } else {
         value = clampCheckScannerValue(((grayscale - average) * 2.15) + 150, 0, 255);
       }
@@ -1529,43 +1605,73 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const variants = [
       {
-        crop: base,
-        weight: 8.5,
-        options: {
-          padXRatio: 0.04,
-          padYRatio: 0.14,
-          targetWidth: 1200,
-          modes: ['contrast', 'binary-light', 'binary-dark'],
-        },
-      },
-      {
         crop: {
           left: base.left + (base.width * 0.08),
-          top: base.top + (base.height * 0.05),
+          top: base.top + (base.height * 0.02),
           width: base.width * 0.84,
-          height: base.height * 0.72,
+          height: base.height * 0.74,
         },
-        weight: 7,
+        weight: 9,
         options: {
-          padXRatio: 0.06,
-          padYRatio: 0.12,
-          targetWidth: 1080,
-          modes: ['contrast', 'binary-light'],
+          padXRatio: 0.04,
+          padYRatio: 0.08,
+          targetWidth: 1240,
+          modes: ['plate-text', 'binary-otsu', 'contrast-strong'],
         },
       },
       {
         crop: {
           left: base.left + (base.width * 0.1),
-          top: base.top + (base.height * 0.48),
-          width: base.width * 0.8,
-          height: base.height * 0.78,
+          top: base.top + (base.height * 0.06),
+          width: base.width * 0.62,
+          height: base.height * 0.66,
         },
-        weight: 5.5,
+        weight: 8.4,
         options: {
           padXRatio: 0.08,
           padYRatio: 0.12,
+          targetWidth: 1120,
+          modes: ['plate-text', 'binary-light'],
+        },
+      },
+      {
+        crop: {
+          left: base.left + (base.width * 0.24),
+          top: base.top + (base.height * 0.06),
+          width: base.width * 0.62,
+          height: base.height * 0.66,
+        },
+        weight: 7.9,
+        options: {
+          padXRatio: 0.08,
+          padYRatio: 0.12,
+          targetWidth: 1120,
+          modes: ['plate-text', 'binary-light'],
+        },
+      },
+      {
+        crop: base,
+        weight: 6.4,
+        options: {
+          padXRatio: 0.03,
+          padYRatio: 0.1,
+          targetWidth: 1180,
+          modes: ['plate-text', 'contrast'],
+        },
+      },
+      {
+        crop: {
+          left: base.left + (base.width * 0.08),
+          top: base.top + (base.height * 0.42),
+          width: base.width * 0.84,
+          height: base.height * 0.58,
+        },
+        weight: 5.4,
+        options: {
+          padXRatio: 0.06,
+          padYRatio: 0.08,
           targetWidth: 980,
-          modes: ['contrast'],
+          modes: ['plate-text'],
         },
       },
     ];
@@ -1643,6 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkScannerTimer = null;
     checkScannerCandidateScores = new Map();
     checkScannerLastCandidate = '';
+    checkScannerSuggestedPlate = '';
     checkScannerStableCount = 0;
     checkScannerDetectorInFlight = false;
     checkScannerLastDetectedBox = null;
@@ -1737,7 +1844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const ui = getCheckUi();
-    const frameCanvases = (await captureCheckScannerFrames()).slice(0, 6);
+    const frameCanvases = (await captureCheckScannerFrames()).slice(0, 8);
 
     if (!frameCanvases.length) {
       scheduleCheckScannerScan(320);
@@ -1760,15 +1867,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = result?.data || {};
         const candidate = extractScannedPlate([
           data.text || '',
+          ...(data.lines || []).map((line) => line.text || ''),
           ...(data.words || []).map((word) => word.text || ''),
+          ...(data.symbols || []).map((symbol) => symbol.text || '').join(''),
         ].join(' '));
 
         if (!candidate?.plate) {
           continue;
         }
 
-        addCheckScannerCandidateScore(candidate, data.confidence, frame.weight);
+        const runningScore = addCheckScannerCandidateScore(candidate, data.confidence, frame.weight);
         frameHits.set(candidate.plate, (frameHits.get(candidate.plate) || 0) + 1);
+
+        if (
+          runningScore >= 54
+          || ((frameHits.get(candidate.plate) || 0) >= 2 && runningScore >= 38)
+        ) {
+          break;
+        }
       }
 
       const bestCandidate = getBestCheckScannerCandidate();
@@ -2117,6 +2233,17 @@ document.addEventListener('DOMContentLoaded', () => {
       scannerOpenButton.disabled = true;
       scannerOpenButton.title = ui.scannerUnsupportedLabel;
       scannerOpenButton.setAttribute('aria-label', ui.scannerUnsupportedLabel);
+    }
+
+    if (
+      scannerOpenButton
+      && navigator.mediaDevices?.getUserMedia
+      && app.dataset.checkScannerPrepared !== 'true'
+    ) {
+      app.dataset.checkScannerPrepared = 'true';
+      window.setTimeout(() => {
+        getCheckScannerWorker().catch(() => {});
+      }, 900);
     }
   };
 
@@ -7082,6 +7209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboardEventSummary = closest('[data-dashboard-event-summary]');
     const checkScannerOpenTrigger = closest('[data-check-scanner-open]');
     const checkScannerCloseTrigger = closest('[data-check-scanner-close]');
+    const checkScannerAcceptTrigger = closest('[data-check-scanner-accept]');
 
     if (checkScannerOpenTrigger) {
       event.preventDefault();
@@ -7092,6 +7220,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (checkScannerCloseTrigger) {
       event.preventDefault();
       closeCheckScanner();
+      return;
+    }
+
+    if (checkScannerAcceptTrigger) {
+      event.preventDefault();
+
+      if (checkScannerSuggestedPlate) {
+        completeCheckScanner(checkScannerSuggestedPlate);
+      }
+
       return;
     }
 

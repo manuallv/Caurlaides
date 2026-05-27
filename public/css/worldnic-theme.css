@@ -6094,6 +6094,23 @@ body.portal-modal-open {
   line-height: 1.45;
 }
 
+.check-scanner-accept {
+  justify-self: start;
+  min-height: 2.65rem;
+  border: 1px solid rgba(31, 157, 99, 0.28);
+  border-radius: 999px;
+  padding: 0.64rem 1.05rem;
+  background: rgba(31, 157, 99, 0.1);
+  color: #13754d;
+  font-weight: 900;
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.check-scanner-accept.hidden {
+  display: none;
+}
+
 .plate-scanner-settings__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

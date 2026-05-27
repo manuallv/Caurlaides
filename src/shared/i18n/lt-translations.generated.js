@@ -740,6 +740,7 @@ const lt = {
   "check.scanner.scanning": "Nuskaitomas automobilio numeris...",
   "check.scanner.found": "Rastas numeris: {plate}",
   "check.scanner.notFound": "Aiškaus numerio dar nėra. Priartinkite kamerą ir laikykite numerį rėmelyje.",
+  "check.scanner.acceptCandidate": "Naudoti rastą numerį",
   "check.scanner.error": "Nepavyko paleisti kameros skaitytuvo.",
   "check.scanner.unsupported": "Šioje naršyklėje kamera nepasiekiama.",
   "members.addTitle": "Pridėti bendradarbį",

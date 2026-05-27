@@ -763,6 +763,7 @@ const translations = {
     'check.scanner.scanning': 'Reading the plate...',
     'check.scanner.found': 'Number found: {plate}',
     'check.scanner.notFound': 'No clear number yet. Move closer and keep the plate inside the frame.',
+    'check.scanner.acceptCandidate': 'Use detected number',
     'check.scanner.error': 'Could not start the camera scanner.',
     'check.scanner.unsupported': 'Camera access is not available in this browser.',
 
@@ -1985,6 +1986,7 @@ const translations = {
     'check.scanner.scanning': 'Nolasa auto numuru...',
     'check.scanner.found': 'Atrasts numurs: {plate}',
     'check.scanner.notFound': 'Vēl nav skaidra numura. Pietuvini kameru un turi numuru rāmī.',
+    'check.scanner.acceptCandidate': 'Lietot atrasto numuru',
     'check.scanner.error': 'Neizdevās palaist kameras skeneri.',
     'check.scanner.unsupported': 'Šajā pārlūkā kamera nav pieejama.',
 
