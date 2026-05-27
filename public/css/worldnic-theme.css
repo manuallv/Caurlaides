@@ -7616,10 +7616,10 @@ body.portal-modal-open {
   .portal-request-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.58rem 0.75rem;
-    padding: 0.9rem;
+    gap: 0.68rem 0.75rem;
+    padding: 0.95rem;
     border: 1px solid rgba(205, 215, 230, 0.86);
-    border-radius: 1.05rem;
+    border-radius: 1.12rem;
     background: rgba(255, 255, 255, 0.96);
     box-shadow: var(--wn-shadow-sm);
   }
@@ -7630,56 +7630,68 @@ body.portal-modal-open {
 
   .portal-request-row td {
     display: grid;
-    grid-template-columns: minmax(5.9rem, 0.34fr) minmax(0, 1fr);
-    gap: 0.62rem;
-    align-items: start;
-    padding: 0.48rem 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    align-items: stretch;
+    min-width: 0;
+    padding: 0;
     border-bottom: 0;
   }
 
   .portal-request-cell--type {
     grid-column: 1;
     grid-row: 1;
+    display: flex;
     align-self: center;
+    min-width: 0;
   }
 
   .portal-request-cell--status {
     grid-column: 2;
     grid-row: 1;
+    display: flex;
     justify-self: end;
     align-self: center;
+    min-width: 0;
   }
 
   .portal-request-cell--name {
     grid-column: 1 / -1;
     grid-row: 2;
-    padding: 0.18rem 0 0.34rem;
+    display: block;
+    min-width: 0;
+    padding: 0.1rem 0 0.2rem;
   }
 
   .portal-request-cell--category,
   .portal-request-cell--company,
   .portal-request-cell--phone {
     grid-column: 1 / -1;
-    min-height: 2.6rem;
-    padding: 0.55rem 0.68rem;
+    display: grid;
+    grid-template-columns: 6.15rem minmax(0, 1fr);
+    gap: 0.68rem;
+    align-items: center;
+    min-height: 0;
+    padding: 0.62rem 0.72rem;
     border: 1px solid rgba(226, 232, 240, 0.82);
-    border-radius: 0.86rem;
+    border-radius: 0.92rem;
     background: rgba(248, 251, 255, 0.74);
   }
 
   .portal-request-cell--actions {
     grid-column: 1 / -1;
     grid-template-columns: 1fr;
-    padding-top: 0.2rem;
+    min-width: 0;
+    padding-top: 0.18rem;
   }
 
   .portal-request-row td::before {
     content: attr(data-cell-label);
     color: #7a89a0;
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     font-weight: 850;
-    letter-spacing: 0.08em;
-    line-height: 1.35;
+    letter-spacing: 0.065em;
+    line-height: 1.2;
     text-transform: uppercase;
   }
 
@@ -7691,16 +7703,25 @@ body.portal-modal-open {
   }
 
   .portal-person-cell__title {
-    font-size: 1.08rem;
-    line-height: 1.28;
+    font-size: 1.12rem;
+    line-height: 1.22;
+  }
+
+  .portal-person-cell__meta {
+    margin-top: 0.28rem;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
 
   .portal-type-pill,
   .portal-status-pill {
     justify-self: start;
     min-height: 1.85rem;
-    padding: 0.34rem 0.62rem;
+    max-width: 100%;
+    padding: 0.34rem 0.66rem;
     font-size: 0.68rem;
+    line-height: 1.15;
+    white-space: normal;
   }
 
   .portal-request-cell--status .portal-status-pill {
@@ -7708,8 +7729,10 @@ body.portal-modal-open {
   }
 
   .portal-data-cell {
-    font-size: 0.86rem;
-    line-height: 1.45;
+    min-width: 0;
+    font-size: 0.9rem;
+    line-height: 1.38;
+    overflow-wrap: anywhere;
   }
 
   .portal-row-actions {
@@ -7730,9 +7753,12 @@ body.portal-modal-open {
   }
 
   .portal-action-button {
-    min-height: 2.55rem;
-    border-radius: 0.9rem;
-    font-size: 0.82rem;
+    min-height: 2.65rem;
+    padding: 0.58rem 0.72rem;
+    border-radius: 0.95rem;
+    font-size: 0.86rem;
+    line-height: 1.18;
+    white-space: normal;
   }
 
   .portal-lock-stack {
