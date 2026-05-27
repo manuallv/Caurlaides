@@ -1553,7 +1553,7 @@ function buildAccessController({ categoryService, accessService }) {
         portalHeaderTitle: data.selectedEvent.name,
         checkFormValues: {
           vehiclePlate: '',
-          gateName: '',
+          gateName: data.selectedEvent.vehicle_check_link_name || '',
         },
       });
     },
@@ -1603,7 +1603,7 @@ function buildAccessController({ categoryService, accessService }) {
         portalHeaderTitle: data.selectedEvent.name,
         checkFormValues: {
           vehiclePlate: payload.vehiclePlate || '',
-          gateName: payload.gateName || '',
+          gateName: payload.gateName || data.selectedEvent.vehicle_check_link_name || '',
         },
       });
     },

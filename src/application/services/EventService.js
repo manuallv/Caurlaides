@@ -25,13 +25,39 @@ function generateShortVehicleCheckToken(length = 4) {
   return Array.from({ length }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
 }
 
+function normalizeVehicleCheckLinkName(value) {
+  return String(value || '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizePositiveIdSet(values = []) {
+  const list = Array.isArray(values) ? values : [values];
+
+  return new Set(
+    list
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0),
+  );
+}
+
 class EventService {
-  constructor({ pool, eventRepository, userRepository, auditLogService, dashboardRepository, systemService = null }) {
+  constructor({
+    pool,
+    eventRepository,
+    userRepository,
+    auditLogService,
+    dashboardRepository,
+    categoryRepository = null,
+    systemService = null,
+  }) {
     this.pool = pool;
     this.eventRepository = eventRepository;
     this.userRepository = userRepository;
     this.auditLogService = auditLogService;
     this.dashboardRepository = dashboardRepository;
+    this.categoryRepository = categoryRepository;
     this.systemService = systemService;
   }
 
@@ -143,15 +169,30 @@ class EventService {
 
   async getEventDashboard(eventId, userId, t) {
     const event = await this.getEventAccessOrFail(eventId, userId, t);
-    const summary = await this.dashboardRepository.getEventSummary(eventId);
-    const members = await this.eventRepository.listMembers(eventId);
-    const recentActivity = await this.auditLogService.listByEvent(eventId);
+    const [
+      summary,
+      members,
+      recentActivity,
+      vehicleCheckPassCategories,
+      vehicleCheckLinks,
+    ] = await Promise.all([
+      this.dashboardRepository.getEventSummary(eventId),
+      this.eventRepository.listMembers(eventId),
+      this.auditLogService.listByEvent(eventId),
+      this.categoryRepository ? this.categoryRepository.listByEvent(eventId, 'pass') : [],
+      this.eventRepository.listVehicleCheckLinks(eventId),
+    ]);
 
     return {
       event,
       summary,
       members,
       recentActivity,
+      vehicleCheckPassCategories,
+      vehicleCheckLinks: vehicleCheckLinks.map((link) => ({
+        ...link,
+        url: this.buildVehicleCheckUrl(link.token),
+      })),
     };
   }
 
@@ -210,6 +251,272 @@ class EventService {
       hadExistingLink,
       link: this.buildVehicleCheckUrl(token),
     };
+  }
+
+  buildVehicleCheckLinkCategoryEntries(payload, categories, t) {
+    const tx = resolveTranslate(t);
+    const canCheckCategoryIds = normalizePositiveIdSet(payload.canCheckCategoryIds);
+    const canEnterCategoryIds = normalizePositiveIdSet(payload.canEnterCategoryIds);
+    const validCategoryIds = new Set(categories.map((category) => Number(category.id)));
+    const entries = [];
+
+    for (const category of categories) {
+      const categoryId = Number(category.id);
+
+      if (!validCategoryIds.has(categoryId)) {
+        continue;
+      }
+
+      const canEnter = canEnterCategoryIds.has(categoryId);
+      const canCheck = canCheckCategoryIds.has(categoryId) || canEnter;
+
+      if (!canCheck && !canEnter) {
+        continue;
+      }
+
+      entries.push({
+        categoryId,
+        canCheck,
+        canEnter,
+      });
+    }
+
+    if (!entries.length) {
+      throw new AppError(tx('validation.vehicleCheckLink.categoriesRequired'), 422);
+    }
+
+    return entries;
+  }
+
+  async assertCanManageVehicleCheckLinks(eventId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.getEventAccessOrFail(eventId, actorId, tx);
+
+    if (!MANAGEMENT_ROLES.includes(event.role)) {
+      throw new AppError(tx('service.event.editRequiresManager'), 403);
+    }
+
+    return event;
+  }
+
+  async createVehicleCheckLink(eventId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const name = normalizeVehicleCheckLinkName(payload.name);
+
+    if (!name) {
+      throw new AppError(tx('validation.vehicleCheckLink.nameRequired'), 422);
+    }
+
+    const categories = this.categoryRepository ? await this.categoryRepository.listByEvent(event.id, 'pass') : [];
+    const categoryEntries = this.buildVehicleCheckLinkCategoryEntries(payload, categories, tx);
+    const token = await this.generateUniqueVehicleCheckToken();
+    const connection = await this.pool.getConnection();
+    let linkId = null;
+
+    try {
+      await connection.beginTransaction();
+      linkId = await this.eventRepository.createVehicleCheckLink(connection, {
+        eventId: event.id,
+        name,
+        token,
+        isActive: true,
+        userId: actorId,
+      });
+      await this.eventRepository.replaceVehicleCheckLinkCategories(connection, linkId, categoryEntries);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_check_link',
+          entityId: linkId,
+          action: 'created',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleCheckGateLinkCreated', {
+            name,
+            eventName: event.name,
+          }),
+          afterState: {
+            name,
+            token,
+            categories: categoryEntries,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleCheckGateLinkCreated', {
+            name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+  }
+
+  async updateVehicleCheckLink(eventId, linkId, actorId, payload, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
+    }
+
+    const name = normalizeVehicleCheckLinkName(payload.name);
+
+    if (!name) {
+      throw new AppError(tx('validation.vehicleCheckLink.nameRequired'), 422);
+    }
+
+    const categories = this.categoryRepository ? await this.categoryRepository.listByEvent(event.id, 'pass') : [];
+    const categoryEntries = this.buildVehicleCheckLinkCategoryEntries(payload, categories, tx);
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleCheckLink(connection, event.id, linkId, {
+        name,
+        isActive: true,
+        userId: actorId,
+      });
+      await this.eventRepository.replaceVehicleCheckLinkCategories(connection, linkId, categoryEntries);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_check_link',
+          entityId: linkId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleCheckGateLinkUpdated', {
+            name,
+            eventName: event.name,
+          }),
+          beforeState: existingLink,
+          afterState: {
+            name,
+            categories: categoryEntries,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleCheckGateLinkUpdated', {
+            name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+  }
+
+  async regenerateVehicleCheckGateLink(eventId, linkId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
+    }
+
+    const token = await this.generateUniqueVehicleCheckToken();
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.updateVehicleCheckLinkToken(connection, event.id, linkId, token, actorId);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_check_link',
+          entityId: linkId,
+          action: 'updated',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleCheckGateLinkRegenerated', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+          beforeState: {
+            token: existingLink.token,
+          },
+          afterState: {
+            token,
+          },
+          metadata: buildAuditMetadata('audit.message.vehicleCheckGateLinkRegenerated', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+  }
+
+  async deleteVehicleCheckLink(eventId, linkId, actorId, t) {
+    const tx = resolveTranslate(t);
+    const event = await this.assertCanManageVehicleCheckLinks(eventId, actorId, tx);
+    const existingLink = await this.eventRepository.findVehicleCheckLinkById(event.id, linkId);
+
+    if (!existingLink) {
+      throw new AppError(tx('service.vehicleEntry.checkLinkInvalid'), 404);
+    }
+
+    const connection = await this.pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+      await this.eventRepository.deleteVehicleCheckLink(connection, event.id, linkId);
+
+      await this.auditLogService.record(
+        {
+          eventId: event.id,
+          userId: actorId,
+          entityType: 'vehicle_check_link',
+          entityId: linkId,
+          action: 'deleted',
+          message: translate(DEFAULT_LOCALE, 'audit.message.vehicleCheckGateLinkDeleted', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+          beforeState: existingLink,
+          metadata: buildAuditMetadata('audit.message.vehicleCheckGateLinkDeleted', {
+            name: existingLink.name,
+            eventName: event.name,
+          }),
+        },
+        connection,
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async getPublicVehicleCheckEventOrFail(token, t) {

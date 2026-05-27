@@ -37,6 +37,14 @@ function buildEventRoutes({ eventController, accessController }) {
 
   router.get('/events/:eventId', requireAuth, asyncHandler(eventController.showDashboard));
   router.post('/events/:eventId/vehicle-check-link', requireAuth, asyncHandler(eventController.generateVehicleCheckLink));
+  router.post('/events/:eventId/vehicle-check-links', requireAuth, asyncHandler(eventController.createVehicleCheckLink));
+  router.put('/events/:eventId/vehicle-check-links/:linkId', requireAuth, asyncHandler(eventController.updateVehicleCheckLink));
+  router.post(
+    '/events/:eventId/vehicle-check-links/:linkId/regenerate',
+    requireAuth,
+    asyncHandler(eventController.regenerateVehicleCheckGateLink),
+  );
+  router.delete('/events/:eventId/vehicle-check-links/:linkId', requireAuth, asyncHandler(eventController.deleteVehicleCheckLink));
   router.post(
     '/events/:eventId/vehicle-gate-api',
     requireAuth,

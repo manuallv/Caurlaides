@@ -23,6 +23,22 @@ function normalizeVehicleGateApiPayload(body) {
   };
 }
 
+function normalizeIdList(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+
+  return list
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
+}
+
+function normalizeVehicleCheckLinkPayload(body) {
+  return {
+    name: body.name,
+    canCheckCategoryIds: normalizeIdList(body.canCheckCategoryIds),
+    canEnterCategoryIds: normalizeIdList(body.canEnterCategoryIds),
+  };
+}
+
 function normalizeBooleanField(value, defaultValue = false) {
   if (Array.isArray(value)) {
     return value.some((item) => normalizeBooleanField(item, false));
@@ -67,6 +83,8 @@ function buildEventController({ eventService, auditLogService }) {
         recentActivity: data.recentActivity,
         canManage: MANAGEMENT_ROLES.includes(data.event.role),
         vehicleCheckLink: eventService.buildVehicleCheckUrl(data.event.vehicle_check_token),
+        vehicleCheckLinks: data.vehicleCheckLinks || [],
+        vehicleCheckPassCategories: data.vehicleCheckPassCategories || [],
         vehicleCheckApiUrl: eventService.buildVehicleGateApiUrl(data.event.vehicle_gate_api_token),
         vehicleCheckApiConfigured:
           data.event.vehicle_gate_api_auth_mode === 'none' || Boolean(data.event.vehicle_gate_api_key),
@@ -215,6 +233,67 @@ function buildEventController({ eventService, auditLogService }) {
         'success',
         req.t(result.hadExistingLink ? 'flash.vehicleCheckLinkRegenerated' : 'flash.vehicleCheckLinkGenerated'),
       );
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
+    },
+
+    async createVehicleCheckLink(req, res) {
+      await eventService.createVehicleCheckLink(
+        req.params.eventId,
+        req.currentUser.id,
+        normalizeVehicleCheckLinkPayload(req.body),
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleCheckGateLinkCreated'));
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
+    },
+
+    async updateVehicleCheckLink(req, res) {
+      await eventService.updateVehicleCheckLink(
+        req.params.eventId,
+        req.params.linkId,
+        req.currentUser.id,
+        normalizeVehicleCheckLinkPayload(req.body),
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleCheckGateLinkUpdated'));
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
+    },
+
+    async regenerateVehicleCheckGateLink(req, res) {
+      await eventService.regenerateVehicleCheckGateLink(
+        req.params.eventId,
+        req.params.linkId,
+        req.currentUser.id,
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleCheckGateLinkRegenerated'));
+      return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
+    },
+
+    async deleteVehicleCheckLink(req, res) {
+      await eventService.deleteVehicleCheckLink(
+        req.params.eventId,
+        req.params.linkId,
+        req.currentUser.id,
+        req.t,
+      );
+
+      emitEventUpdate(req.app.locals.io, req.params.eventId, 'dashboard:refresh', {
+        eventId: req.params.eventId,
+      });
+      req.flash('success', req.t('flash.vehicleCheckGateLinkDeleted'));
       return res.redirect(`/events/${req.params.eventId}#vehicle-check-link`);
     },
 

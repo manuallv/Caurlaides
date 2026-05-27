@@ -66,6 +66,7 @@ function buildRouter() {
     userRepository,
     auditLogService,
     dashboardRepository,
+    categoryRepository,
     systemService,
   });
   const categoryService = new CategoryService({

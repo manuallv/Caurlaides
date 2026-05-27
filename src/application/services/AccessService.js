@@ -176,6 +176,67 @@ function resolveVehiclePresenceStatus(request = {}) {
   return lastEntryTs > lastExitTs ? 'inside' : 'outside';
 }
 
+function resolveVehicleCheckLinkPermission(linkContext = {}, categoryId) {
+  const linkId = Number(linkContext?.vehicle_check_link_id || 0);
+
+  if (!linkId) {
+    return {
+      applies: false,
+      allowed: true,
+    };
+  }
+
+  const normalizedCategoryId = Number(categoryId || 0);
+  const permissions = Array.isArray(linkContext.vehicle_check_link_categories)
+    ? linkContext.vehicle_check_link_categories
+    : [];
+  const permission = permissions.find(
+    (entry) => Number(entry.pass_category_id) === normalizedCategoryId,
+  );
+
+  if (!permission) {
+    return {
+      applies: true,
+      allowed: false,
+      canCheck: false,
+      canEnter: false,
+    };
+  }
+
+  return {
+    applies: true,
+    allowed: true,
+    canCheck: Number(permission.can_check) === 1,
+    canEnter: Number(permission.can_enter) === 1,
+  };
+}
+
+function resolveVehicleCheckLinkAccessDecision(linkContext, categoryId, direction) {
+  const permission = resolveVehicleCheckLinkPermission(linkContext, categoryId);
+
+  if (!permission.applies) {
+    return {
+      allowed: true,
+    };
+  }
+
+  if (direction === 'entry') {
+    return {
+      allowed: permission.allowed && permission.canEnter,
+    };
+  }
+
+  if (direction === 'exit') {
+    return {
+      allowed: permission.allowed && (permission.canCheck || permission.canEnter),
+    };
+  }
+
+  return {
+    allowed: permission.allowed && permission.canCheck,
+  };
+}
+
 function resolveRequestDisplayState(type, request = {}) {
   if (type !== 'pass') {
     return request.status === 'handed_out' ? 'handed_out' : 'pending';
@@ -4417,6 +4478,15 @@ class AccessService {
 
     const existingRequest = matches[0];
     const alreadyEntered = Boolean(existingRequest.entered_at);
+    const linkAccessDecision = resolveVehicleCheckLinkAccessDecision(
+      options.vehicleCheckLink,
+      existingRequest.category_id,
+      direction,
+    );
+
+    if (!linkAccessDecision.allowed) {
+      throw new AppError(tx('service.vehicleEntry.notAllowedAtGate'), 403);
+    }
 
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       existingRequest.category_id,
@@ -4572,6 +4642,24 @@ class AccessService {
     }
 
     const request = await this.requestRepository.findById('pass', matches[0].id);
+    const linkAccessDecision = resolveVehicleCheckLinkAccessDecision(
+      options.vehicleCheckLink,
+      request?.category_id,
+      direction,
+    );
+
+    if (!linkAccessDecision.allowed) {
+      return {
+        eventId,
+        allowed: false,
+        decision: 'denied',
+        reason: 'not_allowed_at_gate',
+        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        message: tx('service.vehicleEntry.notAllowedAtGate'),
+        request,
+        currentPresence: resolveVehiclePresenceStatus(request),
+      };
+    }
 
     const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
       request?.category_id,
@@ -4856,16 +4944,20 @@ class AccessService {
 
   async registerPublicVehicleCheck(publicToken, payload, t) {
     const event = await this.eventService.getPublicVehicleCheckEventOrFail(publicToken, t);
+    const gateName = String(payload.gateName || '').trim()
+      || String(event.vehicle_check_link_name || '').trim()
+      || null;
 
     return this.registerVehicleEntry(
       {
         eventId: Number(event.id),
         vehiclePlate: payload.vehiclePlate,
         direction: payload.direction,
-        gateName: payload.gateName,
+        gateName,
         source: 'public-check-link',
       },
       t,
+      { vehicleCheckLink: event },
     );
   }
 
@@ -4879,6 +4971,7 @@ class AccessService {
         direction: payload.direction,
       },
       t,
+      { vehicleCheckLink: event },
     );
   }
 

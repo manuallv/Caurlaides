@@ -408,7 +408,7 @@ class EventRepository {
     );
   }
 
-  async findByVehicleCheckToken(token) {
+  async findVehicleCheckLinkByToken(token) {
     const [rows] = await this.pool.execute(
       `
         SELECT
@@ -440,7 +440,74 @@ class EventRepository {
           e.pass_print_template_updated_at,
           e.deleted_at,
           e.created_at,
-          e.updated_at
+          e.updated_at,
+          l.id AS vehicle_check_link_id,
+          l.name AS vehicle_check_link_name,
+          l.token AS vehicle_check_link_token,
+          l.created_at AS vehicle_check_link_created_at,
+          l.updated_at AS vehicle_check_link_updated_at
+        FROM event_vehicle_check_links l
+        INNER JOIN events e ON e.id = l.event_id
+        WHERE l.token = ?
+          AND l.is_active = 1
+          AND e.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [token],
+    );
+
+    return rows[0] || null;
+  }
+
+  async findByVehicleCheckToken(token) {
+    const linkEvent = await this.findVehicleCheckLinkByToken(token);
+
+    if (linkEvent) {
+      const permissions = await this.listVehicleCheckLinkCategoryPermissions([linkEvent.vehicle_check_link_id]);
+
+      return {
+        ...linkEvent,
+        vehicle_check_link_categories: permissions,
+      };
+    }
+
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          e.id,
+          e.owner_id,
+          e.name,
+          e.description,
+          e.start_date,
+          e.end_date,
+          e.location,
+          e.status,
+          e.pass_request_deadline,
+          e.wristband_request_deadline,
+          e.allow_duplicate_vehicle_plates,
+          e.request_profile_application_token,
+          e.vehicle_check_token,
+          e.vehicle_check_token_created_at,
+          e.vehicle_gate_api_token,
+          e.vehicle_gate_api_token_created_at,
+          e.vehicle_gate_api_auth_mode,
+          e.vehicle_gate_api_key,
+          e.vehicle_gate_api_mode,
+          e.vehicle_gate_api_dedupe_seconds,
+          e.pass_print_template_name,
+          e.pass_print_template_background_path,
+          e.pass_print_template_background_rotation,
+          e.pass_print_template_orientation,
+          e.pass_print_template_fields_json,
+          e.pass_print_template_updated_at,
+          e.deleted_at,
+          e.created_at,
+          e.updated_at,
+          NULL AS vehicle_check_link_id,
+          NULL AS vehicle_check_link_name,
+          NULL AS vehicle_check_link_token,
+          NULL AS vehicle_check_link_created_at,
+          NULL AS vehicle_check_link_updated_at
         FROM events e
         WHERE e.vehicle_check_token = ?
           AND e.deleted_at IS NULL
@@ -463,6 +530,216 @@ class EventRepository {
       `,
       [token, eventId],
     );
+  }
+
+  async listVehicleCheckLinks(eventId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          event_id,
+          name,
+          token,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id,
+          created_at,
+          updated_at
+        FROM event_vehicle_check_links
+        WHERE event_id = ?
+        ORDER BY created_at DESC, id DESC
+      `,
+      [eventId],
+    );
+
+    if (!rows.length) {
+      return [];
+    }
+
+    const permissions = await this.listVehicleCheckLinkCategoryPermissions(rows.map((row) => row.id));
+    const permissionsByLinkId = permissions.reduce((map, permission) => {
+      const linkId = Number(permission.link_id);
+
+      if (!map[linkId]) {
+        map[linkId] = [];
+      }
+
+      map[linkId].push(permission);
+      return map;
+    }, {});
+
+    return rows.map((row) => ({
+      ...row,
+      categories: permissionsByLinkId[Number(row.id)] || [],
+    }));
+  }
+
+  async listVehicleCheckLinkCategoryPermissions(linkIds = []) {
+    const normalizedLinkIds = linkIds
+      .map((linkId) => Number(linkId))
+      .filter((linkId) => Number.isInteger(linkId) && linkId > 0);
+
+    if (!normalizedLinkIds.length) {
+      return [];
+    }
+
+    const [rows] = await this.pool.query(
+      `
+        SELECT
+          lc.link_id,
+          lc.pass_category_id,
+          lc.can_check,
+          lc.can_enter,
+          pc.name AS category_name,
+          pc.sort_order AS category_sort_order,
+          pc.is_active AS category_is_active
+        FROM event_vehicle_check_link_categories lc
+        INNER JOIN pass_categories pc ON pc.id = lc.pass_category_id
+        WHERE lc.link_id IN (?)
+          AND pc.deleted_at IS NULL
+        ORDER BY pc.sort_order ASC, pc.name ASC
+      `,
+      [normalizedLinkIds],
+    );
+
+    return rows;
+  }
+
+  async findVehicleCheckLinkById(eventId, linkId) {
+    const [rows] = await this.pool.execute(
+      `
+        SELECT
+          id,
+          event_id,
+          name,
+          token,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id,
+          created_at,
+          updated_at
+        FROM event_vehicle_check_links
+        WHERE event_id = ?
+          AND id = ?
+        LIMIT 1
+      `,
+      [eventId, linkId],
+    );
+
+    const link = rows[0] || null;
+
+    if (!link) {
+      return null;
+    }
+
+    const permissions = await this.listVehicleCheckLinkCategoryPermissions([link.id]);
+
+    return {
+      ...link,
+      categories: permissions,
+    };
+  }
+
+  async createVehicleCheckLink(connection, payload) {
+    const [result] = await connection.execute(
+      `
+        INSERT INTO event_vehicle_check_links (
+          event_id,
+          name,
+          token,
+          is_active,
+          created_by_user_id,
+          updated_by_user_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        payload.eventId,
+        payload.name,
+        payload.token,
+        payload.isActive ? 1 : 0,
+        payload.userId,
+        payload.userId,
+      ],
+    );
+
+    return result.insertId;
+  }
+
+  async updateVehicleCheckLink(connection, eventId, linkId, payload) {
+    await connection.execute(
+      `
+        UPDATE event_vehicle_check_links
+        SET
+          name = ?,
+          is_active = ?,
+          updated_by_user_id = ?
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [
+        payload.name,
+        payload.isActive ? 1 : 0,
+        payload.userId,
+        eventId,
+        linkId,
+      ],
+    );
+  }
+
+  async updateVehicleCheckLinkToken(connection, eventId, linkId, token, userId) {
+    await connection.execute(
+      `
+        UPDATE event_vehicle_check_links
+        SET
+          token = ?,
+          updated_by_user_id = ?
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [token, userId, eventId, linkId],
+    );
+  }
+
+  async deleteVehicleCheckLink(connection, eventId, linkId) {
+    await connection.execute(
+      `
+        DELETE FROM event_vehicle_check_links
+        WHERE event_id = ?
+          AND id = ?
+      `,
+      [eventId, linkId],
+    );
+  }
+
+  async replaceVehicleCheckLinkCategories(connection, linkId, entries = []) {
+    await connection.execute(
+      `
+        DELETE FROM event_vehicle_check_link_categories
+        WHERE link_id = ?
+      `,
+      [linkId],
+    );
+
+    for (const entry of entries) {
+      await connection.execute(
+        `
+          INSERT INTO event_vehicle_check_link_categories (
+            link_id,
+            pass_category_id,
+            can_check,
+            can_enter
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+        [
+          linkId,
+          entry.categoryId,
+          entry.canCheck ? 1 : 0,
+          entry.canEnter ? 1 : 0,
+        ],
+      );
+    }
   }
 
   async findByRequestProfileApplicationToken(token) {
