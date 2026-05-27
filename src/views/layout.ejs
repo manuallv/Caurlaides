@@ -53,6 +53,8 @@
     };
     const systemSection = currentPath.startsWith('/system/backups')
       ? 'backups'
+      : currentPath.startsWith('/system/settings/plate-scanner')
+        ? 'plate-scanner'
       : currentPath.startsWith('/system/settings/templates')
         ? 'templates'
         : currentPath.startsWith('/system/settings/test')
@@ -74,7 +76,7 @@
             href: '/system/settings/email',
             label: t('system.settings.title'),
             icon: 'activity',
-            active: ['email', 'test', 'templates'].includes(systemSection),
+            active: ['email', 'test', 'templates', 'plate-scanner'].includes(systemSection),
             children: [
               {
                 href: '/system/settings/email',
@@ -90,6 +92,11 @@
                 href: '/system/settings/templates',
                 label: t('system.settings.nav.templates'),
                 active: systemSection === 'templates',
+              },
+              {
+                href: '/system/settings/plate-scanner',
+                label: t('system.settings.nav.plateScanner'),
+                active: systemSection === 'plate-scanner',
               },
             ],
           },

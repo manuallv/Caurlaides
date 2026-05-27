@@ -237,6 +237,66 @@ function buildSystemController({ systemService }) {
         `/system/settings/templates?template=${encodeURIComponent(templateKey)}&locale=${encodeURIComponent(activeTemplateLocale)}`,
       );
     },
+
+    async showPlateScannerSettings(req, res) {
+      const data = await systemService.getPlateScannerSettings(req.currentUser, req.t);
+
+      return res.render('settings/plate-scanner', {
+        pageTitle: req.t('system.settings.plateScanner.title'),
+        scanner: data,
+        activeEvent: null,
+      });
+    },
+
+    async uploadPlateScannerSample(req, res) {
+      try {
+        await systemService.savePlateScannerSample({
+          file: req.file,
+          plate: req.body.plate,
+          notes: req.body.notes,
+          boxX: req.body.boxX,
+          boxY: req.body.boxY,
+          boxWidth: req.body.boxWidth,
+          boxHeight: req.body.boxHeight,
+        }, req.currentUser, req.t);
+
+        req.flash('success', req.t('system.settings.plateScanner.sampleSaved'));
+      } catch (error) {
+        req.flash('error', error.message || req.t('errors.generic'));
+      }
+
+      return res.redirect('/system/settings/plate-scanner');
+    },
+
+    async exportPlateScannerTrainingDataset(req, res) {
+      const fileName = `caurlaides-plate-scanner-training-${new Date().toISOString().slice(0, 10)}.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      await systemService.exportPlateScannerTrainingDataset(res, req.currentUser, req.t);
+    },
+
+    async uploadPlateScannerModel(req, res) {
+      try {
+        await systemService.installPlateScannerModel(req.files || [], {
+          source: req.body.source,
+          license: req.body.license,
+        }, req.currentUser, req.t);
+
+        req.flash('success', req.t('system.settings.plateScanner.modelSaved'));
+      } catch (error) {
+        req.flash('error', error.message || req.t('errors.generic'));
+      }
+
+      return res.redirect('/system/settings/plate-scanner');
+    },
+
+    async deletePlateScannerModel(req, res) {
+      await systemService.deletePlateScannerModel(req.currentUser, req.t);
+      req.flash('success', req.t('system.settings.plateScanner.modelDeleted'));
+
+      return res.redirect('/system/settings/plate-scanner');
+    },
   };
 }
 

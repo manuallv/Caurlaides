@@ -1,0 +1,172 @@
+<%
+  const model = scanner.model || {};
+  const recentSamples = scanner.recentSamples || [];
+  const formatBytes = (bytes) => {
+    const value = Number(bytes || 0);
+
+    if (!value) {
+      return '0 MB';
+    }
+
+    return `${(value / 1024 / 1024).toFixed(value >= 1024 * 1024 * 100 ? 0 : 1)} MB`;
+  };
+%>
+
+<section class="space-y-6">
+  <section class="shell-card request-profile-editor request-profile-editor--compact plate-scanner-settings">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.eyebrow') %></p>
+        <h1 class="request-profile-editor__title"><%= t('system.settings.plateScanner.title') %></h1>
+        <p class="request-profile-editor__description"><%= t('system.settings.plateScanner.description') %></p>
+      </div>
+      <a href="/system/settings/plate-scanner/export" class="btn-secondary">
+        <%= t('system.settings.plateScanner.exportDataset') %>
+      </a>
+    </div>
+
+    <div class="plate-scanner-settings__grid">
+      <section class="request-profile-quota-card panel">
+        <div class="request-profile-quota-card__head">
+          <div>
+            <h2><%= t('system.settings.plateScanner.modelTitle') %></h2>
+            <p><%= t('system.settings.plateScanner.modelDescription') %></p>
+          </div>
+        </div>
+
+        <div class="plate-scanner-model-status <%= model.hasModel ? 'is-active' : '' %>">
+          <strong>
+            <%= model.hasModel ? t('system.settings.plateScanner.modelActive') : t('system.settings.plateScanner.modelMissing') %>
+          </strong>
+          <% if (model.hasModel) { %>
+            <span>
+              <%= t('system.settings.plateScanner.modelMeta', {
+                files: model.fileCount,
+                size: formatBytes(model.totalBytes),
+              }) %>
+            </span>
+            <% if (model.uploadedAt) { %>
+              <span><%= t('system.settings.plateScanner.modelUploadedAt', { time: helpers.formatDateTime(model.uploadedAt) }) %></span>
+            <% } %>
+            <% if (model.source) { %><span><%= model.source %></span><% } %>
+          <% } else { %>
+            <span><%= t('system.settings.plateScanner.modelMissingHelp') %></span>
+          <% } %>
+        </div>
+
+        <form
+          action="/system/settings/plate-scanner/model"
+          method="POST"
+          enctype="multipart/form-data"
+          class="request-profile-editor__form"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.modelFiles') %></span>
+            <input name="modelFiles" type="file" class="field-input" multiple accept=".json,.bin,.yaml,.txt" required />
+            <span class="field-help"><%= t('system.settings.plateScanner.modelFilesHelp') %></span>
+          </label>
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.modelSource') %></span>
+            <input name="source" type="text" class="field-input" placeholder="TFJS / YOLOv8 / pašu trenēts" />
+          </label>
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.modelLicense') %></span>
+            <input name="license" type="text" class="field-input" placeholder="MIT, privāts, AGPL..." />
+          </label>
+
+          <div class="request-profile-editor__actions">
+            <span class="system-settings-help"><%= t('system.settings.plateScanner.modelUploadHelp') %></span>
+            <button type="submit" class="btn-primary"><%= t('system.settings.plateScanner.uploadModel') %></button>
+          </div>
+        </form>
+
+        <% if (model.hasModel) { %>
+          <form action="/system/settings/plate-scanner/model/delete" method="POST" class="plate-scanner-delete-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button type="submit" class="btn-danger"><%= t('system.settings.plateScanner.deleteModel') %></button>
+          </form>
+        <% } %>
+      </section>
+
+      <section class="request-profile-quota-card panel">
+        <div class="request-profile-quota-card__head">
+          <div>
+            <h2><%= t('system.settings.plateScanner.samplesTitle') %></h2>
+            <p><%= t('system.settings.plateScanner.samplesDescription') %></p>
+          </div>
+        </div>
+
+        <form
+          action="/system/settings/plate-scanner/samples"
+          method="POST"
+          enctype="multipart/form-data"
+          class="request-profile-editor__form"
+          data-plate-scanner-sample-form
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="boxX" data-plate-box-x />
+          <input type="hidden" name="boxY" data-plate-box-y />
+          <input type="hidden" name="boxWidth" data-plate-box-width />
+          <input type="hidden" name="boxHeight" data-plate-box-height />
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.sampleImage') %></span>
+            <input name="image" type="file" class="field-input" accept="image/jpeg,image/png,image/webp" required data-plate-scanner-image-input />
+            <span class="field-help"><%= t('system.settings.plateScanner.sampleImageHelp') %></span>
+          </label>
+
+          <div class="plate-scanner-annotator is-empty" data-plate-scanner-annotator>
+            <img alt="" data-plate-scanner-image-preview />
+            <div class="plate-scanner-annotator__box" data-plate-scanner-box></div>
+            <span><%= t('system.settings.plateScanner.drawBox') %></span>
+          </div>
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.samplePlate') %></span>
+            <input name="plate" type="text" class="field-input" placeholder="LT2581" required />
+          </label>
+
+          <label>
+            <span class="field-label"><%= t('system.settings.plateScanner.sampleNotes') %></span>
+            <textarea name="notes" rows="3" class="field-input" placeholder="<%= t('system.settings.plateScanner.sampleNotesPlaceholder') %>"></textarea>
+          </label>
+
+          <div class="request-profile-editor__actions">
+            <span class="system-settings-help"><%= t('system.settings.plateScanner.samplesHelp') %></span>
+            <button type="submit" class="btn-primary"><%= t('system.settings.plateScanner.saveSample') %></button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <section class="shell-card request-profile-editor request-profile-editor--compact plate-scanner-settings">
+    <div class="request-profile-editor__head">
+      <div>
+        <p class="request-profile-editor__eyebrow"><%= t('system.settings.plateScanner.sampleCount', { count: scanner.sampleCount || 0 }) %></p>
+        <h2 class="request-profile-editor__title"><%= t('system.settings.plateScanner.recentSamples') %></h2>
+      </div>
+    </div>
+
+    <% if (recentSamples.length) { %>
+      <div class="plate-scanner-samples">
+        <% recentSamples.forEach((sample) => { %>
+          <article class="plate-scanner-sample-card">
+            <img src="<%= sample.imageUrl %>" alt="" loading="lazy" />
+            <div>
+              <strong><%= sample.plate %></strong>
+              <span><%= helpers.formatDateTime(sample.createdAt) %></span>
+              <% if (sample.notes) { %><p><%= sample.notes %></p><% } %>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p class="text-sm text-slate-500"><%= t('system.settings.plateScanner.noSamples') %></p>
+    <% } %>
+  </section>
+</section>

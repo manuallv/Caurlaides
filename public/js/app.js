@@ -847,6 +847,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let checkInputToneTimer = null;
   let checkFormCardToneTimer = null;
   let checkScannerScriptPromise = null;
+  let checkScannerTfScriptPromise = null;
+  let checkScannerDetectorModelPromise = null;
+  let checkScannerDetectorAvailable = null;
   let checkScannerWorkerPromise = null;
   let checkScannerStream = null;
   let checkScannerTimer = null;
@@ -854,6 +857,35 @@ document.addEventListener('DOMContentLoaded', () => {
   let checkScannerRecognizing = false;
   let checkScannerLastCandidate = '';
   let checkScannerStableCount = 0;
+  let checkScannerCandidateScores = new Map();
+  const checkScannerLetterCorrections = {
+    0: 'O',
+    1: 'I',
+    2: 'Z',
+    4: 'A',
+    5: 'S',
+    6: 'G',
+    7: 'T',
+    8: 'B',
+  };
+  const checkScannerDigitCorrections = {
+    A: '4',
+    B: '8',
+    D: '0',
+    G: '6',
+    I: '1',
+    L: '1',
+    O: '0',
+    Q: '0',
+    S: '5',
+    T: '7',
+    Z: '2',
+  };
+  const checkScannerCropProfiles = [
+    { width: 0.84, height: 0.24, top: 0.38, weight: 4 },
+    { width: 0.92, height: 0.31, top: 0.345, weight: 2.5 },
+    { width: 0.76, height: 0.2, top: 0.405, weight: 2 },
+  ];
 
   const setCheckFormLoading = (isLoading) => {
     const { submitButtons } = getCheckElements();
@@ -958,6 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
           tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
           tessedit_pageseg_mode: window.Tesseract?.PSM?.SINGLE_LINE || '7',
           preserve_interword_spaces: '0',
+          user_defined_dpi: '300',
         });
 
         return worker;
@@ -967,58 +1000,446 @@ document.addEventListener('DOMContentLoaded', () => {
     return checkScannerWorkerPromise;
   };
 
-  const normalizeScannedPlateCandidate = (value = '') => {
-    const compact = String(value || '')
-      .toUpperCase()
-      .replace(/[|]/g, 'I')
-      .replace(/[^A-Z0-9]/g, '');
-    const matches = compact.match(/[A-Z]{1,3}\d{1,5}/g) || [];
-    const candidate = matches.find((item) => item.length >= 4 && item.length <= 8 && /\d{2,}/.test(item));
-
-    if (!candidate) {
-      return '';
+  const loadCheckScannerDetectorLibrary = () => {
+    if (window.tf?.loadGraphModel) {
+      return Promise.resolve();
     }
 
-    return candidate.replace(/^([A-Z]{1,3})(\d+)$/, '$1-$2');
+    if (!checkScannerTfScriptPromise) {
+      checkScannerTfScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/public/vendor/tfjs/tf.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(getCheckUi().scannerErrorLabel));
+        document.head.appendChild(script);
+      });
+    }
+
+    return checkScannerTfScriptPromise;
   };
 
-  const extractScannedPlate = (text = '') => normalizeScannedPlateCandidate(text);
+  const getCheckScannerDetectorModel = async () => {
+    if (checkScannerDetectorAvailable === false) {
+      return null;
+    }
 
-  const captureCheckScannerFrame = () => {
+    if (!checkScannerDetectorModelPromise) {
+      checkScannerDetectorModelPromise = (async () => {
+        const modelUrl = '/uploads/plate-scanner/model/model.json';
+        const response = await fetch(modelUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'same-origin',
+        }).catch(() => null);
+
+        if (!response?.ok) {
+          checkScannerDetectorAvailable = false;
+          return null;
+        }
+
+        await response.text();
+        await loadCheckScannerDetectorLibrary();
+        const model = await window.tf.loadGraphModel(modelUrl);
+        checkScannerDetectorAvailable = true;
+        return model;
+      })().catch(() => {
+        checkScannerDetectorAvailable = false;
+        return null;
+      });
+    }
+
+    return checkScannerDetectorModelPromise;
+  };
+
+  const calculateCheckScannerIou = (left, right) => {
+    const x1 = Math.max(left.x1, right.x1);
+    const y1 = Math.max(left.y1, right.y1);
+    const x2 = Math.min(left.x2, right.x2);
+    const y2 = Math.min(left.y2, right.y2);
+    const width = Math.max(0, x2 - x1);
+    const height = Math.max(0, y2 - y1);
+    const intersection = width * height;
+    const leftArea = Math.max(0, left.x2 - left.x1) * Math.max(0, left.y2 - left.y1);
+    const rightArea = Math.max(0, right.x2 - right.x1) * Math.max(0, right.y2 - right.y1);
+    const union = leftArea + rightArea - intersection;
+
+    return union > 0 ? intersection / union : 0;
+  };
+
+  const suppressCheckScannerBoxes = (boxes, threshold = 0.24) => {
+    const selected = [];
+
+    boxes
+      .filter((box) => box.score >= 0.32)
+      .sort((left, right) => right.score - left.score)
+      .forEach((box) => {
+        if (selected.every((existing) => calculateCheckScannerIou(existing, box) < threshold)) {
+          selected.push(box);
+        }
+      });
+
+    return selected;
+  };
+
+  const setCheckScannerDetectedBox = (box = null) => {
+    const { scannerFrame, scannerVideo } = getCheckElements();
+
+    if (!scannerFrame || !scannerVideo || !box) {
+      if (scannerFrame) {
+        scannerFrame.classList.remove('is-detected');
+        scannerFrame.style.left = '';
+        scannerFrame.style.top = '';
+        scannerFrame.style.width = '';
+        scannerFrame.style.height = '';
+        scannerFrame.style.right = '';
+      }
+      return;
+    }
+
+    const viewport = scannerFrame.parentElement;
+
+    if (!viewport) {
+      return;
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const scale = Math.max(
+      viewportRect.width / scannerVideo.videoWidth,
+      viewportRect.height / scannerVideo.videoHeight,
+    );
+    const displayWidth = scannerVideo.videoWidth * scale;
+    const displayHeight = scannerVideo.videoHeight * scale;
+    const offsetX = (viewportRect.width - displayWidth) / 2;
+    const offsetY = (viewportRect.height - displayHeight) / 2;
+    const left = offsetX + (box.x1 * scale);
+    const top = offsetY + (box.y1 * scale);
+    const width = Math.max(44, (box.x2 - box.x1) * scale);
+    const height = Math.max(24, (box.y2 - box.y1) * scale);
+
+    scannerFrame.classList.add('is-detected');
+    scannerFrame.style.right = 'auto';
+    scannerFrame.style.left = `${clampCheckScannerValue(left, 0, viewportRect.width - 12)}px`;
+    scannerFrame.style.top = `${clampCheckScannerValue(top, 0, viewportRect.height - 12)}px`;
+    scannerFrame.style.width = `${clampCheckScannerValue(width, 44, viewportRect.width)}px`;
+    scannerFrame.style.height = `${clampCheckScannerValue(height, 24, viewportRect.height)}px`;
+  };
+
+  const detectCheckScannerPlateBox = async () => {
+    const { scannerVideo } = getCheckElements();
+
+    if (!scannerVideo?.videoWidth || !scannerVideo?.videoHeight) {
+      return null;
+    }
+
+    const model = await getCheckScannerDetectorModel();
+
+    if (!model || !window.tf) {
+      return null;
+    }
+
+    const inputSize = 416;
+    const inputCanvas = createCheckScannerCanvas(inputSize, inputSize);
+    const inputContext = inputCanvas.getContext('2d', { willReadFrequently: true });
+    inputContext.drawImage(scannerVideo, 0, 0, inputSize, inputSize);
+
+    let output = null;
+    let transposed = null;
+
+    try {
+      const input = window.tf.tidy(() => window.tf.browser
+        .fromPixels(inputCanvas)
+        .toFloat()
+        .div(255)
+        .expandDims(0));
+      const rawOutput = await model.executeAsync?.(input) || model.execute(input);
+
+      input.dispose();
+      output = Array.isArray(rawOutput) ? rawOutput[0] : rawOutput;
+
+      if (!output?.shape || output.shape.length < 3) {
+        if (Array.isArray(rawOutput)) {
+          rawOutput.forEach((tensor) => tensor?.dispose?.());
+        } else {
+          rawOutput?.dispose?.();
+        }
+        return null;
+      }
+
+      transposed = output.shape[1] <= 8
+        ? output.transpose([0, 2, 1])
+        : output;
+
+      const rows = (await transposed.array())[0] || [];
+      const boxes = rows
+        .map((row) => {
+          const score = Math.max(...row.slice(4).map(Number));
+
+          if (!Number.isFinite(score)) {
+            return null;
+          }
+
+          const cx = Number(row[0]);
+          const cy = Number(row[1]);
+          const width = Number(row[2]);
+          const height = Number(row[3]);
+
+          return {
+            x1: clampCheckScannerValue((cx - (width / 2)) * scannerVideo.videoWidth / inputSize, 0, scannerVideo.videoWidth),
+            y1: clampCheckScannerValue((cy - (height / 2)) * scannerVideo.videoHeight / inputSize, 0, scannerVideo.videoHeight),
+            x2: clampCheckScannerValue((cx + (width / 2)) * scannerVideo.videoWidth / inputSize, 0, scannerVideo.videoWidth),
+            y2: clampCheckScannerValue((cy + (height / 2)) * scannerVideo.videoHeight / inputSize, 0, scannerVideo.videoHeight),
+            score,
+          };
+        })
+        .filter((box) => box && box.x2 - box.x1 > 16 && box.y2 - box.y1 > 8);
+
+      return suppressCheckScannerBoxes(boxes)[0] || null;
+    } finally {
+      if (transposed && transposed !== output) {
+        transposed.dispose();
+      }
+      output?.dispose?.();
+    }
+  };
+
+  const normalizeScannedPlateCandidate = (value = '') => String(value || '')
+    .toUpperCase()
+    .replace(/[|]/g, 'I')
+    .replace(/[^A-Z0-9]/g, '');
+
+  const mapCheckScannerLetter = (character) => (
+    /[A-Z]/.test(character) ? character : checkScannerLetterCorrections[character] || ''
+  );
+
+  const mapCheckScannerDigit = (character) => (
+    /\d/.test(character) ? character : checkScannerDigitCorrections[character] || ''
+  );
+
+  const scoreScannedPlateParts = (rawToken, prefixLength, letters, digits) => {
+    let score = 0;
+
+    score += prefixLength === 2 ? 6 : 1;
+    score += digits.length >= 3 && digits.length <= 4 ? 5 : 1;
+    score += /^[A-Z]/.test(rawToken) ? 1.2 : 0;
+    score += /\d$/.test(rawToken) ? 1.2 : 0;
+    score += [...rawToken.slice(0, prefixLength)].filter((character) => /[A-Z]/.test(character)).length * 0.8;
+    score += [...rawToken.slice(prefixLength)].filter((character) => /\d/.test(character)).length * 0.8;
+
+    if (/^[A-Z]{2}\d{3,4}$/.test(`${letters}${digits}`)) {
+      score += 4;
+    }
+
+    return score;
+  };
+
+  const buildScannedPlateCandidateFromToken = (rawToken = '') => {
+    const token = normalizeScannedPlateCandidate(rawToken);
+
+    if (token.length < 4 || token.length > 8) {
+      return null;
+    }
+
+    const candidates = [];
+
+    for (let prefixLength = 1; prefixLength <= 3; prefixLength += 1) {
+      const digitLength = token.length - prefixLength;
+
+      if (digitLength < 2 || digitLength > 5) {
+        continue;
+      }
+
+      const rawLetters = token.slice(0, prefixLength);
+      const rawDigits = token.slice(prefixLength);
+      const letters = [...rawLetters].map(mapCheckScannerLetter).join('');
+      const digits = [...rawDigits].map(mapCheckScannerDigit).join('');
+
+      if (!/^[A-Z]{1,3}$/.test(letters) || !/^\d{2,5}$/.test(digits)) {
+        continue;
+      }
+
+      candidates.push({
+        plate: `${letters}-${digits}`,
+        score: scoreScannedPlateParts(token, prefixLength, letters, digits),
+      });
+    }
+
+    return candidates.sort((left, right) => right.score - left.score)[0] || null;
+  };
+
+  const extractScannedPlate = (text = '') => {
+    const rawText = String(text || '').toUpperCase();
+    const compact = normalizeScannedPlateCandidate(rawText);
+    const tokens = [
+      ...rawText.split(/[^A-Z0-9]+/i),
+      compact,
+    ]
+      .map(normalizeScannedPlateCandidate)
+      .filter((token, index, items) => token.length >= 4 && items.indexOf(token) === index);
+    const tokenWindows = [];
+
+    tokens.forEach((token) => {
+      if (token.length <= 8) {
+        tokenWindows.push(token);
+        return;
+      }
+
+      for (let start = 0; start <= token.length - 4; start += 1) {
+        for (let length = 4; length <= 8 && start + length <= token.length; length += 1) {
+          tokenWindows.push(token.slice(start, start + length));
+        }
+      }
+    });
+
+    return tokenWindows
+      .map(buildScannedPlateCandidateFromToken)
+      .filter(Boolean)
+      .sort((left, right) => right.score - left.score)[0] || null;
+  };
+
+  const createCheckScannerCanvas = (width, height) => {
+    const canvas = document.createElement('canvas');
+
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  };
+
+  const clampCheckScannerValue = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const applyCheckScannerPreprocessing = (sourceCanvas, mode = 'contrast') => {
+    const canvas = createCheckScannerCanvas(sourceCanvas.width, sourceCanvas.height);
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+
+    context.drawImage(sourceCanvas, 0, 0);
+
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const { data } = imageData;
+    const grayscaleValues = [];
+
+    for (let index = 0; index < data.length; index += 4) {
+      const grayscale = (data[index] * 0.299) + (data[index + 1] * 0.587) + (data[index + 2] * 0.114);
+      grayscaleValues.push(grayscale);
+    }
+
+    const average = grayscaleValues.reduce((sum, value) => sum + value, 0) / Math.max(grayscaleValues.length, 1);
+    const threshold = mode === 'binary-light'
+      ? average + 12
+      : mode === 'binary-dark'
+        ? average - 18
+        : average;
+
+    for (let pixelIndex = 0, grayIndex = 0; pixelIndex < data.length; pixelIndex += 4, grayIndex += 1) {
+      const grayscale = grayscaleValues[grayIndex] || 0;
+      let value = grayscale;
+
+      if (mode === 'binary-light' || mode === 'binary-dark') {
+        value = grayscale > threshold ? 255 : 0;
+      } else {
+        value = clampCheckScannerValue(((grayscale - average) * 2.15) + 150, 0, 255);
+      }
+
+      data[pixelIndex] = value;
+      data[pixelIndex + 1] = value;
+      data[pixelIndex + 2] = value;
+    }
+
+    context.putImageData(imageData, 0, 0);
+    return canvas;
+  };
+
+  const buildCheckScannerFramesFromBox = (box, weight = 8) => {
     const { scannerVideo, scannerCanvas } = getCheckElements();
 
     if (!scannerVideo || !scannerCanvas || !scannerVideo.videoWidth || !scannerVideo.videoHeight) {
-      return null;
+      return [];
     }
 
     const videoWidth = scannerVideo.videoWidth;
     const videoHeight = scannerVideo.videoHeight;
-    const cropWidth = Math.round(videoWidth * 0.84);
-    const cropHeight = Math.round(videoHeight * 0.24);
-    const sourceX = Math.round((videoWidth - cropWidth) / 2);
-    const sourceY = Math.round(videoHeight * 0.38);
-    const targetWidth = 920;
-    const targetHeight = Math.max(190, Math.round((targetWidth * cropHeight) / cropWidth));
-    const context = scannerCanvas.getContext('2d', { willReadFrequently: true });
+    const boxWidth = Math.max(1, box.x2 - box.x1);
+    const boxHeight = Math.max(1, box.y2 - box.y1);
+    const padX = boxWidth * 0.24;
+    const padY = boxHeight * 0.52;
+    const sourceX = Math.round(clampCheckScannerValue(box.x1 - padX, 0, videoWidth - 2));
+    const sourceY = Math.round(clampCheckScannerValue(box.y1 - padY, 0, videoHeight - 2));
+    const sourceX2 = Math.round(clampCheckScannerValue(box.x2 + padX, sourceX + 2, videoWidth));
+    const sourceY2 = Math.round(clampCheckScannerValue(box.y2 + padY, sourceY + 2, videoHeight));
+    const cropWidth = sourceX2 - sourceX;
+    const cropHeight = sourceY2 - sourceY;
+    const targetWidth = 1180;
+    const targetHeight = Math.max(180, Math.round((targetWidth * cropHeight) / cropWidth));
+    const baseCanvas = createCheckScannerCanvas(targetWidth, targetHeight);
+    const baseContext = baseCanvas.getContext('2d', { willReadFrequently: true });
 
-    scannerCanvas.width = targetWidth;
-    scannerCanvas.height = targetHeight;
-    context.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+    baseContext.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
 
-    const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
-    const { data } = imageData;
+    return [
+      {
+        canvas: applyCheckScannerPreprocessing(baseCanvas, 'contrast'),
+        weight: weight + 2,
+      },
+      {
+        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-light'),
+        weight,
+      },
+      {
+        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-dark'),
+        weight: weight - 0.5,
+      },
+    ];
+  };
 
-    for (let index = 0; index < data.length; index += 4) {
-      const grayscale = (data[index] * 0.299) + (data[index + 1] * 0.587) + (data[index + 2] * 0.114);
-      const contrasted = Math.max(0, Math.min(255, ((grayscale - 128) * 1.75) + 128));
+  const captureCheckScannerFrames = async () => {
+    const { scannerVideo, scannerCanvas } = getCheckElements();
 
-      data[index] = contrasted;
-      data[index + 1] = contrasted;
-      data[index + 2] = contrasted;
+    if (!scannerVideo || !scannerCanvas || !scannerVideo.videoWidth || !scannerVideo.videoHeight) {
+      return [];
     }
 
-    context.putImageData(imageData, 0, 0);
-    return scannerCanvas;
+    const videoWidth = scannerVideo.videoWidth;
+    const videoHeight = scannerVideo.videoHeight;
+    const frames = [];
+
+    const detectedBox = await detectCheckScannerPlateBox();
+
+    if (detectedBox) {
+      setCheckScannerDetectedBox(detectedBox);
+      frames.push(...buildCheckScannerFramesFromBox(detectedBox, 9));
+    } else {
+      setCheckScannerDetectedBox(null);
+    }
+
+    checkScannerCropProfiles.forEach((profile, profileIndex) => {
+      const cropWidth = Math.round(videoWidth * profile.width);
+      const cropHeight = Math.round(videoHeight * profile.height);
+      const sourceX = Math.round((videoWidth - cropWidth) / 2);
+      const sourceY = Math.round(clampCheckScannerValue(videoHeight * profile.top, 0, videoHeight - cropHeight));
+      const targetWidth = profileIndex === 0 ? 1120 : 960;
+      const targetHeight = Math.max(180, Math.round((targetWidth * cropHeight) / cropWidth));
+      const baseCanvas = createCheckScannerCanvas(targetWidth, targetHeight);
+      const baseContext = baseCanvas.getContext('2d', { willReadFrequently: true });
+
+      baseContext.drawImage(scannerVideo, sourceX, sourceY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+
+      frames.push({
+        canvas: applyCheckScannerPreprocessing(baseCanvas, 'contrast'),
+        weight: profile.weight + 1,
+      });
+      frames.push({
+        canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-light'),
+        weight: profile.weight,
+      });
+
+      if (profileIndex === 0) {
+        frames.push({
+          canvas: applyCheckScannerPreprocessing(baseCanvas, 'binary-dark'),
+          weight: profile.weight - 0.5,
+        });
+      }
+    });
+
+    return frames;
   };
 
   const closeCheckScanner = () => {
@@ -1028,6 +1449,9 @@ document.addEventListener('DOMContentLoaded', () => {
     checkScannerRecognizing = false;
     window.clearTimeout(checkScannerTimer);
     checkScannerTimer = null;
+    checkScannerCandidateScores = new Map();
+    checkScannerLastCandidate = '';
+    checkScannerStableCount = 0;
 
     if (checkScannerStream) {
       checkScannerStream.getTracks().forEach((track) => track.stop());
@@ -1045,6 +1469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.body.classList.remove('is-check-scanner-open');
+    setCheckScannerDetectedBox(null);
     setCheckScannerCandidate('', false);
   };
 
@@ -1079,15 +1504,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const decayCheckScannerScores = () => {
+    checkScannerCandidateScores.forEach((score, plate) => {
+      const nextScore = score * 0.64;
+
+      if (nextScore < 4) {
+        checkScannerCandidateScores.delete(plate);
+      } else {
+        checkScannerCandidateScores.set(plate, nextScore);
+      }
+    });
+  };
+
+  const addCheckScannerCandidateScore = (candidate, confidence = 0, frameWeight = 0) => {
+    const plate = candidate?.plate || '';
+
+    if (!plate) {
+      return 0;
+    }
+
+    const normalizedConfidence = clampCheckScannerValue(Number(confidence || 0), 0, 100);
+    const nextScore = (checkScannerCandidateScores.get(plate) || 0)
+      + Number(candidate.score || 0)
+      + Number(frameWeight || 0)
+      + (normalizedConfidence / 18);
+
+    checkScannerCandidateScores.set(plate, nextScore);
+    return nextScore;
+  };
+
+  const getBestCheckScannerCandidate = () => [...checkScannerCandidateScores.entries()]
+    .sort((left, right) => right[1] - left[1])[0] || null;
+
   async function runCheckScannerScan() {
     if (!checkScannerActive || checkScannerRecognizing) {
       return;
     }
 
     const ui = getCheckUi();
-    const frameCanvas = captureCheckScannerFrame();
+    const frameCanvases = (await captureCheckScannerFrames()).slice(0, 6);
 
-    if (!frameCanvas) {
+    if (!frameCanvases.length) {
       scheduleCheckScannerScan(320);
       return;
     }
@@ -1097,20 +1554,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const worker = await getCheckScannerWorker();
-      const result = await worker.recognize(frameCanvas);
-      const candidate = extractScannedPlate(result?.data?.text || '');
+      const frameHits = new Map();
 
-      if (candidate) {
-        checkScannerStableCount = candidate === checkScannerLastCandidate ? checkScannerStableCount + 1 : 1;
-        checkScannerLastCandidate = candidate;
-        setCheckScannerCandidate(candidate, true);
-        setCheckScannerStatus(formatCheckScannerLabel(ui.scannerFoundLabel, { plate: candidate }));
+      for (const frame of frameCanvases) {
+        if (!checkScannerActive) {
+          return;
+        }
 
-        if (checkScannerStableCount >= 2 || Number(result?.data?.confidence || 0) >= 78) {
-          completeCheckScanner(candidate);
+        const result = await worker.recognize(frame.canvas);
+        const data = result?.data || {};
+        const candidate = extractScannedPlate([
+          data.text || '',
+          ...(data.words || []).map((word) => word.text || ''),
+        ].join(' '));
+
+        if (!candidate?.plate) {
+          continue;
+        }
+
+        addCheckScannerCandidateScore(candidate, data.confidence, frame.weight);
+        frameHits.set(candidate.plate, (frameHits.get(candidate.plate) || 0) + 1);
+      }
+
+      const bestCandidate = getBestCheckScannerCandidate();
+
+      if (bestCandidate) {
+        const [plate, score] = bestCandidate;
+        const hits = frameHits.get(plate) || 0;
+
+        checkScannerStableCount = plate === checkScannerLastCandidate ? checkScannerStableCount + 1 : 1;
+        checkScannerLastCandidate = plate;
+        setCheckScannerCandidate(plate, true);
+        setCheckScannerStatus(formatCheckScannerLabel(ui.scannerFoundLabel, { plate }));
+
+        if (
+          (hits >= 2 && score >= 34)
+          || (checkScannerStableCount >= 2 && score >= 42)
+          || score >= 58
+        ) {
+          completeCheckScanner(plate);
           return;
         }
       } else {
+        decayCheckScannerScores();
         checkScannerStableCount = 0;
         checkScannerLastCandidate = '';
         setCheckScannerCandidate('', false);
@@ -1436,6 +1922,174 @@ document.addEventListener('DOMContentLoaded', () => {
       scannerOpenButton.title = ui.scannerUnsupportedLabel;
       scannerOpenButton.setAttribute('aria-label', ui.scannerUnsupportedLabel);
     }
+  };
+
+  const initializePlateScannerSettings = () => {
+    const form = document.querySelector('[data-plate-scanner-sample-form]');
+
+    if (!form || form.dataset.plateScannerInitialized === 'true') {
+      return;
+    }
+
+    form.dataset.plateScannerInitialized = 'true';
+
+    const fileInput = form.querySelector('[data-plate-scanner-image-input]');
+    const annotator = form.querySelector('[data-plate-scanner-annotator]');
+    const image = form.querySelector('[data-plate-scanner-image-preview]');
+    const box = form.querySelector('[data-plate-scanner-box]');
+    const boxInputs = {
+      x: form.querySelector('[data-plate-box-x]'),
+      y: form.querySelector('[data-plate-box-y]'),
+      width: form.querySelector('[data-plate-box-width]'),
+      height: form.querySelector('[data-plate-box-height]'),
+    };
+    let previewUrl = '';
+    let dragStart = null;
+
+    const setBoxInputs = (nextBox = null) => {
+      Object.values(boxInputs).forEach((input) => {
+        if (input) {
+          input.value = '';
+        }
+      });
+
+      if (!nextBox) {
+        annotator?.classList.remove('has-box');
+        return;
+      }
+
+      boxInputs.x.value = nextBox.x.toFixed(6);
+      boxInputs.y.value = nextBox.y.toFixed(6);
+      boxInputs.width.value = nextBox.width.toFixed(6);
+      boxInputs.height.value = nextBox.height.toFixed(6);
+      annotator?.classList.add('has-box');
+    };
+
+    const getAnnotatorPoint = (event) => {
+      if (!annotator || !image?.src) {
+        return null;
+      }
+
+      const imageRect = image.getBoundingClientRect();
+
+      if (!imageRect.width || !imageRect.height) {
+        return null;
+      }
+
+      return {
+        x: clampCheckScannerValue((event.clientX - imageRect.left) / imageRect.width, 0, 1),
+        y: clampCheckScannerValue((event.clientY - imageRect.top) / imageRect.height, 0, 1),
+      };
+    };
+
+    const renderAnnotationBox = (nextBox = null) => {
+      if (!box || !annotator || !image || !nextBox) {
+        setBoxInputs(null);
+        return;
+      }
+
+      const annotatorRect = annotator.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+      const left = (imageRect.left - annotatorRect.left) + (nextBox.x * imageRect.width);
+      const top = (imageRect.top - annotatorRect.top) + (nextBox.y * imageRect.height);
+
+      box.style.left = `${left}px`;
+      box.style.top = `${top}px`;
+      box.style.width = `${nextBox.width * imageRect.width}px`;
+      box.style.height = `${nextBox.height * imageRect.height}px`;
+      setBoxInputs(nextBox);
+    };
+
+    const handleDragMove = (event) => {
+      if (!dragStart) {
+        return;
+      }
+
+      const point = getAnnotatorPoint(event);
+
+      if (!point) {
+        return;
+      }
+
+      const nextBox = {
+        x: Math.min(dragStart.x, point.x),
+        y: Math.min(dragStart.y, point.y),
+        width: Math.abs(point.x - dragStart.x),
+        height: Math.abs(point.y - dragStart.y),
+      };
+
+      renderAnnotationBox(nextBox);
+    };
+
+    fileInput?.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        previewUrl = '';
+      }
+
+      setBoxInputs(null);
+
+      if (!file || !image || !annotator) {
+        annotator?.classList.add('is-empty');
+        return;
+      }
+
+      previewUrl = URL.createObjectURL(file);
+      image.src = previewUrl;
+      image.onload = () => {
+        annotator.classList.remove('is-empty');
+      };
+    });
+
+    annotator?.addEventListener('pointerdown', (event) => {
+      if (!image?.src || annotator.classList.contains('is-empty')) {
+        return;
+      }
+
+      event.preventDefault();
+      dragStart = getAnnotatorPoint(event);
+      annotator.setPointerCapture?.(event.pointerId);
+    });
+
+    annotator?.addEventListener('pointermove', handleDragMove);
+
+    const endDrag = (event) => {
+      if (!dragStart) {
+        return;
+      }
+
+      handleDragMove(event);
+      dragStart = null;
+      annotator.releasePointerCapture?.(event.pointerId);
+
+      if (Number(boxInputs.width?.value || 0) < 0.01 || Number(boxInputs.height?.value || 0) < 0.01) {
+        setBoxInputs(null);
+      }
+    };
+
+    annotator?.addEventListener('pointerup', endDrag);
+    annotator?.addEventListener('pointercancel', endDrag);
+    window.addEventListener('resize', () => {
+      if (boxInputs.width?.value) {
+        renderAnnotationBox({
+          x: Number(boxInputs.x.value),
+          y: Number(boxInputs.y.value),
+          width: Number(boxInputs.width.value),
+          height: Number(boxInputs.height.value),
+        });
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+      if (!boxInputs.width?.value || !boxInputs.height?.value) {
+        event.preventDefault();
+        annotator?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        annotator?.classList.add('is-error');
+        window.setTimeout(() => annotator?.classList.remove('is-error'), 1200);
+      }
+    });
   };
 
   const getPassPrintElements = () => {
@@ -7256,6 +7910,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeRequestProfileUI();
     initializeSystemEmailSettings();
     initializeSystemTemplateTabs();
+    initializePlateScannerSettings();
   });
 
   initializeEventDashboardTabs();
@@ -7266,4 +7921,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeRequestProfileUI();
   initializeSystemEmailSettings();
   initializeSystemTemplateTabs();
+  initializePlateScannerSettings();
 });

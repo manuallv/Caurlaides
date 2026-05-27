@@ -19,6 +19,8 @@
     "design:sync": "node scripts/sync-design-assets.js"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "archiver": "^8.0.0",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
     "connect-flash": "^0.1.1",
