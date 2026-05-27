@@ -1,9 +1,22 @@
 <!DOCTYPE html>
 <html lang="<%= locale %>">
   <head>
+    <%
+      const rawPageTitle = typeof pageTitle === 'undefined' ? '' : pageTitle;
+      const resolvedTitle = rawPageTitle ? `${rawPageTitle} | ${t('app.titleSuffix')}` : t('app.titleSuffix');
+      const resolvedMetaTitle = typeof metaTitle !== 'undefined' && metaTitle ? metaTitle : resolvedTitle;
+      const resolvedMetaDescription = typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : '';
+    %>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle ? `${pageTitle} | ${t('app.titleSuffix')}` : t('app.titleSuffix') %></title>
+    <title><%= resolvedTitle %></title>
+    <meta property="og:title" content="<%= resolvedMetaTitle %>" />
+    <meta name="twitter:title" content="<%= resolvedMetaTitle %>" />
+    <% if (resolvedMetaDescription) { %>
+      <meta name="description" content="<%= resolvedMetaDescription %>" />
+      <meta property="og:description" content="<%= resolvedMetaDescription %>" />
+      <meta name="twitter:description" content="<%= resolvedMetaDescription %>" />
+    <% } %>
     <link rel="icon" type="image/svg+xml" href="/public/favicon.svg?v=<%= assetVersion %>" />
     <link rel="stylesheet" href="/public/css/app.css?v=<%= assetVersion %>" />
     <link rel="stylesheet" href="/public/css/worldnic-theme.css?v=<%= assetVersion %>" />

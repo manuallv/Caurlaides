@@ -228,7 +228,7 @@ function resolveVehicleCheckLinkAccessDecision(linkContext, categoryId, directio
 
   if (direction === 'exit') {
     return {
-      allowed: permission.allowed && (permission.canCheck || permission.canEnter),
+      allowed: permission.allowed && permission.canEnter,
     };
   }
 
@@ -4484,99 +4484,107 @@ class AccessService {
       throw new AppError(tx('service.vehicleEntry.notFound'), 404);
     }
 
-    if (matches.length > 1) {
-      throw new AppError(tx('service.vehicleEntry.multipleMatches'), 409);
-    }
-
-    const existingRequest = matches[0];
-    const alreadyEntered = Boolean(existingRequest.entered_at);
-    const linkAccessDecision = resolveVehicleCheckLinkAccessDecision(
+    const allowedMatches = matches.filter((request) => resolveVehicleCheckLinkAccessDecision(
       options.vehicleCheckLink,
-      existingRequest.category_id,
+      request.category_id,
       direction,
-    );
+    ).allowed);
 
-    if (!linkAccessDecision.allowed) {
+    if (!allowedMatches.length) {
       throw new AppError(tx('service.vehicleEntry.notAllowedAtGate'), 403);
     }
 
-    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
-      existingRequest.category_id,
-      direction,
-      tx,
-    );
+    if (allowedMatches.length > 1 && !options.allowMultipleVehicleMatches) {
+      throw new AppError(tx('service.vehicleEntry.multipleMatches'), 409);
+    }
 
-    if (!entryWindowDecision.allowed) {
-      throw new AppError(entryWindowDecision.message, 409);
+    const targetRequests = options.allowMultipleVehicleMatches ? allowedMatches : [allowedMatches[0]];
+
+    for (const request of targetRequests) {
+      const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+        request.category_id,
+        direction,
+        tx,
+      );
+
+      if (!entryWindowDecision.allowed) {
+        throw new AppError(entryWindowDecision.message, 409);
+      }
     }
 
     const connection = await this.pool.getConnection();
 
     try {
       await connection.beginTransaction();
-      await this.requestRepository.registerPassVehicleMovement(connection, existingRequest.id, {
-        eventId,
-        vehiclePlate: existingRequest.vehicle_plate || vehiclePlate,
-        vehiclePlateNormalized,
-        gateName,
-        source,
-        metadata,
-        direction,
-        statusUpdatedByUserId: options.actorId || null,
-      });
 
-      await this.auditLogService.record(
-        {
+      for (const existingRequest of targetRequests) {
+        const alreadyEntered = Boolean(existingRequest.entered_at);
+
+        await this.requestRepository.registerPassVehicleMovement(connection, existingRequest.id, {
           eventId,
-          userId: options.actorId || null,
-          entityType: 'pass_request',
-          entityId: existingRequest.id,
-          action: 'movement_registered',
-          message: translate(
-            DEFAULT_LOCALE,
-            direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
-            {
-              plate: existingRequest.vehicle_plate || vehiclePlate,
-              name: existingRequest.full_name,
+          vehiclePlate: existingRequest.vehicle_plate || vehiclePlate,
+          vehiclePlateNormalized,
+          gateName,
+          source,
+          metadata,
+          direction,
+          statusUpdatedByUserId: options.actorId || null,
+        });
+
+        await this.auditLogService.record(
+          {
+            eventId,
+            userId: options.actorId || null,
+            entityType: 'pass_request',
+            entityId: existingRequest.id,
+            action: 'movement_registered',
+            message: translate(
+              DEFAULT_LOCALE,
+              direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+              {
+                plate: existingRequest.vehicle_plate || vehiclePlate,
+                name: existingRequest.full_name,
+              },
+            ),
+            beforeState: {
+              enteredAt: existingRequest.entered_at || null,
+              lastEntryAt: existingRequest.last_entry_at || null,
+              lastExitAt: existingRequest.last_exit_at || null,
             },
-          ),
-          beforeState: {
-            enteredAt: existingRequest.entered_at || null,
-            lastEntryAt: existingRequest.last_entry_at || null,
-            lastExitAt: existingRequest.last_exit_at || null,
-          },
-          afterState: {
-            plate: existingRequest.vehicle_plate || vehiclePlate,
-            direction,
-            gateName,
-            source,
-            cameraName: metadata?.cameraName || null,
-            seenAt: metadata?.seenAt || null,
-            confidence: Number.isFinite(Number(metadata?.confidence)) ? Number(metadata.confidence) : null,
-            vehicleConfidence: Number.isFinite(Number(metadata?.vehicleConfidence)) ? Number(metadata.vehicleConfidence) : null,
-            alreadyEntered,
-            lockedByEntry: true,
-          },
-          metadata: buildRequestHistoryAuditMetadata(
-            direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
-            {
+            afterState: {
               plate: existingRequest.vehicle_plate || vehiclePlate,
-              name: existingRequest.full_name,
-            },
-            {
-              historyKind: 'movement',
-              source: metadata?.historyOrigin || source,
               direction,
               gateName,
+              source,
               cameraName: metadata?.cameraName || null,
               seenAt: metadata?.seenAt || null,
               confidence: Number.isFinite(Number(metadata?.confidence)) ? Number(metadata.confidence) : null,
               vehicleConfidence: Number.isFinite(Number(metadata?.vehicleConfidence)) ? Number(metadata.vehicleConfidence) : null,
+              alreadyEntered,
+              lockedByEntry: true,
             },
-          ),
-        },
-        connection,
-      );
+            metadata: buildRequestHistoryAuditMetadata(
+              direction === 'exit' ? 'audit.message.vehicleExitRegistered' : 'audit.message.vehicleEntryRegistered',
+              {
+                plate: existingRequest.vehicle_plate || vehiclePlate,
+                name: existingRequest.full_name,
+              },
+              {
+                historyKind: 'movement',
+                source: metadata?.historyOrigin || source,
+                direction,
+                gateName,
+                cameraName: metadata?.cameraName || null,
+                seenAt: metadata?.seenAt || null,
+                confidence: Number.isFinite(Number(metadata?.confidence)) ? Number(metadata.confidence) : null,
+                vehicleConfidence: Number.isFinite(Number(metadata?.vehicleConfidence)) ? Number(metadata.vehicleConfidence) : null,
+                affectedRequestCount: targetRequests.length,
+              },
+            ),
+          },
+          connection,
+        );
+      }
 
       await connection.commit();
     } catch (error) {
@@ -4586,16 +4594,22 @@ class AccessService {
       connection.release();
     }
 
-    const request = await this.requestRepository.findById('pass', existingRequest.id);
+    const requests = await Promise.all(
+      targetRequests.map((request) => this.requestRepository.findById('pass', request.id)),
+    );
+    const request = requests[0];
     const currentPresence = resolveVehiclePresenceStatus(request);
+    const performedAt = direction === 'exit' ? request.last_exit_at : request.last_entry_at;
 
     return {
       eventId,
       request,
+      requests,
+      affectedCount: requests.length,
       direction,
-      alreadyEntered,
+      alreadyEntered: targetRequests.every((targetRequest) => Boolean(targetRequest.entered_at)),
       currentPresence,
-      performedAt: direction === 'exit' ? request.last_exit_at : request.last_entry_at,
+      performedAt,
     };
   }
 
@@ -4640,7 +4654,13 @@ class AccessService {
       };
     }
 
-    if (matches.length > 1) {
+    const allowedMatches = matches.filter((request) => resolveVehicleCheckLinkAccessDecision(
+      options.vehicleCheckLink,
+      request.category_id,
+      direction,
+    ).allowed);
+
+    if (matches.length > 1 && !options.allowMultipleVehicleMatches) {
       return {
         eventId,
         allowed: false,
@@ -4653,43 +4673,41 @@ class AccessService {
       };
     }
 
-    const request = await this.requestRepository.findById('pass', matches[0].id);
-    const linkAccessDecision = resolveVehicleCheckLinkAccessDecision(
-      options.vehicleCheckLink,
-      request?.category_id,
-      direction,
-    );
-
-    if (!linkAccessDecision.allowed) {
+    if (!allowedMatches.length) {
       return {
         eventId,
         allowed: false,
         decision: 'denied',
         reason: 'not_allowed_at_gate',
-        checkedPlate: request?.vehicle_plate || vehiclePlate,
+        checkedPlate: vehiclePlate,
         message: tx('service.vehicleEntry.notAllowedAtGate'),
-        request,
-        currentPresence: resolveVehiclePresenceStatus(request),
+        request: null,
+        currentPresence: 'unknown',
       };
     }
 
-    const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
-      request?.category_id,
-      direction,
-      tx,
-    );
+    const targetMatches = options.allowMultipleVehicleMatches ? allowedMatches : [allowedMatches[0]];
+    const request = await this.requestRepository.findById('pass', targetMatches[0].id);
 
-    if (!entryWindowDecision.allowed) {
-      return {
-        eventId,
-        allowed: false,
-        decision: 'denied',
-        reason: 'outside_entry_window',
-        checkedPlate: request?.vehicle_plate || vehiclePlate,
-        message: entryWindowDecision.message,
-        request,
-        currentPresence: resolveVehiclePresenceStatus(request),
-      };
+    for (const targetMatch of targetMatches) {
+      const entryWindowDecision = await this.getPassCategoryEntryWindowDecision(
+        targetMatch.category_id,
+        direction,
+        tx,
+      );
+
+      if (!entryWindowDecision.allowed) {
+        return {
+          eventId,
+          allowed: false,
+          decision: 'denied',
+          reason: 'outside_entry_window',
+          checkedPlate: request?.vehicle_plate || vehiclePlate,
+          message: entryWindowDecision.message,
+          request,
+          currentPresence: resolveVehiclePresenceStatus(request),
+        };
+      }
     }
 
     return {
@@ -4700,6 +4718,7 @@ class AccessService {
       checkedPlate: request?.vehicle_plate || vehiclePlate,
       message: tx('service.vehicleEntry.allowed'),
       request,
+      affectedCount: targetMatches.length,
       currentPresence: resolveVehiclePresenceStatus(request),
     };
   }
@@ -5015,6 +5034,10 @@ class AccessService {
           currentPresence: result.currentPresence || 'unknown',
           performedAt: movement.performedAt || null,
           debounceSeconds,
+          affectedRequestCount: Number(result.affectedCount || 0),
+          affectedRequestIds: Array.isArray(result.requests)
+            ? result.requests.map((request) => Number(request.id)).filter(Boolean)
+            : [],
         },
       });
 
@@ -5039,7 +5062,10 @@ class AccessService {
           direction: 'check',
         },
         tx,
-        { vehicleCheckLink: linkContext },
+        {
+          vehicleCheckLink: linkContext,
+          allowMultipleVehicleMatches: true,
+        },
       );
 
       return recordActivity(decisionResult, buildMovement({ direction: 'check' }));
@@ -5063,15 +5089,21 @@ class AccessService {
       );
     }
 
-    if (matches.length > 1) {
+    const statusChangeMatches = matches.filter((request) => resolveVehicleCheckLinkAccessDecision(
+      linkContext,
+      request.category_id,
+      'entry',
+    ).allowed);
+
+    if (!statusChangeMatches.length) {
       return recordActivity(
         {
           eventId,
           allowed: false,
           decision: 'denied',
-          reason: 'multiple_matches',
+          reason: 'not_allowed_at_gate',
           checkedPlate: vehiclePlate,
-          message: tx('service.vehicleEntry.multipleMatches'),
+          message: tx('service.vehicleEntry.notAllowedAtGate'),
           request: null,
           currentPresence: 'unknown',
         },
@@ -5079,8 +5111,9 @@ class AccessService {
       );
     }
 
-    const request = await this.requestRepository.findById('pass', matches[0].id);
-    const initialPresence = resolveVehiclePresenceStatus(request);
+    const anyInside = statusChangeMatches.some((request) => resolveVehiclePresenceStatus(request) === 'inside');
+    const anyOutside = statusChangeMatches.some((request) => resolveVehiclePresenceStatus(request) === 'outside');
+    const initialPresence = anyInside ? 'inside' : anyOutside ? 'outside' : 'unknown';
     const direction = resolveVehicleGateApiLinkDirection(configuredMode, initialPresence);
     const decisionResult = await this.checkVehicleAccess(
       {
@@ -5089,7 +5122,10 @@ class AccessService {
         direction,
       },
       tx,
-      { vehicleCheckLink: linkContext },
+      {
+        vehicleCheckLink: linkContext,
+        allowMultipleVehicleMatches: true,
+      },
     );
 
     if (!decisionResult.allowed) {
@@ -5132,13 +5168,18 @@ class AccessService {
         },
       },
       tx,
-      { vehicleCheckLink: linkContext },
+      {
+        vehicleCheckLink: linkContext,
+        allowMultipleVehicleMatches: true,
+      },
     );
 
     return recordActivity(
       {
         ...decisionResult,
         request: entryResult.request,
+        requests: entryResult.requests,
+        affectedCount: entryResult.affectedCount,
         currentPresence: entryResult.currentPresence,
       },
       buildMovement({
@@ -5165,7 +5206,10 @@ class AccessService {
         source: 'public-check-link',
       },
       t,
-      { vehicleCheckLink: event },
+      {
+        vehicleCheckLink: event,
+        allowMultipleVehicleMatches: true,
+      },
     );
   }
 
@@ -5179,7 +5223,10 @@ class AccessService {
         direction: payload.direction,
       },
       t,
-      { vehicleCheckLink: event },
+      {
+        vehicleCheckLink: event,
+        allowMultipleVehicleMatches: true,
+      },
     );
   }
 

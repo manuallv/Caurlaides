@@ -10,6 +10,11 @@
     : '';
   const resultPlate = hasCheckResult ? (checkResult.request?.vehiclePlate || checkResult.checkedPlate || '') : '';
   const resultMessage = hasCheckResult ? (checkResult.message || '') : '';
+  const actionPermissions = typeof checkActionPermissions === 'object' && checkActionPermissions
+    ? checkActionPermissions
+    : { canCheck: true, canChangeStatus: true };
+  const canSubmitCheck = actionPermissions.canCheck !== false;
+  const canSubmitStatusChange = actionPermissions.canChangeStatus !== false;
 %>
 <section
   class="check-screen"
@@ -84,33 +89,37 @@
           </div>
 
           <div class="check-action-grid">
-            <button
-              type="submit"
-              name="direction"
-              value="check"
-              class="check-action-button check-action-button--check"
-              data-check-submit-button
-            >
-              <%= t('check.checkButton') %>
-            </button>
-            <button
-              type="submit"
-              name="direction"
-              value="entry"
-              class="check-action-button check-action-button--entry"
-              data-check-submit-button
-            >
-              <%= t('check.entryButton') %>
-            </button>
-            <button
-              type="submit"
-              name="direction"
-              value="exit"
-              class="check-action-button check-action-button--exit"
-              data-check-submit-button
-            >
-              <%= t('check.exitButton') %>
-            </button>
+            <% if (canSubmitCheck) { %>
+              <button
+                type="submit"
+                name="direction"
+                value="check"
+                class="check-action-button check-action-button--check"
+                data-check-submit-button
+              >
+                <%= t('check.checkButton') %>
+              </button>
+            <% } %>
+            <% if (canSubmitStatusChange) { %>
+              <button
+                type="submit"
+                name="direction"
+                value="entry"
+                class="check-action-button check-action-button--entry"
+                data-check-submit-button
+              >
+                <%= t('check.entryButton') %>
+              </button>
+              <button
+                type="submit"
+                name="direction"
+                value="exit"
+                class="check-action-button check-action-button--exit"
+                data-check-submit-button
+              >
+                <%= t('check.exitButton') %>
+              </button>
+            <% } %>
           </div>
 
           <div class="check-gate-control">

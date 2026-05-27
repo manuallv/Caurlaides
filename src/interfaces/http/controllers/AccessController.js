@@ -575,6 +575,7 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
     performedAtLabel: result.performedAt
       ? res.locals.helpers.formatDateTime(result.performedAt)
       : req.t('common.notSet'),
+    affectedCount: Number(result.affectedCount || 1),
     request: {
       id: Number(request.id || 0),
       fullName: request.full_name || '',
@@ -593,6 +594,28 @@ function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
   };
 }
 
+function buildVehicleMovementFlashMessage(req, result, fallbackPlate = '') {
+  const affectedCount = Number(result.affectedCount || 1);
+  const plate = result.request?.vehicle_plate || result.checkedPlate || fallbackPlate || '';
+
+  if (affectedCount > 1) {
+    return req.t(
+      result.direction === 'exit' ? 'flash.vehicleExitRegisteredMultiple' : 'flash.vehicleEntryRegisteredMultiple',
+      {
+        plate,
+        count: affectedCount,
+      },
+    );
+  }
+
+  return req.t(
+    result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
+    {
+      plate,
+    },
+  );
+}
+
 function buildPublicVehicleCheckAction(req) {
   const currentPath = String(req.originalUrl || '').split('?')[0];
 
@@ -601,6 +624,31 @@ function buildPublicVehicleCheckAction(req) {
   }
 
   return `/check/${encodeURIComponent(req.params.token || '')}`;
+}
+
+function buildPublicVehicleCheckTitle(event, t) {
+  const baseTitle = `${event.name} · ${t('check.title')}`;
+  const linkName = String(event.vehicle_check_link_name || '').trim();
+
+  return linkName ? `${baseTitle} | ${linkName}` : baseTitle;
+}
+
+function buildPublicVehicleCheckActions(event) {
+  if (!Number(event.vehicle_check_link_id || 0)) {
+    return {
+      canCheck: true,
+      canChangeStatus: true,
+    };
+  }
+
+  const permissions = Array.isArray(event.vehicle_check_link_categories)
+    ? event.vehicle_check_link_categories
+    : [];
+
+  return {
+    canCheck: permissions.some((permission) => Number(permission.can_check) === 1),
+    canChangeStatus: permissions.some((permission) => Number(permission.can_enter) === 1),
+  };
 }
 
 function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fallbackPlate = '') {
@@ -612,12 +660,7 @@ function buildVehicleCheckMutationPayload(req, res, result, recentMovements, fal
     decision: result.decision || (result.allowed === false ? 'denied' : 'success'),
     message: isDecisionOnly
       ? result.message
-      : req.t(
-        result.direction === 'exit' ? 'flash.vehicleExitRegistered' : 'flash.vehicleEntryRegistered',
-        {
-          plate: result.request?.vehicle_plate || fallbackPlate || '',
-        },
-      ),
+      : buildVehicleMovementFlashMessage(req, result, fallbackPlate),
     result: buildVehicleCheckResultPayload(req, res, result, fallbackPlate),
     recentMovements: recentMovements.map((movement) => buildVehicleCheckMovementPayload(req, res, movement)),
   };
@@ -1540,14 +1583,17 @@ function buildAccessController({ categoryService, accessService }) {
 
     async showPublicVehicleCheck(req, res) {
       const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
+      const publicVehicleCheckTitle = buildPublicVehicleCheckTitle(data.selectedEvent, req.t);
 
       return res.render('check/index', {
-        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        pageTitle: publicVehicleCheckTitle,
+        metaTitle: publicVehicleCheckTitle,
         selectedEvent: data.selectedEvent,
         events: [],
         recentMovements: data.recentMovements,
         checkResult: null,
         checkAction: buildPublicVehicleCheckAction(req),
+        checkActionPermissions: buildPublicVehicleCheckActions(data.selectedEvent),
         showEventPicker: false,
         isPublicPortal: true,
         isPublicVehicleCheck: true,
@@ -1567,15 +1613,22 @@ function buildAccessController({ categoryService, accessService }) {
         ? withVehicleCheckDirection(await accessService.checkPublicVehicleAccess(req.params.token, payload, req.t))
         : await accessService.registerPublicVehicleCheck(req.params.token, payload, req.t);
       const data = await accessService.getPublicVehicleCheckPage(req.params.token, req.t);
+      const publicVehicleCheckTitle = buildPublicVehicleCheckTitle(data.selectedEvent, req.t);
 
       if (!isDecisionOnly && result.request) {
-        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
-          req,
-          res,
-          'pass',
-          result.request,
-          null,
-        ));
+        const updatedRequests = Array.isArray(result.requests) && result.requests.length
+          ? result.requests
+          : [result.request];
+
+        updatedRequests.forEach((request) => {
+          emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+            req,
+            res,
+            'pass',
+            request,
+            null,
+          ));
+        });
         emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       }
 
@@ -1592,12 +1645,14 @@ function buildAccessController({ categoryService, accessService }) {
       }
 
       return res.render('check/index', {
-        pageTitle: `${data.selectedEvent.name} · ${req.t('check.title')}`,
+        pageTitle: publicVehicleCheckTitle,
+        metaTitle: publicVehicleCheckTitle,
         selectedEvent: data.selectedEvent,
         events: [],
         recentMovements: data.recentMovements,
         checkResult: buildVehicleCheckResultPayload(req, res, result, payload.vehiclePlate),
         checkAction: buildPublicVehicleCheckAction(req),
+        checkActionPermissions: buildPublicVehicleCheckActions(data.selectedEvent),
         showEventPicker: false,
         isPublicPortal: true,
         isPublicVehicleCheck: true,
@@ -1891,13 +1946,19 @@ function buildAccessController({ categoryService, accessService }) {
       );
 
       if (result.movement?.recorded && result.request) {
-        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
-          req,
-          res,
-          'pass',
-          result.request,
-          null,
-        ));
+        const updatedRequests = Array.isArray(result.requests) && result.requests.length
+          ? result.requests
+          : [result.request];
+
+        updatedRequests.forEach((request) => {
+          emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+            req,
+            res,
+            'pass',
+            request,
+            null,
+          ));
+        });
         emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       }
 
@@ -1909,13 +1970,19 @@ function buildAccessController({ categoryService, accessService }) {
       const result = await accessService.processVehicleGateApiLink(req.params.token, payload, req.t);
 
       if (result.movement?.recorded && result.request) {
-        emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
-          req,
-          res,
-          'pass',
-          result.request,
-          null,
-        ));
+        const updatedRequests = Array.isArray(result.requests) && result.requests.length
+          ? result.requests
+          : [result.request];
+
+        updatedRequests.forEach((request) => {
+          emitEventUpdate(req.app.locals.io, result.eventId, 'access:request-upsert', buildAccessRequestLivePayload(
+            req,
+            res,
+            'pass',
+            request,
+            null,
+          ));
+        });
         emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       }
 
