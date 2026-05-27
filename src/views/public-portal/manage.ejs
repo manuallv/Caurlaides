@@ -5,6 +5,8 @@
     (request.request_type === 'pass' && hasPassAccess)
     || (request.request_type === 'wristband' && hasWristbandAccess)
   ));
+  const visiblePassRequestCount = visibleCombinedRequests.filter((request) => request.request_type === 'pass').length;
+  const visibleWristbandRequestCount = visibleCombinedRequests.filter((request) => request.request_type === 'wristband').length;
 %>
 
 <section
@@ -151,6 +153,25 @@
       <% } %>
     </section>
 
+    <section class="portal-mobile-overview" aria-label="<%= t('portal.tableTitle') %>">
+      <button type="button" class="portal-mobile-overview__item" data-portal-tab data-tab="all">
+        <strong><%= visibleCombinedRequests.length %></strong>
+        <span><%= t('portal.tabs.all') %></span>
+      </button>
+      <% if (hasWristbandAccess) { %>
+        <button type="button" class="portal-mobile-overview__item" data-portal-tab data-tab="wristband">
+          <strong><%= visibleWristbandRequestCount %></strong>
+          <span><%= t('portal.tabs.wristbands') %></span>
+        </button>
+      <% } %>
+      <% if (hasPassAccess) { %>
+        <button type="button" class="portal-mobile-overview__item" data-portal-tab data-tab="pass">
+          <strong><%= visiblePassRequestCount %></strong>
+          <span><%= t('portal.tabs.passes') %></span>
+        </button>
+      <% } %>
+    </section>
+
     <section class="shell-card portal-workspace-card">
       <div class="portal-workspace-card__header">
         <div class="portal-workspace-card__copy">
@@ -275,12 +296,12 @@
                       data-sort-created="<%= new Date(request.created_at || request.updated_at).getTime() || 0 %>"
                       data-sort-updated="<%= new Date(request.updated_at).getTime() || 0 %>"
                     >
-                      <td data-cell-label="<%= t('portal.table.type') %>">
+                      <td class="portal-request-cell portal-request-cell--type" data-cell-label="<%= t('portal.table.type') %>">
                         <span class="portal-type-pill <%= request.request_type === 'pass' ? 'is-pass' : 'is-wristband' %>">
                           <%= t(request.request_type === 'pass' ? 'portal.type.pass' : 'portal.type.wristband') %>
                         </span>
                       </td>
-                      <td data-cell-label="<%= t('portal.table.name') %>">
+                      <td class="portal-request-cell portal-request-cell--name" data-cell-label="<%= t('portal.table.name') %>">
                         <div class="portal-person-cell">
                           <p class="portal-person-cell__title"><%= request.full_name %></p>
                           <% if (request.email) { %>
@@ -291,15 +312,15 @@
                           <% } %>
                         </div>
                       </td>
-                      <td data-cell-label="<%= t('portal.table.category') %>"><div class="portal-data-cell"><%= request.category_name %></div></td>
-                      <td data-cell-label="<%= t('portal.table.company') %>"><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
-                      <td data-cell-label="<%= t('portal.table.phone') %>"><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
-                      <td data-cell-label="<%= t('portal.table.status') %>">
+                      <td class="portal-request-cell portal-request-cell--category" data-cell-label="<%= t('portal.table.category') %>"><div class="portal-data-cell"><%= request.category_name %></div></td>
+                      <td class="portal-request-cell portal-request-cell--company" data-cell-label="<%= t('portal.table.company') %>"><div class="portal-data-cell"><%= request.company_name || t('common.notSet') %></div></td>
+                      <td class="portal-request-cell portal-request-cell--phone" data-cell-label="<%= t('portal.table.phone') %>"><div class="portal-data-cell"><%= request.phone || t('common.notSet') %></div></td>
+                      <td class="portal-request-cell portal-request-cell--status" data-cell-label="<%= t('portal.table.status') %>">
                         <div class="portal-status-stack">
                           <span class="portal-status-pill <%= statusToneClass %>"><%= t(request.display_status_label_key || `statuses.${request.status}`) %></span>
                         </div>
                       </td>
-                      <td data-cell-label="<%= t('portal.table.actions') %>">
+                      <td class="portal-request-cell portal-request-cell--actions" data-cell-label="<%= t('portal.table.actions') %>">
                         <div class="portal-row-actions">
                           <button
                             type="button"
