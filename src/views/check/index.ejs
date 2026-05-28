@@ -21,7 +21,7 @@
     : { canCheck: true, canChangeStatus: true };
   const canSubmitCheck = actionPermissions.canCheck !== false;
   const canSubmitStatusChange = actionPermissions.canChangeStatus !== false;
-  const gateCheckLinks = Array.isArray(vehicleCheckLinks)
+  const gateCheckLinks = typeof vehicleCheckLinks !== 'undefined' && Array.isArray(vehicleCheckLinks)
     ? vehicleCheckLinks.filter((link) => link && link.url && Number(link.is_active ?? 1) !== 0)
     : [];
 %>
