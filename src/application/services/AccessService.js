@@ -3839,10 +3839,17 @@ class AccessService {
   async getVehicleCheckPage(actorId, eventId, t) {
     const tx = resolveTranslate(t);
     const selectedEvent = await this.eventService.getEventAccessOrFail(eventId, actorId, tx);
-    const recentMovements = await this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20);
+    const [recentMovements, vehicleCheckLinks] = await Promise.all([
+      this.requestRepository.listRecentPassVehicleMovements(selectedEvent.id, 20),
+      this.eventRepository.listVehicleCheckLinks(selectedEvent.id),
+    ]);
 
     return {
       selectedEvent,
+      vehicleCheckLinks: vehicleCheckLinks.map((link) => ({
+        ...link,
+        url: this.eventService.buildVehicleCheckUrl(link.token),
+      })),
       recentMovements: recentMovements.map((movement) => ({
         ...movement,
         presence_status: resolveVehiclePresenceStatus(movement),

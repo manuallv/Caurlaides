@@ -21,6 +21,9 @@
     : { canCheck: true, canChangeStatus: true };
   const canSubmitCheck = actionPermissions.canCheck !== false;
   const canSubmitStatusChange = actionPermissions.canChangeStatus !== false;
+  const gateCheckLinks = Array.isArray(vehicleCheckLinks)
+    ? vehicleCheckLinks.filter((link) => link && link.url && Number(link.is_active ?? 1) !== 0)
+    : [];
 %>
 <section
   class="check-screen"
@@ -140,6 +143,27 @@
               data-check-gate-name
             />
           </div>
+
+          <% if (!publicVehicleCheckMode && gateCheckLinks.length) { %>
+            <div class="check-gate-links">
+              <div class="check-gate-links__head">
+                <span><%= t('event.vehicleCheckGateLinksTitle') %></span>
+              </div>
+              <div class="check-gate-links__list">
+                <% gateCheckLinks.forEach((link) => { %>
+                  <a
+                    href="<%= link.url %>"
+                    class="check-gate-link-button"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span><%= link.name %></span>
+                    <small><%= t('event.vehicleCheckGateLinkCode', { code: String(link.token || '').toUpperCase() }) %></small>
+                  </a>
+                <% }) %>
+              </div>
+            </div>
+          <% } %>
 
           <p class="check-inline-feedback hidden" data-check-feedback></p>
         </form>

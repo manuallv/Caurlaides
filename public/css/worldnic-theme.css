@@ -6051,6 +6051,83 @@ body.portal-modal-open {
   min-height: 3.4rem;
 }
 
+.check-gate-links {
+  display: grid;
+  gap: 0.62rem;
+  padding: 0.82rem;
+  border: 1px solid rgba(223, 229, 240, 0.92);
+  border-radius: 1rem;
+  background: rgba(248, 251, 255, 0.86);
+}
+
+.check-gate-links__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.check-gate-links__head span {
+  color: #6d7d95;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.check-gate-links__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+  gap: 0.55rem;
+}
+
+.check-gate-link-button {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.7rem 0.82rem;
+  border: 1px solid rgba(205, 215, 230, 0.96);
+  border-radius: 0.88rem;
+  background: rgba(255, 255, 255, 0.98);
+  color: #314158;
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(31, 45, 71, 0.06);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.check-gate-link-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 116, 255, 0.26);
+  background: #fff;
+  color: var(--wn-primary);
+  box-shadow: 0 16px 30px rgba(0, 116, 255, 0.12);
+}
+
+.check-gate-link-button span {
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.22;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check-gate-link-button small {
+  color: #7a879a;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
 .check-result-card {
   position: relative;
   overflow: hidden;
