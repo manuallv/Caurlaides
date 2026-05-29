@@ -585,6 +585,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (!document.querySelector('[data-live-section]')) {
+      return;
+    }
+
     if (refreshInProgress) {
       pendingLiveRefresh = true;
       return;
