@@ -559,6 +559,46 @@ function normalizeVehicleCheckMessageDetails(details) {
   };
 }
 
+function normalizeVehicleApiTextList(values = []) {
+  const list = Array.isArray(values) ? values : [values];
+
+  return [...new Set(list
+    .map((value) => String(value || '').trim())
+    .filter(Boolean))];
+}
+
+function normalizeVehicleDenialDetails(details, messageDetails = null) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return messageDetails ? { groups: messageDetails.groups || [] } : null;
+  }
+
+  const normalized = {};
+
+  Object.entries(details).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      const list = normalizeVehicleApiTextList(value);
+
+      if (list.length) {
+        normalized[key] = list;
+      }
+
+      return;
+    }
+
+    const text = String(value || '').trim();
+
+    if (text) {
+      normalized[key] = text;
+    }
+  });
+
+  if (messageDetails?.groups?.length) {
+    normalized.groups = messageDetails.groups;
+  }
+
+  return Object.keys(normalized).length ? normalized : null;
+}
+
 function buildVehicleCheckResultPayload(req, res, result, fallbackPlate = '') {
   const request = result.request || {};
   const direction = result.direction === 'exit'
@@ -710,6 +750,7 @@ function withVehicleCheckDirection(result, direction = 'check') {
 
 function buildVehicleAccessCheckPayload(req, res, result) {
   const request = result.request || null;
+  const messageDetails = normalizeVehicleCheckMessageDetails(result.messageDetails);
 
   return {
     success: true,
@@ -718,7 +759,10 @@ function buildVehicleAccessCheckPayload(req, res, result) {
     reason: result.reason || null,
     message: result.message,
     detailedMessage: result.detailedMessage || result.message || '',
-    messageDetails: normalizeVehicleCheckMessageDetails(result.messageDetails),
+    messageDetails,
+    denialDetails: result.allowed === false
+      ? normalizeVehicleDenialDetails(result.denialDetails, messageDetails)
+      : null,
     checkedPlate: result.checkedPlate || '',
     currentPresence: result.currentPresence || 'unknown',
     request: request

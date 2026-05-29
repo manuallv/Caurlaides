@@ -4569,7 +4569,7 @@ class AccessService {
         .map((category) => category.category_name || category.name),
     );
     const gateName = getVehicleCheckLinkName(linkContext) || tx('common.notSet');
-    const matchedWindowDescriptions = uniqueTextList(matches.map((request) => {
+    const matchedWindowList = uniqueTextList(matches.map((request) => {
       const categoryName = String(request.category_name || '').trim() || tx('common.notSet');
       const windows = windowsByCategoryId[Number(request.category_id || 0)] || [];
 
@@ -4578,7 +4578,8 @@ class AccessService {
       }
 
       return `${categoryName}: ${windows.map(formatVehicleEntryWindowRange).filter(Boolean).join('; ')}`;
-    })).join(' · ');
+    }));
+    const matchedWindowDescriptions = matchedWindowList.join(' · ');
 
     const detailedMessage = tx('service.vehicleEntry.notAllowedAtGateDetailed', {
       categories: matchedCategories,
@@ -4586,28 +4587,36 @@ class AccessService {
       allowedCategories,
       windows: matchedWindowDescriptions || tx('common.notSet'),
     });
+    const messageDetails = buildVehicleCheckMessageDetails(tx('service.vehicleEntry.notAllowedAtGateSummary'), [
+      {
+        label: tx('check.notice.foundTypes'),
+        values: matchedCategoryNames.length ? matchedCategoryNames : [tx('common.notSet')],
+      },
+      {
+        label: tx('check.notice.gate'),
+        value: gateName,
+      },
+      {
+        label: tx('check.notice.allowedTypes'),
+        values: allowedCategoryNames.length ? allowedCategoryNames : [tx('common.notSet')],
+      },
+      {
+        label: tx('check.notice.entryWindows'),
+        values: matchedWindowList.length ? matchedWindowList : [tx('common.notSet')],
+      },
+    ]);
 
     return {
       message: tx('service.vehicleEntry.notAllowedAtGateSummary'),
       detailedMessage,
-      details: buildVehicleCheckMessageDetails(tx('service.vehicleEntry.notAllowedAtGateSummary'), [
-        {
-          label: tx('check.notice.foundTypes'),
-          values: matchedCategoryNames.length ? matchedCategoryNames : [tx('common.notSet')],
-        },
-        {
-          label: tx('check.notice.gate'),
-          value: gateName,
-        },
-        {
-          label: tx('check.notice.allowedTypes'),
-          values: allowedCategoryNames.length ? allowedCategoryNames : [tx('common.notSet')],
-        },
-        {
-          label: tx('check.notice.entryWindows'),
-          values: matchedWindowDescriptions ? matchedWindowDescriptions.split(' · ') : [tx('common.notSet')],
-        },
-      ]),
+      details: messageDetails,
+      denialDetails: {
+        title: tx('service.vehicleEntry.notAllowedAtGateSummary'),
+        foundTypes: matchedCategoryNames.length ? matchedCategoryNames : [tx('common.notSet')],
+        gateName,
+        allowedTypes: allowedCategoryNames.length ? allowedCategoryNames : [tx('common.notSet')],
+        entryWindows: matchedWindowList.length ? matchedWindowList : [tx('common.notSet')],
+      },
     };
   }
 
@@ -4858,6 +4867,7 @@ class AccessService {
         message: gateNotice.message,
         detailedMessage: gateNotice.detailedMessage,
         messageDetails: gateNotice.details,
+        denialDetails: gateNotice.denialDetails,
         request,
         currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
       };
@@ -4882,7 +4892,9 @@ class AccessService {
           reason: 'outside_entry_window',
           checkedPlate: request?.vehicle_plate || vehiclePlate,
           message: entryWindowDecision.message,
+          detailedMessage: entryWindowDecision.detailedMessage || entryWindowDecision.message,
           messageDetails: entryWindowDecision.messageDetails || null,
+          denialDetails: entryWindowDecision.denialDetails || null,
           request,
           currentPresence: resolveVehiclePresenceStatus(request),
         };
@@ -5046,7 +5058,9 @@ class AccessService {
         reason: 'outside_entry_window',
         checkedPlate: request?.vehicle_plate || vehiclePlate,
         message: entryWindowDecision.message,
+        detailedMessage: entryWindowDecision.detailedMessage || entryWindowDecision.message,
         messageDetails: entryWindowDecision.messageDetails || null,
+        denialDetails: entryWindowDecision.denialDetails || null,
         request,
         currentPresence: initialPresence,
         movement: {
@@ -5296,6 +5310,7 @@ class AccessService {
           message: gateNotice.message,
           detailedMessage: gateNotice.detailedMessage,
           messageDetails: gateNotice.details,
+          denialDetails: gateNotice.denialDetails,
           request,
           currentPresence: request ? resolveVehiclePresenceStatus(request) : 'unknown',
         },
@@ -5462,6 +5477,17 @@ class AccessService {
     const categoryName = String(context.categoryName || '').trim() || tx('common.notSet');
     const windowLabels = entryWindows.map(formatVehicleEntryWindowRange).filter(Boolean);
 
+    const messageDetails = buildVehicleCheckMessageDetails(tx('service.vehicleEntry.outsideEntryWindowSummary'), [
+      {
+        label: tx('check.notice.passType'),
+        value: categoryName,
+      },
+      {
+        label: tx('check.notice.allowedEntryWindow'),
+        values: windowLabels.length ? windowLabels : [tx('common.notSet')],
+      },
+    ]);
+
     return {
       allowed: false,
       windows: entryWindows,
@@ -5470,16 +5496,12 @@ class AccessService {
         category: categoryName,
         windows: windowLabels.join('; ') || tx('common.notSet'),
       }),
-      messageDetails: buildVehicleCheckMessageDetails(tx('service.vehicleEntry.outsideEntryWindowSummary'), [
-        {
-          label: tx('check.notice.passType'),
-          value: categoryName,
-        },
-        {
-          label: tx('check.notice.allowedEntryWindow'),
-          values: windowLabels.length ? windowLabels : [tx('common.notSet')],
-        },
-      ]),
+      messageDetails,
+      denialDetails: {
+        title: tx('service.vehicleEntry.outsideEntryWindowSummary'),
+        passType: categoryName,
+        allowedEntryWindows: windowLabels.length ? windowLabels : [tx('common.notSet')],
+      },
     };
   }
 
