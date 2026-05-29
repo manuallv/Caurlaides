@@ -146,7 +146,7 @@ const lt = {
   "event.vehicleCheckGateLinkCode": "Kodas {code}",
   "event.vehicleCheckNoPassCategories": "Prieš pridėdami vartų nuorodą sukurkite bent vieną automobilių leidimo tipą.",
   "event.vehicleCheckApiTitle": "API patikros nuorodos",
-  "event.vehicleCheckApiDescription": "Sukurkite paprastas API nuorodas kameroms, vartams ir zonoms. Kiekviena nuoroda priima automobilio numerį ir grąžina tik allowed true arba false.",
+  "event.vehicleCheckApiDescription": "Sukurkite paprastas API nuorodas kameroms, vartams ir zonoms. Kiekviena nuoroda priima automobilio numerį, grąžina allowed true arba false ir, jei prieiga atmesta, pateikia tikslią priežastį.",
   "event.vehicleCheckApiEndpoint": "Galutinis taškas",
   "event.vehicleCheckApiEndpointEmpty": "Pirmiausia sugeneruokite renginį API, kad gautumėte tam skirtą galinį tašką URL.",
   "event.vehicleCheckApiAuth": "Authorization",

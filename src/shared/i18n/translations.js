@@ -158,7 +158,7 @@ const translations = {
     'event.vehicleCheckNoPassCategories': 'Create at least one vehicle pass type before adding a gate link.',
     'event.vehicleCheckApiTitle': 'API check links',
     'event.vehicleCheckApiDescription':
-      'Create simple API links for cameras, gates, and zones. Each link accepts a vehicle plate and returns only allowed true or false.',
+      'Create simple API links for cameras, gates, and zones. Each link accepts a vehicle plate, returns allowed true or false, and includes a denial reason when access is denied.',
     'event.vehicleCheckApiEndpoint': 'Endpoint',
     'event.vehicleCheckApiEndpointEmpty': 'Generate the event API first to get a dedicated endpoint URL.',
     'event.vehicleCheckApiAuth': 'Authorization',
@@ -1456,7 +1456,7 @@ const translations = {
     'event.vehicleCheckNoPassCategories': 'Pirms vārtu linka pievienošanas izveido vismaz vienu auto caurlaižu veidu.',
     'event.vehicleCheckApiTitle': 'API pārbaudes linki',
     'event.vehicleCheckApiDescription':
-      'Izveido vienkāršus API linkus kamerām, vārtiem un zonām. Katrs links pieņem auto numuru un atbild tikai allowed true vai false.',
+      'Izveido vienkāršus API linkus kamerām, vārtiem un zonām. Katrs links pieņem auto numuru, atbild ar allowed true vai false un atteikuma gadījumā pievieno precīzu iemeslu.',
     'event.vehicleCheckApiEndpoint': 'Endpoints',
     'event.vehicleCheckApiEndpointEmpty': 'Vispirms izveido pasākuma API, lai dabūtu atsevišķu endpoint URL.',
     'event.vehicleCheckApiAuth': 'Autorizācija',

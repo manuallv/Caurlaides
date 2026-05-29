@@ -717,6 +717,7 @@ function buildVehicleAccessCheckPayload(req, res, result) {
     allowed: Boolean(result.allowed),
     reason: result.reason || null,
     message: result.message,
+    detailedMessage: result.detailedMessage || result.message || '',
     messageDetails: normalizeVehicleCheckMessageDetails(result.messageDetails),
     checkedPlate: result.checkedPlate || '',
     currentPresence: result.currentPresence || 'unknown',
@@ -2024,9 +2025,7 @@ function buildAccessController({ categoryService, accessService }) {
         emitEventUpdate(req.app.locals.io, result.eventId, 'dashboard:refresh', { eventId: result.eventId });
       }
 
-      return res.json({
-        allowed: Boolean(result.allowed),
-      });
+      return res.json(buildVehicleGateDecisionPayload(req, res, result));
     },
 
     redirectLegacyPortal(req, res) {
