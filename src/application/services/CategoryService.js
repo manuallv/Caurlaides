@@ -1,7 +1,13 @@
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+const { env } = require('../../config/env');
 const { AppError } = require('../../shared/errors/AppError');
 const { MANAGEMENT_ROLES } = require('../../shared/constants/event-roles');
 const { DEFAULT_LOCALE, buildAuditMetadata, translate } = require('../../shared/i18n');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 function resolveTranslate(t) {
   return typeof t === 'function' ? t : (key, params) => translate(DEFAULT_LOCALE, key, params);
@@ -39,8 +45,8 @@ function sanitizePassEntryWindowsPayload(input, t) {
       throw new AppError(tx('validation.accessType.entryWindowIncomplete'), 422);
     }
 
-    const startAt = dayjs(startAtRaw);
-    const endAt = dayjs(endAtRaw);
+    const startAt = dayjs.tz(startAtRaw, env.timeZone);
+    const endAt = dayjs.tz(endAtRaw, env.timeZone);
 
     if (!startAt.isValid() || !endAt.isValid()) {
       throw new AppError(tx('validation.accessType.entryWindowInvalid'), 422);
@@ -51,8 +57,8 @@ function sanitizePassEntryWindowsPayload(input, t) {
     }
 
     sanitized.push({
-      startAt: startAt.format('YYYY-MM-DD HH:mm:ss'),
-      endAt: endAt.format('YYYY-MM-DD HH:mm:ss'),
+      startAt: startAt.utc().format('YYYY-MM-DD HH:mm:ss'),
+      endAt: endAt.utc().format('YYYY-MM-DD HH:mm:ss'),
       sortOrder: index,
     });
 
