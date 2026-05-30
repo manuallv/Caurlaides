@@ -1,13 +1,31 @@
 const { emitEventUpdate } = require('../../../infrastructure/realtime/socket');
 
+function parseJsonValue(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
 function normalizeCategoryPayload(body) {
+  const parsedEntryWindows = parseJsonValue(body.entryWindowsJson);
+
   return {
     name: body.name,
     description: body.description || null,
     quota: body.quota ? Number(body.quota) : null,
     isActive: body.isActive === 'on' ? 1 : 0,
     sortOrder: body.sortOrder ? Number(body.sortOrder) : 0,
-    entryWindows: body.entryWindows || [],
+    entryWindows: body.entryWindows || (Array.isArray(parsedEntryWindows) ? parsedEntryWindows : []),
   };
 }
 

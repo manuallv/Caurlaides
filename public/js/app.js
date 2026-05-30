@@ -327,6 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
     form.dataset.liveDirty = 'true';
   };
 
+  const hasDirtyAccessTypeForm = () => Boolean(document.querySelector('[data-access-type-form][data-live-dirty="true"]'));
+
   const getLiveFormStateKey = (form) => {
     const section = form.closest('[data-live-section]');
     const sectionName = section?.dataset.liveSection || '';
@@ -582,6 +584,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const triggerSocketLiveRefresh = async () => {
     if (getPassPrintElements().app) {
+      return;
+    }
+
+    if (hasDirtyAccessTypeForm()) {
       return;
     }
 
@@ -4477,6 +4483,7 @@ document.addEventListener('DOMContentLoaded', () => {
       entryWindowsList: document.querySelector('[data-access-entry-windows-list]'),
       entryWindowsEmpty: document.querySelector('[data-access-entry-windows-empty]'),
       entryWindowTemplate: document.querySelector('[data-access-entry-window-template]'),
+      entryWindowsJson: typeForm?.querySelector('[data-access-entry-windows-json]') || null,
       typeTotalNodes: [...document.querySelectorAll('[data-access-type-total]')],
       typeHandedNodes: [...document.querySelectorAll('[data-access-type-handed]')],
     };
@@ -5097,6 +5104,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setAccessEntryWindows([], { ensureBlank: true });
+    elements.typeForm.removeAttribute('data-live-dirty');
+  };
+
+  const serializeAccessEntryWindows = () => {
+    const { entryWindowsList } = getAccessElements();
+
+    if (!entryWindowsList) {
+      return [];
+    }
+
+    return [...entryWindowsList.querySelectorAll('[data-access-entry-window-row]')]
+      .map((row) => ({
+        startAt: String(row.querySelector('[data-access-entry-window-start]')?.value || '').trim(),
+        endAt: String(row.querySelector('[data-access-entry-window-end]')?.value || '').trim(),
+      }))
+      .filter((entryWindow) => entryWindow.startAt || entryWindow.endAt);
+  };
+
+  const syncAccessEntryWindowsPayload = () => {
+    const { entryWindowsJson } = getAccessElements();
+
+    if (!entryWindowsJson) {
+      return;
+    }
+
+    entryWindowsJson.value = JSON.stringify(serializeAccessEntryWindows());
   };
 
   const populateAccessTypeForm = (trigger) => {
@@ -5130,6 +5163,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setAccessEntryWindows(entryWindows, { ensureBlank: true });
+    elements.typeForm.dataset.liveDirty = 'true';
+    syncAccessEntryWindowsPayload();
 
     setAccessView('types');
     elements.typeForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5164,6 +5199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     toggleAccessEntryWindowsEmptyState();
+    syncAccessEntryWindowsPayload();
   };
 
   const addAccessEntryWindowRow = (values = {}, { focusStart = false } = {}) => {
@@ -5188,6 +5224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     entryWindowsList.appendChild(fragment);
     reindexAccessEntryWindowRows();
+    syncAccessEntryWindowsPayload();
 
     if (focusStart && startInput) {
       window.requestAnimationFrame(() => startInput.focus());
@@ -5210,15 +5247,18 @@ document.addEventListener('DOMContentLoaded', () => {
       normalizedWindows.forEach((entryWindow) => {
         addAccessEntryWindowRow(entryWindow);
       });
+      syncAccessEntryWindowsPayload();
       return;
     }
 
     if (ensureBlank) {
       addAccessEntryWindowRow();
+      syncAccessEntryWindowsPayload();
       return;
     }
 
     toggleAccessEntryWindowsEmptyState();
+    syncAccessEntryWindowsPayload();
   };
 
   const getAccessModalRoot = () => {
@@ -7718,6 +7758,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (accessEntryWindowAddTrigger) {
       addAccessEntryWindowRow({}, { focusStart: true });
+      const typeForm = getAccessElements().typeForm;
+      if (typeForm) {
+        typeForm.dataset.liveDirty = 'true';
+      }
+      syncAccessEntryWindowsPayload();
       return;
     }
 
@@ -7726,6 +7771,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (accessEntryWindowRemoveTrigger) {
       accessEntryWindowRemoveTrigger.closest('[data-access-entry-window-row]')?.remove();
       reindexAccessEntryWindowRows();
+      const typeForm = getAccessElements().typeForm;
+      if (typeForm) {
+        typeForm.dataset.liveDirty = 'true';
+      }
+      syncAccessEntryWindowsPayload();
       return;
     }
 
@@ -8091,6 +8141,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('change', (event) => {
     markLiveFormDirty(event.target);
 
+    if (event.target.matches('[data-access-entry-window-start], [data-access-entry-window-end]')) {
+      syncAccessEntryWindowsPayload();
+    }
+
     if (event.target.matches('[data-member-notification-toggle]')) {
       event.target.closest('form')?.requestSubmit();
       return;
@@ -8183,6 +8237,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('input', (event) => {
     markLiveFormDirty(event.target);
+
+    if (event.target.matches('[data-access-entry-window-start], [data-access-entry-window-end]')) {
+      syncAccessEntryWindowsPayload();
+    }
 
     if (event.target.matches('[data-pass-print-template-text-color]')) {
       passPrintEditorState.textColor = normalizePassPrintColor(event.target.value);
@@ -8382,6 +8440,10 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
 
       try {
+        if (form.matches('[data-access-type-form]')) {
+          syncAccessEntryWindowsPayload();
+        }
+
         if (form.matches('[data-portal-request-form]')) {
           rememberPortalCategorySelection(form.querySelector('[data-portal-category-select]'));
         }

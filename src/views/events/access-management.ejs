@@ -676,6 +676,7 @@
 
             <form action="/events/<%= activeEvent.id %>/<%= accessType %>/types" method="POST" class="mt-5 grid gap-4" data-live-form data-access-type-form>
               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <input type="hidden" name="entryWindowsJson" value="[]" data-access-entry-windows-json />
               <div data-access-type-method-holder></div>
 
               <div>

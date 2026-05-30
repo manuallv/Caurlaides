@@ -28,13 +28,15 @@ function parseJsonValue(value) {
 }
 
 function normalizeCategoryPayload(body) {
+  const parsedEntryWindows = parseJsonValue(body.entryWindowsJson);
+
   return {
     name: body.name,
     description: body.description || null,
     quota: body.quota ? Number(body.quota) : null,
     isActive: body.isActive === 'on' ? 1 : 0,
     sortOrder: body.sortOrder ? Number(body.sortOrder) : 0,
-    entryWindows: body.entryWindows || [],
+    entryWindows: body.entryWindows || (Array.isArray(parsedEntryWindows) ? parsedEntryWindows : []),
   };
 }
 
